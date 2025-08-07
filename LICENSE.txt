@@ -1,0 +1,5 @@
+Copyright (c) 2025 Carlos A. Gonzalez-Cobos
+
+All rights reserved.
+
+This source code and associated files are the proprietary property of Carlos A. Gonzalez-Cobos and may not be used, copied, modified, or distributed without prior written consent.
