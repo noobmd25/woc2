@@ -118,7 +118,7 @@ export default function OnCallViewer() {
 
   return (
     <LayoutShell>
-      <div className="app-container px-4 py-6 max-w-[400px] mx-auto min-h-screen bg-gray-100 dark:bg-black">        <h2 className="text-center text-xl font-semibold mb-4">On Call List</h2>
+      <div className="app-container px-4 py-6 max-w-[400px] mx-auto bg-gray-100 dark:bg-black">        <h2 className="text-center text-xl font-semibold mb-4">On Call List</h2>
 
         <div className="mb-4">
           <label className="block mb-1">Select a Specialty:</label>
