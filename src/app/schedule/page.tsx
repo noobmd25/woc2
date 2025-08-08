@@ -174,7 +174,7 @@ export default function SchedulePage() {
 
 
   // Fetch events function, reusable and memoized
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(async (startDate: Date, endDate: Date) => {
     try {
       let query = supabase
         .from('schedules')
@@ -201,8 +201,7 @@ export default function SchedulePage() {
 
       const formattedEvents = scheduleData?.filter(event => {
         const eventDate = new Date(event.on_call_date);
-        return eventDate.getFullYear() === currentDate.getFullYear() &&
-               eventDate.getMonth() === currentDate.getMonth();
+        return eventDate >= startDate && eventDate < endDate;
       }).map(event => ({
         title: `Dr. ${event.provider_name}`,
         date: event.on_call_date,
@@ -213,13 +212,7 @@ export default function SchedulePage() {
     } catch (err) {
       console.error("Unexpected error during fetchEvents:", err);
     }
-  }, [specialty, plan, currentDate]);
-
-  useEffect(() => {
-    if (currentDate instanceof Date && !isNaN(currentDate.getTime())) {
-      fetchEvents();
-    }
-  }, [fetchEvents]);
+  }, [specialty, plan]);
 
   useEffect(() => {
     if (isModalOpen) {
@@ -291,7 +284,12 @@ export default function SchedulePage() {
                 value={plan}
                 onChange={e => {
                   setPlan(e.target.value);
-                  fetchEvents();
+                  const calendarApi = calendarRef.current?.getApi();
+                  if (calendarApi) {
+                    const startDate = new Date(calendarApi.view.currentStart);
+                    const endDate = new Date(calendarApi.view.currentEnd);
+                    fetchEvents(startDate, endDate);
+                  }
                 }}
                 className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
               >
@@ -334,9 +332,10 @@ export default function SchedulePage() {
             height="auto"
             dayCellClassNames={() => 'dark:!border-gray-600'}
             datesSet={(arg) => {
-              const calendarDate = new Date(arg.start);
-              calendarDate.setMonth(calendarDate.getMonth() + 1);
-              setCurrentDate(calendarDate);
+              const start = new Date(arg.start);
+              const end = new Date(arg.end);
+              setCurrentDate(start);
+              fetchEvents(start, end);
             }}
             eventContent={(event: EventContentArg) => {
               try {
@@ -581,10 +580,13 @@ export default function SchedulePage() {
               }
 
               toast.success('All changes saved successfully!');
-              await fetchEvents();
-              // Refetch events in FullCalendar after DB update
+              // Use the current visible date range in the calendar when fetching events
               const calendarApi = calendarRef.current?.getApi();
               if (calendarApi) {
+                const calendarView = calendarApi.view;
+                const startDate = new Date(calendarView.currentStart);
+                const endDate = new Date(calendarView.currentEnd);
+                await fetchEvents(startDate, endDate);
                 calendarApi.refetchEvents();
               }
               // Debug: Log before resetting pending entries
