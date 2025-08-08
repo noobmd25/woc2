@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function Header() {
@@ -8,11 +9,11 @@ export default function Header() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   return (
-    <header className="z-50 bg-[#001f3f] dark:bg-[#001f3f] text-white shadow">
+    <header className="z-50 bg-blue-600 dark:bg-[#001f3f] text-white shadow">
       <div className="flex justify-between items-center px-6 py-4">
         <div className="flex items-center gap-4">
           <button
@@ -22,9 +23,9 @@ export default function Header() {
           >
             ☰
           </button>
-          <div className="w-40 h-auto">
+          <Link href="/" className="w-40 h-auto block">
             <img src="/logo.svg" alt="Logo" className="w-full h-auto" />
-          </div>
+          </Link>
         </div>
         <button
           onClick={handleLogout}

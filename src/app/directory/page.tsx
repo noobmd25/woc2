@@ -162,7 +162,7 @@ export default function DirectoryPage() {
           </thead>
           <tbody>
             {sorted.map((provider) => (
-              <tr key={provider.id} className="border-b hover:bg-gray-50">
+              <tr key={provider.id} className="border-b hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white">
                 <td className="p-2">{provider.provider_name}</td>
                 <td className="p-2">{provider.specialty}</td>
                 <td className="p-2">

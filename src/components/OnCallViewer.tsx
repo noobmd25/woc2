@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import LayoutShell from './LayoutShell';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -118,8 +118,7 @@ export default function OnCallViewer() {
 
   return (
     <LayoutShell>
-      <div className="app-container px-4 py-6 max-w-[400px] mx-auto">
-        <h2 className="text-center text-xl font-semibold mb-4">On Call List</h2>
+      <div className="app-container px-4 py-6 max-w-[400px] mx-auto min-h-screen bg-gray-100 dark:bg-black">        <h2 className="text-center text-xl font-semibold mb-4">On Call List</h2>
 
         <div className="mb-4">
           <label className="block mb-1">Select a Specialty:</label>
@@ -226,7 +225,6 @@ export default function OnCallViewer() {
             <p className="text-center text-gray-500">No provider found for this selection.</p>
           )}
         </div>
-        <Toaster position="top-right" reverseOrder={false} />
       </div>
     </LayoutShell>
   );
