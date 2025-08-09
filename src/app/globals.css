@@ -27,3 +27,42 @@ body {
   box-shadow: none !important;
   border-color: transparent !important;
 }
+
+.fc-daygrid-day-number {
+  font-weight: bold;
+  color: black;
+}
+
+.fc-col-header-cell-cushion {
+  color: black !important;
+}
+
+.fc-daygrid-day:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  .fc-daygrid-day:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .fc-daygrid-day-number {
+    color: #d4d4d4; /* light gray */
+  }
+}
+
+.fc-daygrid-day.fc-day-today {
+  background: #ffeb3b;
+}
+
+.fc-daygrid-day.fc-day-other {
+  pointer-events: none !important;
+  background-color: black; /* optional, for visual dimming */
+  opacity: 0.3;
+}
+
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300;
+}
