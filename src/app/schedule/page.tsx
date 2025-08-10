@@ -4,6 +4,12 @@
 const toLocalISODate = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).toLocaleDateString('sv-SE');
 
+// Local date helper to avoid UTC drift when handling YYYY-MM-DD strings
+const parseLocalYMD = (ymd: string) => {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, (m as number) - 1, d as number, 12, 0, 0, 0);
+};
+
 // Color palette and color helper functions
 const colorPalette = [
   '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6366F1', '#F97316',
@@ -40,6 +46,7 @@ import { toast } from 'react-hot-toast';
 import useSchedulerAccess from '@/app/hooks/useSchedulerAccess';
 import { EventClickArg, EventContentArg } from '@fullcalendar/core';
 import React from 'react';
+import dayjs from 'dayjs';
 
 const specialties = [
   'Cardiology',
@@ -79,43 +86,40 @@ export default function SchedulePage() {
 
   // Clear all entries for the current month for this specialty (and plan, if applicable), with confirmation modal
   const handleClearConfirmed = async () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+      const { firstDay, firstDayNext } = getVisibleMonthRange();
+      const monthLabel = getVisibleMonthLabel();
 
-    const startOfMonth = toLocalISODate(new Date(year, month, 1));
-    const endOfMonth = toLocalISODate(new Date(year, month + 1, 0));
+      if (specialty === 'Internal Medicine' && !plan) {
+      toast.error('Select a healthcare plan to clear Internal Medicine for this month.');
+      setShowClearModal(false);
+      return;
+      }
 
-    let deleteQuery = supabase
+      const startOfMonth = toLocalISODate(firstDay);        // YYYY-MM-DD
+      const startOfNextMonth = toLocalISODate(firstDayNext); // YYYY-MM-DD (exclusive)
+
+      let deleteQuery = supabase
       .from('schedules')
-      .delete()
+      .delete({ count: 'exact' })
       .eq('specialty', specialty)
       .gte('on_call_date', startOfMonth)
-      .lte('on_call_date', endOfMonth);
+      .lt('on_call_date', startOfNextMonth);
 
-    if (specialty === 'Internal Medicine') {
-      if (plan) {
+      if (specialty === 'Internal Medicine' && plan) {
         deleteQuery = deleteQuery.eq('healthcare_plan', plan);
-      } else {
-        deleteQuery = deleteQuery.is('healthcare_plan', null);
       }
-    }
 
-    const { error } = await deleteQuery;
+    const { error, count } = await deleteQuery;
 
-    if (error) {
-      console.error('Error clearing month:', error);
+      if (error) {
+        console.error('Error clearing month:', error);
       toast.error('Failed to clear the month.');
-    } else {
-      toast.success('Month cleared.');
-      setEvents(prev =>
-        prev.filter(event => {
-          const eventDate = new Date(event.date);
-          return !(eventDate.getFullYear() === year && eventDate.getMonth() === month);
-        })
-      );
-    }
+      } else {
+        toast.success(`Cleared ${count ?? 0} entr${(count ?? 0) === 1 ? 'y' : 'ies'} for ${monthLabel} — ${specialty === 'Internal Medicine' ? `IM · ${plan}` : specialty}.`);
+        await refreshCalendarVisibleRange();
+      }
 
-    setShowClearModal(false);
+  setShowClearModal(false);
   };
 
   // Supabase test effect
@@ -154,6 +158,32 @@ export default function SchedulePage() {
   // Add ref for FullCalendar
   const calendarRef = useRef<FullCalendar | null>(null);
 
+  // Helpers to derive the visible month and label from FullCalendar
+  const getVisibleMonthRange = useCallback(() => {
+  const api = calendarRef.current?.getApi();
+  if (api) {
+    const firstDay = new Date(api.view.currentStart);
+    const firstDayNext = new Date(api.view.currentEnd);
+    firstDay.setHours(0,0,0,0);
+    firstDayNext.setHours(0,0,0,0);
+    return { firstDay, firstDayNext };
+  }
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  const firstDayNext = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  firstDay.setHours(0,0,0,0);
+  firstDayNext.setHours(0,0,0,0);
+  return { firstDay, firstDayNext };
+}, []);
+
+const getVisibleMonthLabel = useCallback(() => {
+  const { firstDay } = getVisibleMonthRange();
+  const monthNames = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  return `${monthNames[firstDay.getMonth()]} ${firstDay.getFullYear()}`;
+}, [getVisibleMonthRange]);
 
   useEffect(() => {
     sessionStorage.setItem('specialty', specialty);
@@ -185,6 +215,22 @@ export default function SchedulePage() {
     try {
       const startStr = toLocalISODate(startDate); // 'YYYY-MM-DD'
       const endStr = toLocalISODate(endDate);     // exclusive upper bound
+
+      // Guard: For Internal Medicine, require a selected healthcare plan to render events
+      if (specialty === 'Internal Medicine' && !plan) {
+        // Still refresh the directory for autocomplete even if we're not showing events
+        const { data: directoryData, error: directoryError } = await supabase
+          .from('directory')
+          .select('provider_name, specialty, phone_number');
+
+        if (directoryError) {
+          console.error('Error fetching directory:', directoryError);
+        }
+
+        setEvents([]); // do not render any Internal Medicine events without a plan selected
+        setDirectory(directoryData || []);
+        return; // skip querying schedules entirely
+      }
 
       let query = supabase
         .from('schedules')
@@ -458,7 +504,7 @@ export default function SchedulePage() {
             onClick={() => setShowClearModal(true)}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
-            Clear Month
+              {`Clear ${getVisibleMonthLabel()} — ${specialty === 'Internal Medicine' ? `IM · ${plan || 'Select plan'}` : specialty}`}
           </button>
           <button
             onClick={async () => {
@@ -612,10 +658,10 @@ export default function SchedulePage() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
             <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-sm w-full transform transition-transform duration-300 ease-out scale-95 animate-fadeIn">
               <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Confirm Deletion</h2>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
-                Are you sure you want to clear all on-call entries for <strong>{specialty}</strong>
-                {specialty === 'Internal Medicine' && plan ? ` - ${plan}` : ''} for the current month?
-              </p>
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+                  Are you sure you want to clear all on-call entries for <strong>{specialty}</strong>
+                  {specialty === 'Internal Medicine' && plan ? ` · ${plan}` : ''} for <strong>{getVisibleMonthLabel()}</strong>?
+                </p>
               <div className="flex justify-end space-x-2">
                 <button
                   onClick={() => setShowClearModal(false)}
@@ -797,8 +843,12 @@ export default function SchedulePage() {
                 <MiniCalendar initialDate={currentDate} />
                 <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 dark:text-gray-400">
                   {(() => {
-                    const year = selectedModalDate ? new Date(selectedModalDate + 'T00:00:00-04:00').getFullYear() : currentDate.getFullYear();
-                    const month = selectedModalDate ? new Date(selectedModalDate + 'T00:00:00-04:00').getMonth() : currentDate.getMonth();
+                    // Use parseLocalYMD to avoid UTC drift
+                    const base = selectedModalDate
+                      ? parseLocalYMD(selectedModalDate)
+                      : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1, 12, 0, 0, 0);
+                    const year = base.getFullYear();
+                    const month = base.getMonth();
                     const firstDayOfMonth = new Date(year, month, 1).getDay();
                     const daysInMonth = new Date(year, month + 1, 0).getDate();
                     const calendarCells: JSX.Element[] = [];
@@ -808,14 +858,8 @@ export default function SchedulePage() {
                       providerInputRef.current?.value?.trim() ?? '';
                     // For each day, determine assignment status
                     function getDayStatus(dateStr: string) {
-                      const assignedEvents = events.filter(e => {
-                        const eDate = new Date(e.date);
-                        return (
-                          eDate.getFullYear() === year &&
-                          eDate.getMonth() === month &&
-                          eDate.getDate() === Number(dateStr.split('-')[2])
-                        );
-                      });
+                      // Use direct string comparison for assigned events
+                      const assignedEvents = events.filter(e => e.date === dateStr);
                       const provider = getProviderInputValue();
                       const isAssigned = assignedEvents.length > 0;
                       const isAssignedToCurrentProvider = assignedEvents.some(
@@ -823,9 +867,8 @@ export default function SchedulePage() {
                       );
                       const isAssignedToOtherProvider = isAssigned && !isAssignedToCurrentProvider;
                       const isSelected = selectedAdditionalDays.includes(dateStr);
-                      const isPrimaryDate =
-                        selectedModalDate &&
-                        dateStr === selectedModalDate.split('T')[0];
+                      // Use direct string comparison for primary date
+                      const isPrimaryDate = selectedModalDate ? (dateStr === selectedModalDate) : false;
                       return {
                         isAssigned,
                         isAssignedToCurrentProvider,
@@ -912,16 +955,7 @@ export default function SchedulePage() {
                             const modalHealthcarePlan = specialty === 'Internal Medicine' ? plan : null;
                             // Use showResident as isResident
                             const isResident = showResident || showPA;
-                            // ---- Insert console.log to debug selection ----
-                            // Use dayjs for formatting like day.format()
-                            // (localDate is JS Date, so use dayjs for similar API)
-                            console.log(
-                              "Clicked day:",
-                              require('dayjs')(localDate).format(),
-                              "Parsed day object:",
-                              localDate
-                            );
-                            // ---- End console.log insertion ----
+                            // (removed debug logging)
                             if (modalProvider && modalSpecialty && (modalHealthcarePlan !== undefined)) {
                               const alreadySelected = pendingEntries.some(
                                 (entry) =>
@@ -937,23 +971,16 @@ export default function SchedulePage() {
                                   show_second_phone: isResident,
                                 };
                                 setPendingEntries(prev => [...prev, newEntry]);
-                                setEvents(prevEvents => [
-                                  ...prevEvents,
-                                  {
-                                    title: `Dr. ${modalProvider.provider_name}`,
-                                    date: dateStr,
-                                  }
-                                ]);
-                                // Also immediately add event to main calendar for visual feedback
-                                calendarRef.current?.getApi().addEvent({
-                                  title: `Dr. ${modalProvider.provider_name}`,
-                                  start: dateStr,
-                                  allDay: true,
-                                  extendedProps: {
-                                    specialty: modalSpecialty,
-                                    plan: modalHealthcarePlan,
-                                    phone: isResident,
-                                  },
+                                setEvents(prevEvents => {
+                                  const exists = prevEvents.some(e => e.title === `Dr. ${modalProvider.provider_name}` && e.date === dateStr);
+                                  if (exists) return prevEvents;
+                                  return [
+                                    ...prevEvents,
+                                    {
+                                      title: `Dr. ${modalProvider.provider_name}`,
+                                      date: dateStr,
+                                    }
+                                  ];
                                 });
                               }
                             }
@@ -1038,10 +1065,11 @@ export default function SchedulePage() {
                     return;
                   }
 
-                  const uniqueDates = Array.from(new Set([...(selectedModalDate ? [selectedModalDate.split('T')[0]] : []), ...selectedAdditionalDays]));
+                  // Use local YYYY-MM-DD strings directly for uniqueDates
+                  const uniqueDates = Array.from(new Set([...(selectedModalDate ? [selectedModalDate] : []), ...selectedAdditionalDays]));
                   // Ensure at least the primary date is included
                   if (uniqueDates.length === 0 && selectedModalDate) {
-                    uniqueDates.push(selectedModalDate.split('T')[0]);
+                    uniqueDates.push(selectedModalDate);
                   }
 
                   // Add type annotation for schedule entry payload
@@ -1062,16 +1090,32 @@ export default function SchedulePage() {
                     user_id: user.id, // Assumes 'user_id' column exists in your table
                   }));
 
-                  // Instead of saving to supabase, collect in pendingEntries
-                  setPendingEntries(prev => [...prev, ...payload]);
-                  // Immediately update calendar with pending entries
-                  setEvents(prevEvents => [
-                    ...prevEvents,
-                    ...payload.map(entry => ({
+                  // Instead of saving to supabase, collect in pendingEntries (deduped)
+                  setPendingEntries(prev => {
+                    const combined = [...prev, ...payload];
+                    const seen = new Set<string>();
+                    return combined.filter(pe => {
+                      const key = `${pe.provider_name}-${pe.on_call_date}-${pe.specialty}`;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                  });
+                  // Immediately update calendar with pending entries (deduped)
+                  setEvents(prevEvents => {
+                    const newEvents = payload.map(entry => ({
                       title: `Dr. ${entry.provider_name}`,
                       date: entry.on_call_date,
-                    }))
-                  ]);
+                    }));
+                    const combined = [...prevEvents, ...newEvents];
+                    const seen = new Set<string>();
+                    return combined.filter(ev => {
+                      const key = `${ev.title}-${ev.date}`;
+                      if (seen.has(key)) return false;
+                      seen.add(key);
+                      return true;
+                    });
+                  });
 
                   setIsModalOpen(false);
                   if (providerInputRef.current) {
@@ -1098,39 +1142,7 @@ export default function SchedulePage() {
   );
 }
 
-
-{/* Global styles for FullCalendar dark mode and border tweaks */}
-<style jsx global>{`
-  .fc-theme-standard td,
-  .fc-theme-standard th {
-    border-color: #4b5563 !important; /* Tailwind's gray-600 */
-  }
-  .dark .fc-col-header-cell-cushion {
-    color: #ffffff !important; /* White text in dark mode */
-  }
-  .dark .fc-daygrid-day-number {
-    color: #ffffff !important;
-  }
-  .dark .fc-daygrid-day {
-    background-color: #1f2937 !important; /* Tailwind's gray-800 */
-  }
-  .dark .fc-scrollgrid {
-    border-color: #4b5563 !important;
-  }
-
-  /* Calendar header styling for dark mode */
-  .dark .fc-toolbar.fc-header-toolbar {
-    background-color: #4b5563 !important; /* Tailwind's gray-600 */
-    color: #000000 !important;
-  }
-
-  .dark .fc-toolbar.fc-header-toolbar .fc-toolbar-title,
-  .dark .fc-toolbar.fc-header-toolbar button {
-    color: #000000 !important;
-  }
-`}</style>
 // Dummy MiniCalendar component for demonstration. Replace with your actual MiniCalendar import.
-import dayjs from 'dayjs';
 function MiniCalendar({ initialDate }: { initialDate: Date }) {
   // Use the current month based on initialDate, not next month
   const currentMonth = dayjs(initialDate);
