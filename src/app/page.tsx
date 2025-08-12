@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import SimpleHeader from '@/components/SimpleHeader';
 
 import React, { useState } from 'react';
+import ForgotPassword from '@/components/auth/ForgotPasswordModal';
 import { useRouter } from 'next/navigation';
 import emailjs from '@emailjs/browser';
 import { supabase } from '@/lib/supabaseClient';
@@ -12,6 +13,7 @@ export default function Home() {
   const [showLogin, setShowLogin] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 10);
@@ -119,6 +121,15 @@ export default function Home() {
                   placeholder="Password"
                   className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
+                <p className="text-sm mt-1">
+                  <button
+                    type="button"
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                    onClick={() => setShowForgot(true)}
+                  >
+                    Forgot your password?
+                  </button>
+                </p>
                 <div className="flex justify-end space-x-2">
                   <button
                     type="button"
@@ -185,6 +196,9 @@ export default function Home() {
               </form>
             </div>
           </div>
+        )}
+        {showForgot && (
+          <ForgotPassword onClose={() => setShowForgot(false)} />
         )}
       </main>
     </>

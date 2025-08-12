@@ -4,12 +4,48 @@ import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import LayoutShell from './LayoutShell';
 import { supabase } from '@/lib/supabaseClient';
+import useUserRole from '@/app/hooks/useUserRole';
+import Link from 'next/link';
 
 export default function OnCallViewer() {
   const [specialty, setSpecialty] = useState('Internal Medicine');
   const [plan, setPlan] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [providerData, setProviderData] = useState<any | null>(null);
+  const [debugInfo, setDebugInfo] = useState<{ criteria: string; rows: number } | null>(null);
+
+  const role = useUserRole();
+
+  useEffect(() => {
+    if (role) {
+      toast.success(`Detected role: ${role}`);
+    }
+  }, [role]);
+
+  const copyPrimary = async () => {
+    if (providerData?.phone_number) {
+      await navigator.clipboard.writeText(providerData.phone_number);
+      toast.success('Primary phone copied');
+    }
+  };
+
+  const copySecondary = async () => {
+    if (providerData?.second_phone) {
+      await navigator.clipboard.writeText(providerData.second_phone);
+      toast.success('Resident phone copied');
+    }
+  };
+
+  const debugRecord = () => {
+    if (providerData) {
+      console.debug('[OnCallViewer] record:', providerData);
+      toast.success('Opened console: on‑call record');
+    }
+  };
+
+  const dirHref = providerData?.provider_name
+    ? `/directory?provider=${encodeURIComponent(providerData.provider_name)}`
+    : '/directory';
 
   const specialties = [
     'Cardiology',
@@ -61,14 +97,19 @@ export default function OnCallViewer() {
       const day = String(currentDate.getDate()).padStart(2, '0');
       const dateString = `${year}-${month}-${day}`;
 
+      // If Internal Medicine requires a plan and none is selected, show guidance and skip querying
+      if (specialty === 'Internal Medicine' && !plan) {
+        setProviderData(null);
+        setDebugInfo({ criteria: `specialty=${specialty}, plan=<none>, date=${dateString}`, rows: 0 });
+        return;
+      }
+
       let query = supabase
         .from('schedules')
-        .select('provider_name, show_second_phone, healthcare_plan')
-        .eq('on_call_date', dateString)
+        .select('provider_name, show_second_phone, healthcare_plan, second_phone_pref')        .eq('on_call_date', dateString)
         .eq('specialty', specialty);
 
       if (specialty === 'Internal Medicine') {
-        if (!plan) return;
         query = query.eq('healthcare_plan', plan);
       } else {
         query = query.is('healthcare_plan', null);
@@ -81,6 +122,9 @@ export default function OnCallViewer() {
         setProviderData(null);
         return;
       }
+      const rows = Array.isArray(scheduleData) ? scheduleData.length : 0;
+      setDebugInfo({ criteria: `specialty=${specialty}, plan=${specialty === 'Internal Medicine' ? (plan || '—') : 'n/a'}, date=${dateString}`, rows });
+
       if (!scheduleData || scheduleData.length === 0) {
         toast.error('No provider found for this selection.');
         setProviderData(null);
@@ -96,20 +140,41 @@ export default function OnCallViewer() {
       const directoryData = Array.isArray(directoryList) ? directoryList[0] : null;
 
       let secondPhone = null;
+      let secondSource: string | null = null;
       if (record.show_second_phone) {
-        const { data: secondPhoneList } = await supabase
-          .from('directory')
-          .select('phone_number')
-          .eq('provider_name', `${specialty} Residency`);
+        const pref = (record.second_phone_pref as 'auto' | 'pa' | 'residency') ?? 'auto';
+        const lookupOrder =
+          pref === 'pa'
+            ? [`${specialty} PA Phone`]
+            : pref === 'residency'
+              ? [`${specialty} Residency`]
+              : [`${specialty} PA Phone`, `${specialty} Residency`];
 
-        const secondPhoneData = Array.isArray(secondPhoneList) ? secondPhoneList[0] : null;
-        secondPhone = secondPhoneData?.phone_number || null;
+        const { data: secondPhoneList, error: secondErr } = await supabase
+          .from('directory')
+          .select('provider_name, phone_number')
+          .in('provider_name', lookupOrder);
+
+        if (secondErr) {
+          console.error('Second phone fetch error:', secondErr);
+        }
+        if (Array.isArray(secondPhoneList) && secondPhoneList.length > 0) {
+          const foundByOrder = lookupOrder
+            .map(name => secondPhoneList.find(r => r.provider_name === name && r.phone_number))
+            .find(Boolean) as { provider_name: string; phone_number: string } | undefined;
+
+          if (foundByOrder) {
+            secondPhone = foundByOrder.phone_number;
+            secondSource = foundByOrder.provider_name;
+          }
+        }
       }
 
       setProviderData({
         ...record,
         phone_number: directoryData?.phone_number || null,
-        second_phone: secondPhone
+        second_phone: secondPhone,
+        _second_phone_source: secondSource
       });
     };
 
@@ -118,7 +183,20 @@ export default function OnCallViewer() {
 
   return (
     <LayoutShell>
-      <div className="app-container px-4 py-6 max-w-[400px] mx-auto bg-gray-100 dark:bg-black">        <h2 className="text-center text-xl font-semibold mb-4">On Call List</h2>
+      <div className="app-container px-4 py-6 max-w-[400px] mx-auto bg-gray-100 dark:bg-black">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">On Call List</h2>
+          {role === 'admin' && (
+            <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+              Admin
+            </span>
+          )}
+          {role === 'scheduler' && (
+            <span className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200">
+              Scheduler
+            </span>
+          )}
+        </div>
 
         <div className="mb-4">
           <label className="block mb-1">Select a Specialty:</label>
@@ -154,6 +232,11 @@ export default function OnCallViewer() {
                 </option>
               ))}
             </select>
+            {!plan && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Select a healthcare plan to see today’s provider.
+              </p>
+            )}
           </div>
         )}
 
@@ -200,7 +283,14 @@ export default function OnCallViewer() {
               )}
               {providerData.show_second_phone && providerData.second_phone && (
                 <div className="mt-4 space-y-1">
-                  <p className="text-2xl font-semibold text-black dark:text-white">Resident: {providerData.second_phone}</p>
+                  <p className="text-2xl font-semibold text-black dark:text-white">
+                    Resident/PA: {providerData.second_phone}
+                    {providerData._second_phone_source && (
+                      <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                        ({providerData._second_phone_source})
+                      </span>
+                    )}
+                  </p>
                   <div className="flex justify-center gap-4 mt-2">
                     <a href={`tel:${providerData.second_phone}`} title="Call" className="text-blue-500 hover:text-blue-700">
                       <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
@@ -225,6 +315,105 @@ export default function OnCallViewer() {
             <p className="text-center text-gray-500">No provider found for this selection.</p>
           )}
         </div>
+
+        {(role === 'admin' || role === 'scheduler') && debugInfo && (
+          <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
+            <div>Query: <code className="font-mono">{debugInfo.criteria}</code></div>
+            <div>Schedule rows: <strong>{debugInfo.rows}</strong></div>
+          </div>
+        )}
+
+        {role === 'admin' && (
+          <div className="mt-6 bg-white dark:bg-gray-800 p-4 rounded border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Admin Tools</h3>
+              <span className="text-xs text-gray-500">Only visible to admins</span>
+            </div>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                onClick={copyPrimary}
+                disabled={!providerData?.phone_number}
+                className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Copy primary phone
+              </button>
+              <button
+                onClick={copySecondary}
+                disabled={!providerData?.second_phone}
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Copy resident phone
+              </button>
+              <Link
+                href="/admin?tab=integrity"
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
+              >
+                Open Data Integrity
+              </Link>
+              <Link
+                href="/admin?tab=usage"
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
+              >
+                Admin Dashboard
+              </Link>
+              <Link
+                href={dirHref}
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
+              >
+                Open Directory Entry
+              </Link>
+              <button
+                onClick={debugRecord}
+                disabled={!providerData}
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                View raw record (console)
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              TODO: Wire these to edit routes/actions as you roll them out.
+            </p>
+          </div>
+        )}
+        {role === 'scheduler' && (
+          <div className="mt-6 bg-white dark:bg-gray-800 p-4 rounded border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold">Scheduler Tools</h3>
+              <span className="text-xs text-gray-500">Only visible to schedulers</span>
+            </div>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                onClick={copyPrimary}
+                disabled={!providerData?.phone_number}
+                className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Copy primary phone
+              </button>
+              <button
+                onClick={copySecondary}
+                disabled={!providerData?.second_phone}
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Copy resident phone
+              </button>
+              <Link
+                href="/admin?tab=integrity"
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
+              >
+                Open Data Integrity
+              </Link>
+              <Link
+                href={dirHref}
+                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
+              >
+                Open Directory Entry
+              </Link>
+            </div>
+            <p className="mt-2 text-xs text-gray-500">
+              Tip: Use Data Integrity to spot conflicts/gaps before publishing.
+            </p>
+          </div>
+        )}
       </div>
     </LayoutShell>
   );

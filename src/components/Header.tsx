@@ -3,14 +3,112 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabaseClient';
+import { toast } from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
+import useUserRole from '@/app/hooks/useUserRole';
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
+  const role = useUserRole();
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/';
+const handleLogout = async () => {
+  console.log('[logout] initiated; signingOut=', signingOut);
+  if (signingOut) return;
+  setSigningOut(true);
+
+  const clearSupabaseAuthStorage = () => {
+    console.log('[logout] clearing localStorage/cookies');
+    try {
+      const keys: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('sb-')) keys.push(k);
+      }
+      keys.forEach(k => localStorage.removeItem(k));
+    } catch {}
+    try {
+      const cookies = document.cookie.split(';');
+      cookies.forEach((raw) => {
+        const name = raw.split('=')[0]?.trim();
+        if (!name) return;
+        if (name.startsWith('sb-') || name.toLowerCase().startsWith('supabase')) {
+          document.cookie = `${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+        }
+      });
+    } catch {}
   };
+
+  const withTimeout = <T,>(p: Promise<T>, label: string, ms = 1500) => {
+    return Promise.race([
+      p,
+      new Promise<T>((_r, reject) =>
+        setTimeout(() => reject(new Error(`[timeout] ${label} after ${ms}ms`)), ms)
+      )
+    ]);
+  };
+
+  const trySignOut = async () => {
+    // @ts-ignore allow optional scope
+    return withTimeout(
+      supabase.auth.signOut({ scope: 'global' }).catch(async () => {
+        return supabase.auth.signOut();
+      }),
+      'supabase.auth.signOut()'
+    );
+  };
+
+  try {
+    console.log('[logout] calling signOut…');
+    await trySignOut();
+    console.log('[logout] signOut resolved');
+
+    console.log('[logout] checking session…');
+    const sessionRes = await withTimeout(supabase.auth.getSession(), 'supabase.auth.getSession()');
+    const session = (sessionRes as any)?.data?.session;
+    console.log('[logout] session after signOut =', session);
+
+    if (session?.user) {
+      console.log('[logout] session still present; retry signOut…');
+      await trySignOut();
+    }
+
+    toast.success('Signed out');
+  } catch (e: any) {
+    console.warn('[logout] error:', e?.message || e);
+    toast.error('Could not complete sign out. Clearing session…');
+  } finally {
+    console.log('[logout] finalize: clearing storage and redirecting');
+    clearSupabaseAuthStorage();
+    setMenuOpen(false);
+    setSigningOut(false);
+
+    // Soft nav first
+    try {
+      console.log('[logout] router.replace(/) + refresh');
+      router.replace('/');
+      router.refresh?.();
+    } catch {}
+
+    // Hard redirect fallback
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        try {
+          if (window.location.pathname !== '/') {
+            console.log('[logout] location.assign(/)');
+            window.location.assign('/');
+          } else {
+            console.log('[logout] already on / → reload()');
+            window.location.reload();
+          }
+        } catch {
+          window.location.href = '/';
+        }
+      }, 150);
+    }
+  }
+};
 
   return (
     <header className="z-50 bg-blue-600 dark:bg-[#001f3f] text-white shadow">
@@ -29,9 +127,10 @@ export default function Header() {
         </div>
         <button
           onClick={handleLogout}
-          className="bg-white text-blue-600 px-4 py-1 rounded hover:ring-2 hover:ring-white hover:opacity-80"
+          disabled={signingOut}
+          className="bg-white text-blue-600 px-4 py-1 rounded hover:ring-2 hover:ring-white hover:opacity-80 disabled:opacity-60"
         >
-          Logout
+          {signingOut ? 'Signing out…' : 'Logout'}
         </button>
       </div>
 
@@ -43,9 +142,37 @@ export default function Header() {
         <div className="transition-opacity duration-500 ease-in-out">
           <nav>
             <ul className="space-y-2 pt-2">
-              <li><a href="/oncall" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">On Call</a></li>
-              <li><a href="/directory" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Directory</a></li>
-              <li><a href="/schedule" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Scheduler</a></li>
+              {/* Visible to all roles: Directory & On Call */}
+              <li>
+                <Link href="/oncall" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">On Call</Link>
+              </li>
+              <li>
+                <Link href="/directory" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Directory</Link>
+              </li>
+
+              {/* Scheduler: visible to admin & scheduler */}
+              {(role === 'admin' || role === 'scheduler') && (
+                <li>
+                  <Link href="/schedule" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Scheduler</Link>
+                </li>
+              )}
+
+              {/* Admin-only link */}
+              {role === 'admin' && (
+                <li>
+                  <Link href="/admin" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Admin Panel</Link>
+                </li>
+              )}
+              {role === 'scheduler' && (
+                <li>
+                  <Link
+                    href="/admin?tab=integrity"
+                    className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md"
+                  >
+                    Scheduler Portal
+                  </Link>
+                </li>
+              )}
             </ul>
           </nav>
         </div>

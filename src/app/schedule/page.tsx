@@ -1,5 +1,77 @@
 'use client';
 
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import { useState, useEffect, useRef, useCallback, JSX } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import LayoutShell from '@/components/LayoutShell';
+import { toast } from 'react-hot-toast';
+import useUserRole from '@/app/hooks/useUserRole';
+import { EventClickArg, EventContentArg } from '@fullcalendar/core';
+import React from 'react';
+import dayjs from 'dayjs';
+import { useRouter } from 'next/navigation';
+// --- Provider search helpers: rank closest names ---
+const normalize = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+
+function levenshteinCapped(a: string, b: string, cap = 2): number {
+  if (a === b) return 0;
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > cap) return cap + 1;
+  const max = cap + 1;
+  const prev = new Array(lb + 1).fill(0).map((_, j) => (j <= cap ? j : max));
+  for (let i = 1; i <= la; i++) {
+    const curr = new Array(lb + 1).fill(max);
+    const jStart = Math.max(1, i - cap);
+    const jEnd = Math.min(lb, i + cap);
+    curr[jStart - 1] = max;
+    curr[jStart] = Math.min(
+      prev[jStart] + (a[i - 1] !== b[jStart - 1] ? 1 : 0),
+      prev[jStart] + 1,
+      curr[jStart - 1] + 1
+    );
+    for (let j = jStart + 1; j <= jEnd; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1,          // deletion
+        curr[j - 1] + 1,      // insertion
+        prev[j - 1] + cost    // substitution
+      );
+    }
+    if (curr.slice(jStart, jEnd + 1).every((v) => v > cap)) return cap + 1;
+    for (let j = 0; j <= lb; j++) prev[j] = curr[j] ?? max;
+  }
+  return prev[lb];
+}
+
+function scoreName(name: string, q: string): number {
+  const n = normalize(name);
+  const query = normalize(q);
+  if (!query) return 0;
+  if (n === query) return 1_000_000; // exact
+  let score = 0;
+  if (n.startsWith(query)) score += 500_000; // prefix
+  const idx = n.indexOf(query);
+  if (idx > 0 && /\W/.test(n[idx - 1] ?? '')) score += 300_000; // word-start
+  // subsequence bonus
+  let i = 0;
+  for (const ch of n) if (ch === query[i]) i++;
+  if (i === query.length) score += 100_000 - Math.max(0, n.length - query.length);
+  const ed = levenshteinCapped(n, query, 2);
+  if (ed <= 2) score += 50_000 - 10_000 * ed; // small typos
+  score += Math.max(0, 10_000 - n.length); // shorter names slight boost
+  return score;
+}
+// --- end provider search helpers ---
+
+
 // Helper function to format dates as local ISO (YYYY-MM-DD) in local time
 const toLocalISODate = (date: Date) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate()).toLocaleDateString('sv-SE');
@@ -10,14 +82,8 @@ const parseLocalYMD = (ymd: string) => {
   return new Date(y, (m as number) - 1, d as number, 12, 0, 0, 0);
 };
 
-// Color palette and color helper functions
-const colorPalette = [
-  '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6366F1', '#F97316',
-  '#14B8A6', '#0EA5E9', '#D946EF', '#22C55E'
-];
-
+// Distinct color helpers and color map state
 const getTextColorForBackground = (hex: string) => {
-  // Calculate luminance to determine appropriate text color
   const rgb = parseInt(hex.slice(1), 16);
   const r = (rgb >> 16) & 255;
   const g = (rgb >> 8) & 255;
@@ -26,27 +92,34 @@ const getTextColorForBackground = (hex: string) => {
   return luminance > 186 ? 'black' : 'white';
 };
 
-const getColorForProvider = (providerName: string) => {
-  let hash = 0;
-  for (let i = 0; i < providerName.length; i++) {
-    hash = providerName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const index = Math.abs(hash) % colorPalette.length;
-  return colorPalette[index];
+const hslToHex = (h: number, s: number, l: number) => {
+  // h in [0,360), s,l in [0,1]
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+  const toHex = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 };
 
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import { useState, useEffect, useRef, useCallback, JSX } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import LayoutShell from '@/components/LayoutShell';
-import { toast } from 'react-hot-toast';
-import useSchedulerAccess from '@/app/hooks/useSchedulerAccess';
-import { EventClickArg, EventContentArg } from '@fullcalendar/core';
-import React from 'react';
-import dayjs from 'dayjs';
+const generateDistinctColors = (count: number) => {
+  // Golden-angle hue steps for maximum separation, fixed s/l for contrast
+  const colors: string[] = [];
+  const golden = 137.508; // degrees
+  for (let i = 0; i < count; i++) {
+    const h = (i * golden) % 360;
+    const s = 0.60; // 60% saturation
+    const l = 0.55; // 55% lightness
+    colors.push(hslToHex(h, s, l));
+  }
+  return colors;
+};
 
 const specialties = [
   'Cardiology',
@@ -73,10 +146,32 @@ const plans = [
 ];
 
 export default function SchedulePage() {
+  const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
+  const [providerColorMap, setProviderColorMap] = useState<Record<string, string>>({});
+  const [visibleRange, setVisibleRange] = useState<{ start: Date; end: Date } | null>(null);
+  const loadKeyRef = useRef(0);
+
+  useEffect(() => {
+  // Derive unique provider names from currently displayed events
+  const names = Array.from(
+    new Set(
+      events
+        .map((ev: { title: string; date: string }) =>
+          typeof ev.title === 'string' ? ev.title.replace(/^Dr\. /, '').trim() : ''
+        )
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+  const colors = generateDistinctColors(names.length);
+  const map: Record<string, string> = {};
+  names.forEach((name, i) => { map[name] = colors[i]; });
+  setProviderColorMap(map);
+}, [events]);
+
   const [specialty, setSpecialty] = useState('Internal Medicine');
   const [plan, setPlan] = useState('');
-  const hasAccess = useSchedulerAccess();
+  const role = useUserRole(); // 'admin' | 'scheduler' | 'viewer' | null
   const [isEditing, setIsEditing] = useState(false);
   // Collect pending entries to save to DB only when "Save Changes" is pressed
   const [pendingEntries, setPendingEntries] = useState<any[]>([]);
@@ -122,6 +217,13 @@ export default function SchedulePage() {
   setShowClearModal(false);
   };
 
+  // Route guard: if user lacks Scheduler/Admin access, redirect away
+  useEffect(() => {
+    if (role === null) return; // still checking
+    if (role !== 'admin' && role !== 'scheduler') {
+      router.replace('/unauthorized?from=/schedule');
+    }
+  }, [role, router]);
   // Supabase test effect
   useEffect(() => {
     supabase
@@ -148,12 +250,19 @@ export default function SchedulePage() {
   const [directory, setDirectory] = useState<any[]>([]);
   const providerInputRef = useRef<HTMLInputElement>(null);
   const [providerSuggestions, setProviderSuggestions] = useState<string[]>([]);
+  const [highlightIndex, setHighlightIndex] = useState<number>(-1);
+  const [allProvidersForSpec, setAllProvidersForSpec] = useState<string[]>([]);
 
-  const [residentPhone, setResidentPhone] = useState('');
-  const [showResident, setShowResident] = useState(false);
-  const [showPA, setShowPA] = useState(false);
+  const [secondPref, setSecondPref] = useState<'none' | 'residency' | 'pa'>('none');
+  const [secondPhone, setSecondPhone] = useState('');
+  const [secondSource, setSecondSource] = useState<string | null>(null);
 
   const [selectedAdditionalDays, setSelectedAdditionalDays] = useState<string[]>([]);
+  const [editingEntry, setEditingEntry] = useState<{
+    provider_name: string;
+    show_second_phone: boolean;
+    second_phone_pref: 'auto' | 'pa' | 'residency';
+  } | null>(null);
 
   // Add ref for FullCalendar
   const calendarRef = useRef<FullCalendar | null>(null);
@@ -211,63 +320,73 @@ const getVisibleMonthLabel = useCallback(() => {
 
 
   // Fetch events function, reusable and memoized
-  const fetchEvents = useCallback(async (startDate: Date, endDate: Date) => {
+// Guarded loader: only the latest request applies
+  const loadEvents = useCallback(async (
+    range: { start: Date; end: Date },
+    spec: string,
+    hp: string
+  ) => {
+    const myKey = ++loadKeyRef.current;
     try {
-      const startStr = toLocalISODate(startDate); // 'YYYY-MM-DD'
-      const endStr = toLocalISODate(endDate);     // exclusive upper bound
+      const startStr = toLocalISODate(range.start);
+      const endStr = toLocalISODate(range.end);
 
-      // Guard: For Internal Medicine, require a selected healthcare plan to render events
-      if (specialty === 'Internal Medicine' && !plan) {
-        // Still refresh the directory for autocomplete even if we're not showing events
+      if (spec === 'Internal Medicine' && !hp) {
         const { data: directoryData, error: directoryError } = await supabase
           .from('directory')
           .select('provider_name, specialty, phone_number');
 
-        if (directoryError) {
-          console.error('Error fetching directory:', directoryError);
-        }
+        if (loadKeyRef.current !== myKey) return;
+        if (directoryError) console.error('Error fetching directory:', directoryError);
 
-        setEvents([]); // do not render any Internal Medicine events without a plan selected
+        setEvents([]);
         setDirectory(directoryData || []);
-        return; // skip querying schedules entirely
+        setProviderColorMap({});
+        return;
       }
 
       let query = supabase
         .from('schedules')
         .select('on_call_date, provider_name, specialty, healthcare_plan')
-        .eq('specialty', specialty)
+        .eq('specialty', spec)
         .gte('on_call_date', startStr)
         .lt('on_call_date', endStr);
 
-      if (specialty === 'Internal Medicine' && plan) {
-        query = query.eq('healthcare_plan', plan);
+      if (spec === 'Internal Medicine' && hp) {
+        query = query.eq('healthcare_plan', hp);
       }
 
-      const [{ data: scheduleData, error: scheduleError }, { data: directoryData, error: directoryError }] = await Promise.all([
+      const [
+        { data: scheduleData, error: scheduleError },
+        { data: directoryData, error: directoryError }
+      ] = await Promise.all([
         query,
         supabase.from('directory').select('provider_name, specialty, phone_number')
       ]);
 
-      if (scheduleError) {
-        console.error('Error fetching events:', scheduleError);
-        return;
-      }
+      if (loadKeyRef.current !== myKey) return;
 
-      if (directoryError) {
-        console.error('Error fetching directory:', directoryError);
-      }
+      if (scheduleError) console.error('Error fetching events:', scheduleError);
+      if (directoryError) console.error('Error fetching directory:', directoryError);
 
-      const formattedEvents = scheduleData?.map(event => ({
-        title: `Dr. ${event.provider_name}`,
-        date: event.on_call_date, // keep as YYYY-MM-DD string
-      })) || [];
+      const formattedEvents = (scheduleData ?? []).map(ev => ({
+        title: `Dr. ${ev.provider_name}`,
+        date: ev.on_call_date,
+      }));
 
       setEvents(formattedEvents);
       setDirectory(directoryData || []);
+
+      const names = Array.from(new Set((scheduleData ?? []).map(e => e.provider_name))).sort();
+      const cols = generateDistinctColors(names.length);
+      const m: Record<string, string> = {};
+      names.forEach((n, i) => (m[n] = cols[i]));
+      setProviderColorMap(m);
     } catch (err) {
-      console.error("Unexpected error during fetchEvents:", err);
+      if (loadKeyRef.current !== myKey) return;
+      console.error('Unexpected error during loadEvents:', err);
     }
-  }, [specialty, plan]);
+  }, []);
 
   // Reusable helper to refresh the current visible range of the main calendar and reload events
   const refreshCalendarVisibleRange = useCallback(async () => {
@@ -275,54 +394,277 @@ const getVisibleMonthLabel = useCallback(() => {
     if (!api) return;
     const start = new Date(api.view.currentStart);
     const end = new Date(api.view.currentEnd);
-    await fetchEvents(start, end);
+    await loadEvents({ start, end }, specialty, plan);
     api.refetchEvents();
-  }, [fetchEvents]);
+  }, [loadEvents, specialty, plan]);
 
   // Trigger refresh whenever specialty or plan changes
   useEffect(() => {
-    refreshCalendarVisibleRange();
-  }, [specialty, plan, refreshCalendarVisibleRange]);
+    if (!visibleRange) return;
+    loadEvents(visibleRange, specialty, plan);
+  }, [visibleRange, specialty, plan, loadEvents]);
 
-  useEffect(() => {
-    if (isModalOpen) {
-      const residencyName = `${specialty} Residency`;
-      const resident = directory.find(d => d.provider_name === residencyName);
-      const pa = directory.find(d => d.provider_name.toLowerCase().includes('pa'));
-      if (showResident && resident?.phone_number) {
-        setResidentPhone(resident.phone_number);
-      } else if (showPA && pa?.phone_number) {
-        setResidentPhone(pa.phone_number);
-      } else {
-        setResidentPhone('No residency or PA phone registered for this service.');
+  // Save handler used by the button and Ctrl/Cmd+S
+  const handleSaveChanges = useCallback(async (source?: 'shortcut' | 'button') => {
+    // Debug: Log pending entries before save
+    console.log('Saving Changes – Pending Entries:', pendingEntries);
+    if (pendingEntries.length === 0 && pendingDeletions.length === 0) {
+      toast.success('No changes to save.');
+      return;
+    }
+
+    // Handle deletions
+    for (const del of pendingDeletions) {
+      let deleteQuery = supabase
+        .from('schedules')
+        .delete()
+        .eq('on_call_date', del.date)
+        .eq('specialty', specialty)
+        .eq('provider_name', del.provider.replace(/^Dr\. /, '').trim());
+
+      if (specialty === 'Internal Medicine') {
+        if (plan) {
+          deleteQuery = deleteQuery.eq('healthcare_plan', plan);
+        } else {
+          deleteQuery = deleteQuery.is('healthcare_plan', null);
+        }
       }
 
-      // Auto-focus provider input
-      if (providerInputRef.current) {
-        providerInputRef.current.focus();
+      const { error } = await deleteQuery;
+      if (error) {
+        console.error('Failed to delete entry:', error);
+        toast.error('Failed to delete some entries.');
+        return;
       }
     }
-  }, [isModalOpen, showResident, showPA, specialty, directory]);
 
-  if (hasAccess === false) {
-    return (
-      <LayoutShell>
-        <div className="text-center mt-20 text-red-500">
-          You do not have permission to view or modify the scheduler.
-        </div>
-      </LayoutShell>
-    );
-  }
+    // Upsert additions
+    if (pendingEntries.length > 0) {
+      // Fetch potentially conflicting entries from Supabase
+      const datesToCheck = pendingEntries.map(e => e.on_call_date);
 
-  if (hasAccess === null) {
-    return (
-      <LayoutShell>
-        <div className="text-center mt-20 text-gray-500">
-          Checking access...
-        </div>
-      </LayoutShell>
-    );
+      let dupQuery = supabase
+        .from('schedules')
+        .select('on_call_date, provider_name, specialty, healthcare_plan, show_second_phone, second_phone_pref')
+        .in('on_call_date', datesToCheck)
+        .eq('specialty', specialty);
+
+      if (specialty === 'Internal Medicine') {
+        if (plan) {
+          dupQuery = dupQuery.eq('healthcare_plan', plan);
+        } else {
+          dupQuery = dupQuery.is('healthcare_plan', null);
+        }
+      }
+
+      const { data: existingRows, error: fetchDupError } = await dupQuery;
+
+      if (fetchDupError) {
+        console.error('Error fetching duplicates:', fetchDupError);
+        toast.error('Could not check for existing entries.');
+        return;
+      }
+
+      const existingKeys = new Set(
+        existingRows?.map(row =>
+          `${row.on_call_date}|${row.provider_name}|${row.specialty}|${row.healthcare_plan ?? ''}`
+        )
+      );
+
+      const filteredPendingEntries = pendingEntries.filter(entry => {
+        const key = `${entry.on_call_date}|${entry.provider_name}|${entry.specialty}|${entry.healthcare_plan ?? ''}`;
+        const isEntryUpdated = existingRows?.some(row =>
+          row.on_call_date === entry.on_call_date &&
+          row.specialty === entry.specialty &&
+          (row.healthcare_plan ?? '') === (entry.healthcare_plan ?? '') &&
+          (
+            row.provider_name !== entry.provider_name ||
+            row.show_second_phone !== entry.show_second_phone ||
+            (row.second_phone_pref ?? 'auto') !== (entry.second_phone_pref ?? 'auto')
+          )
+        );
+        // If provider_name changed, queue deletion of old entry
+        if (isEntryUpdated) {
+          const oldRow = existingRows.find(row =>
+            row.on_call_date === entry.on_call_date &&
+            row.specialty === entry.specialty &&
+            (row.healthcare_plan ?? '') === (entry.healthcare_plan ?? '') &&
+            row.provider_name !== entry.provider_name
+          );
+          if (oldRow) {
+            // Only push if not already in pendingDeletions
+            const alreadyQueued = pendingDeletions.some(
+              del =>
+                del.date === oldRow.on_call_date &&
+                del.provider === `Dr. ${oldRow.provider_name}`
+            );
+            if (!alreadyQueued) {
+              pendingDeletions.push({
+                date: oldRow.on_call_date,
+                provider: `Dr. ${oldRow.provider_name}`,
+              });
+            }
+          }
+        }
+        const isPendingDeletion = pendingDeletions.some(
+          del =>
+            del.date === entry.on_call_date &&
+            del.provider === `Dr. ${entry.provider_name}`
+        );
+        return (!existingKeys.has(key) || isEntryUpdated) && !isPendingDeletion;
+      });
+
+      // Deduplicate the payload to prevent repeat insertions within the same batch
+      const uniqueMap = new Map();
+      for (const entry of filteredPendingEntries) {
+        const key = `${entry.on_call_date}|${entry.provider_name}|${entry.specialty}|${entry.healthcare_plan ?? ''}`;
+        uniqueMap.set(key, entry);
+      }
+      const dedupedEntries = Array.from(uniqueMap.values());
+
+      if (dedupedEntries.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('schedules')
+          .upsert(dedupedEntries, {
+            // Allow upsert to overwrite provider_name for same date/specialty/plan
+            onConflict: 'on_call_date,specialty,healthcare_plan',
+          });
+
+        if (upsertError) {
+          console.error('Failed to save entries:', upsertError);
+          toast.error('Failed to save changes.');
+          return;
+        }
+      }
+    }
+
+    if (source === 'shortcut') {
+      toast.success('Saved with ⌘S/Ctrl+S');
+    } else {
+      toast.success('All changes saved successfully!');
+    }
+    await refreshCalendarVisibleRange();
+    console.log('Finished saving. Resetting pending entries.');
+    setPendingEntries([]);
+    setPendingDeletions([]);
+  }, [pendingEntries, pendingDeletions, specialty, plan, refreshCalendarVisibleRange]);
+
+  // Global shortcut: Ctrl+S / Cmd+S to save
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        // Only enable the shortcut when the page (not the modal/dialog) has focus
+        if (isModalOpen) return;
+        // Optionally, avoid triggering while typing into inputs if desired:
+        const ae = document.activeElement as HTMLElement | null;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) {
+          // Allow save even when typing into page inputs if you prefer; currently we allow it
+          // by not returning here. Comment out the next line to allow saving from inputs.
+          // return;
+        }
+        e.preventDefault();
+        handleSaveChanges('shortcut');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [handleSaveChanges, isModalOpen]);
+
+  useEffect(() => {
+  if (isModalOpen) {        
+    const residencyName = `${specialty} Residency`;
+    const paName = `${specialty} PA Phone`;
+
+    if (secondPref === 'residency') {
+      const resident = directory.find(d => d.provider_name === residencyName);
+      if (resident?.phone_number) {
+        setSecondPhone(resident.phone_number);
+        setSecondSource(residencyName);
+      } else {
+        setSecondPhone('No residency phone registered for this service.');
+        setSecondSource(null);
+      }
+    } else if (secondPref === 'pa') {
+      const pa = directory.find(d => d.provider_name === paName);
+      if (pa?.phone_number) {
+        setSecondPhone(pa.phone_number);
+        setSecondSource(paName);
+      } else {
+        setSecondPhone('No PA phone registered for this service.');
+        setSecondSource(null);
+      }
+    } else {
+      setSecondPhone('');
+      setSecondSource(null);
+    }
+
+    if (providerInputRef.current) {
+      providerInputRef.current.focus();
+    }
   }
+}, [isModalOpen, secondPref, specialty, directory]);
+
+  useEffect(() => {
+    if (isModalOpen && isEditing && editingEntry) {
+      // Prefill provider input
+      if (providerInputRef.current) {
+        providerInputRef.current.value = editingEntry.provider_name;
+      }
+      // Prefill Works-with radios from DB state
+      const pref: 'none' | 'residency' | 'pa' =
+        editingEntry.show_second_phone
+          ? editingEntry.second_phone_pref === 'pa'
+            ? 'pa'
+            : editingEntry.second_phone_pref === 'residency'
+              ? 'residency'
+              : 'none'
+          : 'none';
+      setSecondPref(pref);
+    }
+  }, [isModalOpen, isEditing, editingEntry]);
+
+useEffect(() => {
+  const loadProvidersForSpecialty = async () => {
+    if (!isModalOpen) return;
+    const { data, error } = await supabase
+      .from('directory')
+      .select('provider_name')
+      .eq('specialty', specialty)
+      .not('provider_name', 'ilike', '%Residency%')
+      .not('provider_name', 'ilike', '%PA Phone%')
+      .order('provider_name', { ascending: true });
+
+    if (error) {
+      console.error('Error loading providers for specialty:', error);
+      setAllProvidersForSpec([]);
+      return;
+    }
+    const names = (data ?? []).map(d => d.provider_name);
+    setAllProvidersForSpec(names);
+
+    // If the input is empty when opening, show the full list immediately
+    if (providerInputRef.current && !providerInputRef.current.value.trim()) {
+      setProviderSuggestions(names);
+    }
+  };
+  loadProvidersForSpecialty();
+}, [isModalOpen, specialty]);
+
+if (role === null) {
+  return (
+    <LayoutShell>
+      <div className="text-center mt-20 text-gray-500">Checking access...</div>
+    </LayoutShell>
+  );
+}
+
+if (role !== 'admin' && role !== 'scheduler') {
+  return (
+    <LayoutShell>
+      <div className="text-center mt-20 text-gray-500">Redirecting…</div>
+    </LayoutShell>
+  );
+}
 
   return (
     <LayoutShell>
@@ -336,11 +678,8 @@ const getVisibleMonthLabel = useCallback(() => {
             <label className="block text-gray-700 dark:text-gray-300 mb-1">Specialty</label>
             <select
               value={specialty}
-              onChange={async e => {
-                setSpecialty(e.target.value);
-                // refresh after state update microtask
-                setTimeout(() => { refreshCalendarVisibleRange(); }, 0);
-              }}
+              onChange={(e) => setSpecialty(e.target.value)}
+
               className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
             >
               {specialties.map(spec => (
@@ -356,10 +695,8 @@ const getVisibleMonthLabel = useCallback(() => {
               <label className="block text-gray-700 dark:text-gray-300 mb-1">Healthcare Plan</label>
               <select
                 value={plan}
-                onChange={async e => {
-                  setPlan(e.target.value);
-                  setTimeout(() => { refreshCalendarVisibleRange(); }, 0);
-                }}
+                onChange={(e) => setPlan(e.target.value)}
+
                 className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
               >
                 <option value="">-- Select a Plan --</option>
@@ -416,12 +753,12 @@ const getVisibleMonthLabel = useCallback(() => {
               const start = new Date(arg.start);
               const end = new Date(arg.end);
               setCurrentDate(start);
-              fetchEvents(start, end);
+              setVisibleRange({ start, end });
             }}
             eventContent={(event: EventContentArg) => {
               try {
                 const currentProvider = event.event.title.replace(/^Dr\. /, '').trim();
-                const bgColor = getColorForProvider(currentProvider);
+                const bgColor = providerColorMap[currentProvider] ?? '#3B82F6';
                 const textColor = getTextColorForBackground(bgColor);
                 // Determine if this event is a saved entry (not pending)
                 const isSavedEntry = !pendingEntries.some(
@@ -466,17 +803,68 @@ const getVisibleMonthLabel = useCallback(() => {
               }
             }}
             eventClick={(clickInfo) => {
-              const calendarApi = calendarRef.current?.getApi();
-              const viewDate = calendarApi?.getDate();
-              if (!viewDate) return;
-              const eventDate = new Date(clickInfo.event.startStr);
-              const isInCurrentMonth =
-                eventDate.getMonth() === viewDate.getMonth() &&
-                eventDate.getFullYear() === viewDate.getFullYear();
-              if (!isInCurrentMonth) return;
+              const api = calendarRef.current?.getApi();
+              const view = api?.view;
+              if (!view) return;
+
+              // Parse the event date as LOCAL (avoid UTC shifting to previous day)
+              const eventDate = parseLocalYMD(clickInfo.event.startStr);
+
+              // Normalize all dates to 12:00 local to avoid boundary drift in comparisons
+              const noon = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
+              const eventNoon = noon(eventDate);
+              const startNoon = noon(new Date(view.currentStart));
+              const endNoon = noon(new Date(view.currentEnd)); // exclusive
+
+              // Only allow editing if the event is within the currently rendered view
+              if (eventNoon < startNoon || eventNoon >= endNoon) return;
+
               setSelectedModalDate(clickInfo.event.startStr);
               setIsEditing(true);
-              setIsModalOpen(true);
+
+              const dateStr = clickInfo.event.startStr;
+              (async () => {
+                try {
+                  let q = supabase
+                    .from('schedules')
+                    .select('provider_name, show_second_phone, second_phone_pref')
+                    .eq('on_call_date', dateStr)
+                    .eq('specialty', specialty)
+                    .limit(1);
+
+                  if (specialty === 'Internal Medicine') {
+                    if (plan) {
+                      q = q.eq('healthcare_plan', plan);
+                    } else {
+                      q = q.is('healthcare_plan', null);
+                    }
+                  }
+
+                  const { data, error } = await q;
+                  if (error) {
+                    console.error('Error loading entry for edit:', error);
+                  }
+
+                  if (data && data[0]) {
+                    setEditingEntry({
+                      provider_name: data[0].provider_name,
+                      show_second_phone: !!data[0].show_second_phone,
+                      second_phone_pref: (data[0].second_phone_pref ?? 'auto') as 'auto' | 'pa' | 'residency',
+                    });
+                  } else {
+                    const currentProvider = clickInfo.event.title.replace(/^Dr\. /, '').trim();
+                    setEditingEntry({
+                      provider_name: currentProvider,
+                      show_second_phone: false,
+                      second_phone_pref: 'auto',
+                    });
+                  }
+                } catch (e) {
+                  console.error('Unexpected error fetching entry for edit:', e);
+                } finally {
+                  setIsModalOpen(true);
+                }
+              })();
             }}
             dateClick={(info: any) => {
               if (info.dayEl.classList.contains('fc-day-other')) {
@@ -507,146 +895,7 @@ const getVisibleMonthLabel = useCallback(() => {
               {`Clear ${getVisibleMonthLabel()} — ${specialty === 'Internal Medicine' ? `IM · ${plan || 'Select plan'}` : specialty}`}
           </button>
           <button
-            onClick={async () => {
-              // Debug: Log pending entries before save
-              console.log('Saving Changes – Pending Entries:', pendingEntries);
-              if (pendingEntries.length === 0 && pendingDeletions.length === 0) {
-                toast.success('No changes to save.');
-                return;
-              }
-
-              // Handle deletions
-              for (const del of pendingDeletions) {
-                let deleteQuery = supabase
-                  .from('schedules')
-                  .delete()
-                  .eq('on_call_date', del.date)
-                  .eq('specialty', specialty)
-                  .eq('provider_name', del.provider.replace(/^Dr\. /, '').trim());
-
-                if (specialty === 'Internal Medicine') {
-                  if (plan) {
-                    deleteQuery = deleteQuery.eq('healthcare_plan', plan);
-                  } else {
-                    deleteQuery = deleteQuery.is('healthcare_plan', null);
-                  }
-                }
-
-                const { error } = await deleteQuery;
-                if (error) {
-                  console.error('Failed to delete entry:', error);
-                  toast.error('Failed to delete some entries.');
-                  return;
-                }
-              }
-
-              // Upsert additions
-              if (pendingEntries.length > 0) {
-                // Fetch potentially conflicting entries from Supabase
-                const datesToCheck = pendingEntries.map(e => e.on_call_date);
-
-                let dupQuery = supabase
-                  .from('schedules')
-                  .select('on_call_date, provider_name, specialty, healthcare_plan, show_second_phone')
-                  .in('on_call_date', datesToCheck)
-                  .eq('specialty', specialty);
-
-                if (specialty === 'Internal Medicine') {
-                  if (plan) {
-                    dupQuery = dupQuery.eq('healthcare_plan', plan);
-                  } else {
-                    dupQuery = dupQuery.is('healthcare_plan', null);
-                  }
-                }
-
-                const { data: existingRows, error: fetchDupError } = await dupQuery;
-
-                if (fetchDupError) {
-                  console.error('Error fetching duplicates:', fetchDupError);
-                  toast.error('Could not check for existing entries.');
-                  return;
-                }
-
-                const existingKeys = new Set(
-                  existingRows?.map(row =>
-                    `${row.on_call_date}|${row.provider_name}|${row.specialty}|${row.healthcare_plan ?? ''}`
-                  )
-                );
-
-                const filteredPendingEntries = pendingEntries.filter(entry => {
-                  const key = `${entry.on_call_date}|${entry.provider_name}|${entry.specialty}|${entry.healthcare_plan ?? ''}`;
-                  const isEntryUpdated = existingRows?.some(row =>
-                    row.on_call_date === entry.on_call_date &&
-                    row.specialty === entry.specialty &&
-                    (row.healthcare_plan ?? '') === (entry.healthcare_plan ?? '') &&
-                    (
-                      row.provider_name !== entry.provider_name ||
-                      row.show_second_phone !== entry.show_second_phone
-                    )
-                  );
-                  // If provider_name changed, queue deletion of old entry
-                  if (isEntryUpdated) {
-                    const oldRow = existingRows.find(row =>
-                      row.on_call_date === entry.on_call_date &&
-                      row.specialty === entry.specialty &&
-                      (row.healthcare_plan ?? '') === (entry.healthcare_plan ?? '') &&
-                      row.provider_name !== entry.provider_name
-                    );
-                    if (oldRow) {
-                      // Only push if not already in pendingDeletions
-                      const alreadyQueued = pendingDeletions.some(
-                        del =>
-                          del.date === oldRow.on_call_date &&
-                          del.provider === `Dr. ${oldRow.provider_name}`
-                      );
-                      if (!alreadyQueued) {
-                        pendingDeletions.push({
-                          date: oldRow.on_call_date,
-                          provider: `Dr. ${oldRow.provider_name}`,
-                        });
-                      }
-                    }
-                  }
-                  const isPendingDeletion = pendingDeletions.some(
-                    del =>
-                      del.date === entry.on_call_date &&
-                      del.provider === `Dr. ${entry.provider_name}`
-                  );
-                  return (!existingKeys.has(key) || isEntryUpdated) && !isPendingDeletion;
-                });
-
-                // Deduplicate the payload to prevent repeat insertions within the same batch
-                const uniqueMap = new Map();
-                for (const entry of filteredPendingEntries) {
-                  const key = `${entry.on_call_date}|${entry.provider_name}|${entry.specialty}|${entry.healthcare_plan ?? ''}`;
-                  uniqueMap.set(key, entry);
-                }
-                const dedupedEntries = Array.from(uniqueMap.values());
-
-                if (dedupedEntries.length > 0) {
-                  const { error: upsertError } = await supabase
-                    .from('schedules')
-                    .upsert(dedupedEntries, {
-                      // Allow upsert to overwrite provider_name for same date/specialty/plan
-                      onConflict: 'on_call_date,specialty,healthcare_plan',
-                    });
-
-                  if (upsertError) {
-                    console.error('Failed to save entries:', upsertError);
-                    toast.error('Failed to save changes.');
-                    return;
-                  }
-                }
-              }
-
-              toast.success('All changes saved successfully!');
-              // Use the helper to refresh the current visible range and reload events
-              await refreshCalendarVisibleRange();
-              // Debug: Log before resetting pending entries
-              console.log('Finished saving. Resetting pending entries.');
-              setPendingEntries([]);
-              setPendingDeletions([]);
-            }}
+            onClick={() => handleSaveChanges('button')}
             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
           >
             Save Changes
@@ -706,9 +955,12 @@ const getVisibleMonthLabel = useCallback(() => {
                 providerInputRef.current.value = '';
               }
               setProviderSuggestions([]);
-              setShowResident(false);
-              setResidentPhone('');
+              setHighlightIndex(-1);
+              setSecondPref('none');
+              setSecondPhone('');
+              setSecondSource(null);
               setSelectedAdditionalDays([]);
+              setEditingEntry(null);
               // Hide the multi-day calendar when modal is closed
               const miniCalendar = document.getElementById('multi-day-calendar');
               if (miniCalendar) miniCalendar.classList.add('hidden');
@@ -737,89 +989,152 @@ const getVisibleMonthLabel = useCallback(() => {
               ref={providerInputRef}
               className="w-full px-3 py-2 mb-1 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
               placeholder="Start typing..."
-              onChange={async (e) => {
-                const query = e.target.value.toLowerCase().trim();
-                if (!query) {
-                  setProviderSuggestions([]);
+              onFocus={() => {
+                const val = providerInputRef.current?.value.trim().toLowerCase() ?? '';
+                if (!val) {
+                  setProviderSuggestions(allProvidersForSpec);
+                  setHighlightIndex(allProvidersForSpec.length ? 0 : -1);
+                }
+              }}
+              onChange={(e) => {
+                const query = e.target.value;
+                const qn = normalize(query);
+                if (!qn) {
+                  setProviderSuggestions(allProvidersForSpec);
+                  setHighlightIndex(allProvidersForSpec.length ? 0 : -1);
                   return;
                 }
+                const ranked = allProvidersForSpec
+                  .map((name) => ({ name, score: scoreName(name, qn) }))
+                  .filter((x) => x.score > 0)
+                  .sort((a, b) => b.score - a.score)
+                  .slice(0, 12)
+                  .map((x) => x.name);
+                setProviderSuggestions(ranked.length ? ranked : ['This provider is not in the directory']);
+                setHighlightIndex(ranked.length ? 0 : -1);
+              }}
+              onKeyDown={(e) => {
+                const count = providerSuggestions.length;
+                if (!count) return;
 
-                const { data, error } = await supabase
-                  .from('directory')
-                  .select('provider_name')
-                  .ilike('provider_name', `%${query}%`)
-                  .eq('specialty', specialty);
-
-                if (error) {
-                  console.error('Error fetching suggestions:', error);
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setHighlightIndex((prev) => (prev < count - 1 ? prev + 1 : 0));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setHighlightIndex((prev) => (prev > 0 ? prev - 1 : count - 1));
+                } else if (e.key === 'Enter') {
+                  const sel =
+                    highlightIndex >= 0 && highlightIndex < count
+                      ? providerSuggestions[highlightIndex]
+                      : providerSuggestions[0];
+                  if (sel && sel !== 'This provider is not in the directory') {
+                    e.preventDefault();
+                    if (providerInputRef.current) providerInputRef.current.value = sel;
+                    setProviderSuggestions([]);
+                    setHighlightIndex(-1);
+                  }
+                } else if (e.key === 'Tab') {
+                  const sel =
+                    highlightIndex >= 0 && highlightIndex < count
+                      ? providerSuggestions[highlightIndex]
+                      : providerSuggestions[0];
+                  if (sel && sel !== 'This provider is not in the directory') {
+                    e.preventDefault();
+                    if (providerInputRef.current) providerInputRef.current.value = sel;
+                    setProviderSuggestions([]);
+                    setHighlightIndex(-1);
+                    // Move focus to the first "Works with" radio
+                    const firstRadio = document.querySelector<HTMLInputElement>('input[name="second-pref"]');
+                    if (firstRadio) firstRadio.focus();
+                  }
+                } else if (e.key === 'Escape') {
                   setProviderSuggestions([]);
-                  return;
-                }
-
-                if (data.length === 0) {
-                  setProviderSuggestions(['This provider is not in the directory']);
-                } else {
-                  setProviderSuggestions(data.map(d => d.provider_name));
+                  setHighlightIndex(-1);
                 }
               }}
             />
-            <div className="bg-white border dark:bg-gray-800 dark:border-gray-600 border-gray-300 rounded shadow-md max-h-40 overflow-y-auto">
-              {providerSuggestions.map((name, idx) => (
-                <div
-                  key={idx}
-                  className="px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer text-sm text-gray-800 dark:text-white"
-                  onClick={() => {
-                    if (providerInputRef.current) {
-                      providerInputRef.current.value = name;
-                    }
-                    setProviderSuggestions([]);
-                  }}
-                >
-                  {name}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center mb-4">
-              <input
-                type="checkbox"
-                id="show-resident"
-                className="mr-2"
-                checked={showResident}
-                onChange={() => {
-                  setShowResident(prev => !prev);
-                  if (!showResident) setShowPA(false); // prevent both being selected
-                }}
-              />
-              <label htmlFor="show-resident" className="text-sm text-gray-700 dark:text-gray-300">Show Resident Phone</label>
-            </div>
-            {specialty === 'Internal Medicine' && (
-              <div className="flex items-center mb-4">
-                <input
-                  type="checkbox"
-                  id="show-pa"
-                  className="mr-2"
-                  checked={showPA}
-                  onChange={() => {
-                    setShowPA(prev => !prev);
-                    if (!showPA) setShowResident(false); // prevent both being selected
-                  }}
-                />
-                <label htmlFor="show-pa" className="text-sm text-gray-700 dark:text-gray-300">Show PA Phone</label>
+            <div
+              className="bg-white border dark:bg-gray-800 dark:border-gray-600 border-gray-300 rounded shadow-md max-h-40 overflow-y-auto"
+              role="listbox"
+            >
+              {providerSuggestions.map((name, idx) => {
+                const isActive = idx === highlightIndex;
+                return (
+                  <div
+                    key={idx}
+                    role="option"
+                    aria-selected={isActive}
+                    className={`px-3 py-1 cursor-pointer text-sm text-gray-800 dark:text-white ${
+                      isActive ? 'bg-gray-100 dark:bg-gray-600' : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                    }`}
+                    onMouseEnter={() => setHighlightIndex(idx)}
+                    onMouseLeave={() => setHighlightIndex(-1)}
+                    onClick={() => {
+                      if (name === 'This provider is not in the directory') return;
+                      if (providerInputRef.current) {
+                        providerInputRef.current.value = name;
+                      }
+                      setProviderSuggestions([]);
+                      setHighlightIndex(-1);
+                    }}
+                  >
+                    {name}
+                  </div>
+                );
+              })}
+            </div>  
+            <div className="mb-4">
+              <span className="block mb-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Works with:</span>
+              <div className="flex items-center gap-6">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="second-pref"
+                    value="none"
+                    checked={secondPref === 'none'}
+                    onChange={() => setSecondPref('none')}
+                  />
+                  None
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="second-pref"
+                    value="residency"
+                    checked={secondPref === 'residency'}
+                    onChange={() => setSecondPref('residency')}
+                  />
+                  Resident
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="radio"
+                    name="second-pref"
+                    value="pa"
+                    checked={secondPref === 'pa'}
+                    onChange={() => setSecondPref('pa')}
+                  />
+                  PA
+                </label>
               </div>
-            )}
-            {(showResident || showPA) && (
-              <div className="mb-4" id="resident-phone-container">
-                <label className="block mb-2 text-sm text-gray-600 dark:text-gray-300">Resident Phone</label>
-                {residentPhone.startsWith('No ') ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">{residentPhone}</p>
+            </div>
+            {secondPref !== 'none' && (
+              <div className="mb-4" id="second-phone-container">
+                <label className="block mb-2 text-sm text-gray-600 dark:text-gray-300">Second Phone</label>
+                {secondPhone && secondPhone.startsWith('No ') ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">{secondPhone}</p>
                 ) : (
                   <input
                     type="text"
-                    id="resident-phone"
-                    value={residentPhone}
+                    id="second-phone"
+                    value={secondPhone}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
                     readOnly
                   />
+                )}
+                {secondSource && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Source: {secondSource}</p>
                 )}
               </div>
             )}
@@ -954,7 +1269,7 @@ const getVisibleMonthLabel = useCallback(() => {
                             const modalSpecialty = specialty;
                             const modalHealthcarePlan = specialty === 'Internal Medicine' ? plan : null;
                             // Use showResident as isResident
-                            const isResident = showResident || showPA;
+                            const isSecond = secondPref !== 'none';
                             // (removed debug logging)
                             if (modalProvider && modalSpecialty && (modalHealthcarePlan !== undefined)) {
                               const alreadySelected = pendingEntries.some(
@@ -968,8 +1283,9 @@ const getVisibleMonthLabel = useCallback(() => {
                                   provider_name: modalProvider.provider_name,
                                   specialty: modalSpecialty,
                                   healthcare_plan: modalHealthcarePlan,
-                                  show_second_phone: isResident,
-                                };
+                                  show_second_phone: isSecond,
+                                  second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
+                                } as const;
                                 setPendingEntries(prev => [...prev, newEntry]);
                                 setEvents(prevEvents => {
                                   const exists = prevEvents.some(e => e.title === `Dr. ${modalProvider.provider_name}` && e.date === dateStr);
@@ -1019,10 +1335,12 @@ const getVisibleMonthLabel = useCallback(() => {
                     providerInputRef.current.value = '';
                   }
                   setProviderSuggestions([]);
-                  setShowResident(false);
-                  setShowPA(false);
-                  setResidentPhone('');
+                  setHighlightIndex(-1);
+                  setSecondPref('none');
+                  setSecondPhone('');
+                  setSecondSource(null);
                   setSelectedAdditionalDays([]);
+                  setEditingEntry(null);
                   // Hide the multi-day calendar when modal is closed
                   const miniCalendar = document.getElementById('multi-day-calendar');
                   if (miniCalendar) miniCalendar.classList.add('hidden');
@@ -1079,6 +1397,7 @@ const getVisibleMonthLabel = useCallback(() => {
                     healthcare_plan: string | null;
                     on_call_date: string;
                     show_second_phone: boolean;
+                    second_phone_pref: 'auto' | 'pa' | 'residency';
                     user_id: string;
                   };
                   const payload: ScheduleEntry[] = uniqueDates.map(date => ({
@@ -1086,7 +1405,8 @@ const getVisibleMonthLabel = useCallback(() => {
                     specialty,
                     healthcare_plan: specialty === 'Internal Medicine' ? plan : null,
                     on_call_date: date,
-                    show_second_phone: showResident || showPA,
+                    show_second_phone: secondPref !== 'none',
+                    second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
                     user_id: user.id, // Assumes 'user_id' column exists in your table
                   }));
 
@@ -1122,10 +1442,12 @@ const getVisibleMonthLabel = useCallback(() => {
                     providerInputRef.current.value = '';
                   }
                   setProviderSuggestions([]);
-                  setShowResident(false);
-                  setShowPA(false);
-                  setResidentPhone('');
+                  setHighlightIndex(-1);
+                  setSecondPref('none');
+                  setSecondPhone('');
+                  setSecondSource(null);
                   setSelectedAdditionalDays([]);
+                  setEditingEntry(null);
                   const miniCalendar = document.getElementById('multi-day-calendar');
                   if (miniCalendar) miniCalendar.classList.add('hidden');
                   const multiDayToggle = document.getElementById('multi-day-toggle') as HTMLInputElement;
