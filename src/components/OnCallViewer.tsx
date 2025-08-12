@@ -16,6 +16,24 @@ export default function OnCallViewer() {
 
   const role = useUserRole();
 
+  // Treat an on-call "day" as 7:00am local → 6:59am next day
+  const effectiveOnCallDate = (dt: Date) => {
+    const d = new Date(dt);
+    if (d.getHours() < 7) {
+      d.setDate(d.getDate() - 1);
+    }
+    // Normalize to noon to avoid DST/compare issues when we only need Y-M-D
+    d.setHours(12, 0, 0, 0);
+    return d;
+  };
+
+  const toYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   useEffect(() => {
     if (role) {
       toast.success(`Detected role: ${role}`);
@@ -92,10 +110,8 @@ export default function OnCallViewer() {
 
   useEffect(() => {
     const fetchSchedule = async () => {
-      const year = currentDate.getFullYear();
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const day = String(currentDate.getDate()).padStart(2, '0');
-      const dateString = `${year}-${month}-${day}`;
+      const baseDate = effectiveOnCallDate(currentDate);
+      const dateString = toYMD(baseDate);
 
       // If Internal Medicine requires a plan and none is selected, show guidance and skip querying
       if (specialty === 'Internal Medicine' && !plan) {
@@ -106,7 +122,8 @@ export default function OnCallViewer() {
 
       let query = supabase
         .from('schedules')
-        .select('provider_name, show_second_phone, healthcare_plan, second_phone_pref')        .eq('on_call_date', dateString)
+        .select('provider_name, show_second_phone, healthcare_plan, second_phone_pref')
+        .eq('on_call_date', dateString)
         .eq('specialty', specialty);
 
       if (specialty === 'Internal Medicine') {
@@ -242,7 +259,10 @@ export default function OnCallViewer() {
 
         <div className="flex items-center justify-center gap-4 mb-4">
           <button onClick={handlePrevDay} className="px-3 py-1 bg-blue-500 text-white rounded">&lt;</button>
-          <div>{formatDate(currentDate)}</div>
+          <div>
+            {formatDate(effectiveOnCallDate(currentDate))}
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">7:00am – 6:59am window</div>
+          </div>
           <button onClick={handleNextDay} className="px-3 py-1 bg-blue-500 text-white rounded">&gt;</button>
         </div>
 
