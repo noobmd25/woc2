@@ -22,7 +22,7 @@ const AccessRequests = dynamic(() => import('@/components/admin/AccessRequests')
 
  type TabKey = 'access' | 'integrity' | 'errors' | 'audit' | 'announcements' | 'usage';
 
-function AdminPageContent() {
+function PageContent() {
   const [role, setRole] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
@@ -200,10 +200,10 @@ function AdminPageContent() {
 }
 
 // Wrap the page in a Suspense boundary to satisfy Next.js requirement for useSearchParams
-export default function AdminPage() {
+export default function Page() {
   return (
     <React.Suspense fallback={<div className="p-4 text-gray-600">Loading…</div>}>
-      <AdminPageContent />
+      <PageContent />
     </React.Suspense>
   );
 }
