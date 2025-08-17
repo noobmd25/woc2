@@ -11,6 +11,9 @@ export default function UpdatePasswordPage() {
   const [pwd2, setPwd2] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
+  const policy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]).{8,}$/;
+  const strong = policy.test(pwd);
+  const mismatch = pwd.length > 0 && pwd2.length > 0 && pwd !== pwd2;
   const router = useRouter();
 
   // Wait for Supabase to establish the recovery session from the email link.
@@ -26,13 +29,16 @@ export default function UpdatePasswordPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg('');
-    if (pwd.length < 8) return setMsg('Password must be at least 8 characters.');
-    if (pwd !== pwd2) return setMsg('Passwords do not match.');
+    if (!policy.test(pwd))
+      return setMsg('Password must contain uppercase, lowercase, number, and special character, and be at least 8 characters long.');
+    if (pwd !== pwd2)
+      return setMsg('Passwords do not match.');
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pwd });
     setBusy(false);
     if (error) return setMsg(error.message);
     toast.success('Password updated! Redirecting...');
+    localStorage.setItem('openSignInModal', 'true');
     setTimeout(() => {
       router.push('/');
     }, 3000);
@@ -59,9 +65,15 @@ export default function UpdatePasswordPage() {
             onChange={e => setPwd2(e.target.value)}
             className="w-full rounded border px-3 py-2"
           />
+          <div className="text-sm space-y-1">
+            {!strong && pwd.length > 0 && (
+              <p className="text-rose-600">Password must have uppercase, lowercase, number, and special character, at least 8 characters.</p>
+            )}
+            {mismatch && <p className="text-rose-600">Passwords do not match.</p>}
+          </div>
           <button
             type="submit"
-            disabled={busy}
+            disabled={!ready || busy || !strong || pwd !== pwd2}
             className="w-full rounded bg-blue-600 text-white py-2 disabled:opacity-60"
           >
             {busy ? 'Saving…' : 'Update password'}

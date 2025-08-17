@@ -34,11 +34,13 @@ export default function OnCallViewer() {
     return `${y}-${m}-${day}`;
   };
 
-  useEffect(() => {
-    if (role) {
-      toast.success(`Detected role: ${role}`);
-    }
-  }, [role]);
+  const cleanPhone = (s: string) => String(s ?? '').replace(/[^\d+]/g, '');
+  const toWhatsAppNumber = (raw: string) => {
+    const c = cleanPhone(raw);
+    const digits = c.startsWith('+') ? c.slice(1).replace(/\D/g, '') : c.replace(/\D/g, '');
+    return digits.length === 10 ? `1${digits}` : digits; // assume +1 if 10 digits (US/PR)
+  };
+
 
   const copyPrimary = async () => {
     if (providerData?.phone_number) {
@@ -62,8 +64,8 @@ export default function OnCallViewer() {
   };
 
   const dirHref = providerData?.provider_name
-    ? `/directory?provider=${encodeURIComponent(providerData.provider_name)}`
-    : '/directory';
+    ? `/protected/directory?provider=${encodeURIComponent(providerData.provider_name)}`
+    : '/protected/directory';
 
   const specialties = [
     'Cardiology',
@@ -198,6 +200,13 @@ export default function OnCallViewer() {
     fetchSchedule();
   }, [specialty, plan, currentDate]);
 
+  const secondPhoneLabel = (() => {
+    const s = providerData?._second_phone_source || '';
+    if (/PA/i.test(s)) return 'PA';
+    if (/Residency/i.test(s)) return 'Resident';
+    return 'Resident/PA';
+  })();
+
   return (
     <LayoutShell>
       <div className="app-container px-4 py-6 max-w-[400px] mx-auto bg-gray-100 dark:bg-black">
@@ -283,14 +292,14 @@ export default function OnCallViewer() {
                 <div className="mt-2 space-y-1">
                   <p className="text-2xl font-semibold text-black dark:text-white">Phone: {providerData.phone_number}</p>
                   <div className="flex justify-center gap-4 mt-2">
-                    <a href={`tel:${providerData.phone_number}`} title="Call" className="text-blue-500 hover:text-blue-700">
+                    <a href={`tel:${cleanPhone(providerData.phone_number)}`} title="Call" className="text-blue-500 hover:text-blue-700">
                       <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
                     </a>
-                    <a href={`sms:${providerData.phone_number}`} title="Text" className="text-green-500 hover:text-green-700">
+                    <a href={`sms:${cleanPhone(providerData.phone_number)}`} title="Text" className="text-green-500 hover:text-green-700">
                       <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
                     </a>
                     <a
-                      href={`https://wa.me/${providerData.phone_number.replace(/\D/g, '')}`}
+                      href={`https://wa.me/${toWhatsAppNumber(providerData.phone_number)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       title="WhatsApp"
@@ -304,22 +313,22 @@ export default function OnCallViewer() {
               {providerData.show_second_phone && providerData.second_phone && (
                 <div className="mt-4 space-y-1">
                   <p className="text-2xl font-semibold text-black dark:text-white">
-                    Resident/PA: {providerData.second_phone}
-                    {providerData._second_phone_source && (
-                      <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                        ({providerData._second_phone_source})
-                      </span>
-                    )}
+                    {secondPhoneLabel}: {providerData.second_phone}
                   </p>
+                  {providerData._second_phone_source && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      ({providerData._second_phone_source})
+                    </p>
+                  )}
                   <div className="flex justify-center gap-4 mt-2">
-                    <a href={`tel:${providerData.second_phone}`} title="Call" className="text-blue-500 hover:text-blue-700">
+                    <a href={`tel:${cleanPhone(providerData.second_phone)}`} title="Call" className="text-blue-500 hover:text-blue-700">
                       <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
                     </a>
-                    <a href={`sms:${providerData.second_phone}`} title="Text" className="text-green-500 hover:text-green-700">
+                    <a href={`sms:${cleanPhone(providerData.second_phone)}`} title="Text" className="text-green-500 hover:text-green-700">
                       <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
                     </a>
                     <a
-                      href={`https://wa.me/${providerData.second_phone.replace(/\D/g, '')}`}
+                      href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       title="WhatsApp"
@@ -332,7 +341,11 @@ export default function OnCallViewer() {
               )}
             </div>
           ) : (
-            <p className="text-center text-gray-500">No provider found for this selection.</p>
+            <p className="text-center text-gray-500">
+              {specialty === 'Internal Medicine' && !plan
+                ? 'Please select a healthcare plan.'
+                : 'No provider found for this selection.'}
+            </p>
           )}
         </div>
 
@@ -365,13 +378,13 @@ export default function OnCallViewer() {
                 Copy resident phone
               </button>
               <Link
-                href="/admin?tab=integrity"
+                href="/protected/admin/access?tab=integrity"
                 className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
               >
                 Open Data Integrity
               </Link>
               <Link
-                href="/admin?tab=usage"
+                href="/protected/admin/access?tab=usage"
                 className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
               >
                 Admin Dashboard
@@ -417,7 +430,7 @@ export default function OnCallViewer() {
                 Copy resident phone
               </button>
               <Link
-                href="/admin?tab=integrity"
+                href="/protected/admin/access?tab=integrity"
                 className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
               >
                 Open Data Integrity

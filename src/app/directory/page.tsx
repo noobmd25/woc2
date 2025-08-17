@@ -40,6 +40,31 @@ export default function DirectoryPage() {
   const [dirEditName, setDirEditName] = useState('');
   const [dirEditSpecialty, setDirEditSpecialty] = useState('');
   const [dirEditPhone, setDirEditPhone] = useState('');
+  const [newSpecName, setNewSpecName] = useState('');
+  const [editingSpecId, setEditingSpecId] = useState<string | null>(null);
+  const [specEditName, setSpecEditName] = useState('');
+
+  // Phone action sheet state
+  const [phoneActionsOpen, setPhoneActionsOpen] = useState(false);
+  const [phoneTarget, setPhoneTarget] = useState<{ name: string; phone: string } | null>(null);
+
+  const cleanPhone = (s: string) => s.replace(/[^\d+]/g, "");
+
+  /**
+   * Build a WhatsApp-friendly number (digits only, with country code).
+   * If the number has 10 digits, assume US/PR (+1). If it already has a leading +, keep its digits.
+   */
+  const toWhatsAppNumber = (raw: string) => {
+    const cleaned = cleanPhone(raw);
+    const digits = cleaned.startsWith("+") ? cleaned.slice(1).replace(/\D/g, "") : cleaned.replace(/\D/g, "");
+    if (digits.length === 10) return `1${digits}`; // assume +1
+    return digits; // already includes country code or longer
+  };
+
+  const openPhoneActions = (provider: Provider) => {
+    setPhoneTarget({ name: provider.provider_name, phone: provider.phone_number });
+    setPhoneActionsOpen(true);
+  };
   const role = useUserRole();
 
   const fetchSpecialties = async () => {
@@ -55,6 +80,8 @@ export default function DirectoryPage() {
   };
 
   useEffect(() => {
+    console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log("Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_KEY);
     const fetchProviders = async () => {
       const { data, error } = await supabase.from('directory').select('*');
       if (error) console.error("Supabase fetch error:", error);
@@ -118,7 +145,7 @@ export default function DirectoryPage() {
 
   const handleAddProvider = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (role !== 'admin' && role !== 'scheduler') return;
+    if (role !== 'admin') return;
     const { data, error } = await supabase.from('directory').insert({
       provider_name: newName,
       specialty: newSpecialty,
@@ -134,6 +161,85 @@ export default function DirectoryPage() {
     setModalOpen(false);
     const { data: updated } = await supabase.from('directory').select('*');
     setProviders(updated || []);
+  };
+
+  const handleAddSpecialty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (role !== 'admin') return;
+    const name = newSpecName.trim();
+    if (!name) return;
+    const { error } = await supabase
+      .from('specialties')
+      .insert({ name });
+    if (error) {
+      console.error('Error adding specialty:', error);
+      return;
+    }
+    setNewSpecName('');
+    // Refresh specialties from server to keep list in sync
+    await fetchSpecialties();
+  };
+
+  const handleStartEditSpecialty = (spec: Specialty) => {
+    if (role !== 'admin') return;
+    setEditingSpecId(spec.id);
+    setSpecEditName(spec.name);
+  };
+
+  const handleCancelEditSpecialty = () => {
+    setEditingSpecId(null);
+    setSpecEditName('');
+  };
+
+  const handleSaveSpecialty = async (spec: Specialty) => {
+    if (role !== 'admin') return;
+    const newName = specEditName.trim();
+    if (!newName || newName === spec.name) { setEditingSpecId(null); return; }
+
+    // 1) Update the specialties table
+    const { error: err1 } = await supabase
+      .from('specialties')
+      .update({ name: newName })
+      .eq('id', spec.id);
+    if (err1) { console.error('Error updating specialty:', err1); return; }
+
+    // 2) Propagate rename to directory entries that used the old name
+    const { error: err2 } = await supabase
+      .from('directory')
+      .update({ specialty: newName })
+      .eq('specialty', spec.name);
+    if (err2) { console.error('Error updating directory specialties:', err2); }
+
+    setEditingSpecId(null);
+    setSpecEditName('');
+    await fetchSpecialties();
+
+    // Optionally refresh providers so the visible list reflects updates
+    const { data: updatedProviders } = await supabase.from('directory').select('*');
+    setProviders(updatedProviders || []);
+  };
+
+  const handleDeleteSpecialty = async (spec: Specialty) => {
+    if (role !== 'admin') return;
+
+    // Clear the specialty field on existing providers that reference this specialty
+    const { error: err1 } = await supabase
+      .from('directory')
+      .update({ specialty: '' })
+      .eq('specialty', spec.name);
+    if (err1) { console.error('Error clearing specialty on providers:', err1); return; }
+
+    // Delete from specialties table
+    const { error: err2 } = await supabase
+      .from('specialties')
+      .delete()
+      .eq('id', spec.id);
+    if (err2) { console.error('Error deleting specialty:', err2); return; }
+
+    // Refresh lists
+    await fetchSpecialties();
+    const { data: updatedProviders } = await supabase.from('directory').select('*');
+    setProviders(updatedProviders || []);
   };
 
   // Directory management handlers
@@ -222,10 +328,18 @@ export default function DirectoryPage() {
           </select>
           {role === 'admin' && (
             <button
+              onClick={() => setModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition"
+            >
+              ➕ Add Provider
+            </button>
+          )}
+          {role === 'admin' && (
+            <button
               onClick={() => setManageSpecsOpen(true)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition"
             >
-              ⚙️ Manage Specialties
+              ⚙️ Manage Directory
             </button>
           )}
         </div>
@@ -304,9 +418,15 @@ export default function DirectoryPage() {
                 </td>
                 <td className="p-2">{provider.specialty}</td>
                 <td className="p-2">
-                  <a href={`tel:${provider.phone_number}`} className="text-blue-600 hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => openPhoneActions(provider)}
+                    className="text-blue-600 hover:underline"
+                    title="Contact options"
+                    aria-label={`Contact ${provider.provider_name}`}
+                  >
                     {provider.phone_number}
-                  </a>
+                  </button>
                 </td>
               </tr>
             ))}
@@ -321,7 +441,7 @@ export default function DirectoryPage() {
         </table>
       </main>
 
-      {(role === 'admin' || role === 'scheduler') && modalOpen && (
+      {role === 'admin' && modalOpen && (
         <div className="fixed inset-0 z-[1000] bg-black bg-opacity-70 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl z-[1001]">
             <h2 className="text-xl font-bold mb-4">Add New Provider</h2>
@@ -423,7 +543,7 @@ export default function DirectoryPage() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Manage Directory</h2>
               <div className="flex items-center gap-2">
-                {/* Add Provider button for admin, styled like original */}
+                {/* Add Provider button for admin only */}
                 {role === 'admin' && (
                   <button
                     onClick={() => { setModalOpen(true); setManageSpecsOpen(false); }}
@@ -434,6 +554,73 @@ export default function DirectoryPage() {
                 )}
                 <button onClick={() => setManageSpecsOpen(false)} className="px-3 py-1 rounded border">Close</button>
               </div>
+            </div>
+            {/* Admin: Add Specialty */}
+            <form onSubmit={handleAddSpecialty} className="flex items-center gap-2 mb-3">
+              <input
+                value={newSpecName}
+                onChange={(e) => setNewSpecName(e.target.value)}
+                placeholder="New specialty name"
+                className="flex-1 px-3 py-2 border rounded"
+              />
+              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded">
+                Add Specialty
+              </button>
+            </form>
+            {/* Admin: Edit/Delete Specialties */}
+            <div className="mb-4 border rounded p-3">
+              <h3 className="font-semibold mb-2">Specialties</h3>
+              <ul className="space-y-2 max-h-60 overflow-auto">
+                {allSpecialties.length === 0 && (
+                  <li className="text-sm text-gray-500">No specialties yet.</li>
+                )}
+                {allSpecialties.map((spec) => (
+                  <li key={spec.id} className="flex items-center gap-2">
+                    {editingSpecId === spec.id ? (
+                      <>
+                        <input
+                          value={specEditName}
+                          onChange={(e) => setSpecEditName(e.target.value)}
+                          className="flex-1 px-3 py-1 border rounded"
+                          placeholder="Specialty name"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSpecialty(spec)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelEditSpecialty}
+                          className="px-3 py-1 border rounded"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1">{spec.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditSpecialty(spec)}
+                          className="px-3 py-1 border rounded"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSpecialty(spec)}
+                          className="px-3 py-1 border rounded text-red-600"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="space-y-2 max-h-96 overflow-auto">
               {providers.length === 0 && (
@@ -500,6 +687,45 @@ export default function DirectoryPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+      {phoneActionsOpen && phoneTarget && (
+        <div className="fixed inset-0 z-[1300] bg-black/60 flex items-end sm:items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl">
+            <div className="px-6 pt-5 pb-3 border-b dark:border-gray-700">
+              <h3 className="text-lg font-semibold">{phoneTarget.name}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{phoneTarget.phone}</p>
+            </div>
+            <div className="flex flex-col divide-y dark:divide-gray-700">
+              <a
+                href={`sms:${cleanPhone(phoneTarget.phone)}`}
+                className="px-6 py-4 text-center text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Send Text Message
+              </a>
+              <a
+                href={`tel:${cleanPhone(phoneTarget.phone)}`}
+                className="px-6 py-4 text-center text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                Call
+              </a>
+              <a
+                href={`https://wa.me/${toWhatsAppNumber(phoneTarget.phone)}?text=${encodeURIComponent('Hello')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-6 py-4 text-center text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                WhatsApp
+              </a>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setPhoneActionsOpen(false); setPhoneTarget(null); }}
+              className="w-full px-6 py-4 text-center hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

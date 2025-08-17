@@ -172,6 +172,7 @@ export default function SchedulePage() {
   const [specialty, setSpecialty] = useState('Internal Medicine');
   const [plan, setPlan] = useState('');
   const role = useUserRole(); // 'admin' | 'scheduler' | 'viewer' | null
+  const canEdit = role === 'admin' || role === 'scheduler';
   const [isEditing, setIsEditing] = useState(false);
   // Collect pending entries to save to DB only when "Save Changes" is pressed
   const [pendingEntries, setPendingEntries] = useState<any[]>([]);
@@ -552,6 +553,7 @@ const getVisibleMonthLabel = useCallback(() => {
   // Global shortcut: Ctrl+S / Cmd+S to save
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!canEdit) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         // Only enable the shortcut when the page (not the modal/dialog) has focus
         if (isModalOpen) return;
@@ -568,7 +570,7 @@ const getVisibleMonthLabel = useCallback(() => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handleSaveChanges, isModalOpen]);
+  }, [handleSaveChanges, isModalOpen, canEdit]);
 
   useEffect(() => {
   if (isModalOpen) {        
@@ -735,7 +737,7 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             timeZone="local"
             events={events.map(e => ({ title: e.title, start: e.date, allDay: true }))}
-            selectable={true}
+            selectable={canEdit}
             editable={false}
             height="auto"
             dayCellClassNames={(arg) => {
@@ -803,6 +805,7 @@ if (role !== 'admin' && role !== 'scheduler') {
               }
             }}
             eventClick={(clickInfo) => {
+              if (!canEdit) return;
               const api = calendarRef.current?.getApi();
               const view = api?.view;
               if (!view) return;
@@ -867,6 +870,7 @@ if (role !== 'admin' && role !== 'scheduler') {
               })();
             }}
             dateClick={(info: any) => {
+              if (!canEdit) return;
               if (info.dayEl.classList.contains('fc-day-other')) {
                 info.jsEvent.preventDefault();
                 info.jsEvent.stopPropagation();
@@ -887,23 +891,19 @@ if (role !== 'admin' && role !== 'scheduler') {
           `}</style>
         </div>
 
-        <div className="flex justify-between items-center mt-4">
-          <button
-            onClick={() => setShowClearModal(true)}
-            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
+        {canEdit && (
+          <div className="flex justify-between items-center mt-4">
+            <button onClick={() => setShowClearModal(true)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
               {`Clear ${getVisibleMonthLabel()} — ${specialty === 'Internal Medicine' ? `IM · ${plan || 'Select plan'}` : specialty}`}
-          </button>
-          <button
-            onClick={() => handleSaveChanges('button')}
-            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-          >
-            Save Changes
-          </button>
-        </div>
+            </button>
+            <button onClick={() => handleSaveChanges('button')} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+              Save Changes
+            </button>
+          </div>
+        )}
 
         {/* Clear Month Confirmation Modal */}
-        {showClearModal && (
+        {canEdit && showClearModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
             <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-sm w-full transform transition-transform duration-300 ease-out scale-95 animate-fadeIn">
               <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Confirm Deletion</h2>
@@ -1261,6 +1261,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                             // If primary date, do nothing (cannot deselect)
                             if (status.isPrimaryDate) return;
                             // --- Begin: New logic for small calendar selection ---
+                            if (!canEdit) return;
                             // We need to add a new pending entry for this date using current modal selections
                             // Find modalProvider, modalSpecialty, modalHealthcarePlan, isResident from modal state
                             // We'll try to infer these from the modal controls

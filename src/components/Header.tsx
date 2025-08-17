@@ -84,28 +84,19 @@ const handleLogout = async () => {
     setMenuOpen(false);
     setSigningOut(false);
 
-    // Soft nav first
     try {
-      console.log('[logout] router.replace(/) + refresh');
+      console.log('[logout] router.replace(/)');
       router.replace('/');
-      router.refresh?.();
-    } catch {}
-
-    // Hard redirect fallback
+    } catch (e) {
+      console.warn('[logout] replace failed, will hard navigate', e);
+    }
     if (typeof window !== 'undefined') {
+      // Ensure we land on the same-origin home without prefetching
       setTimeout(() => {
-        try {
-          if (window.location.pathname !== '/') {
-            console.log('[logout] location.assign(/)');
-            window.location.assign('/');
-          } else {
-            console.log('[logout] already on / → reload()');
-            window.location.reload();
-          }
-        } catch {
-          window.location.href = '/';
+        if (window.location.pathname !== '/') {
+          window.location.assign('/');
         }
-      }, 150);
+      }, 50);
     }
   }
 };
@@ -121,7 +112,7 @@ const handleLogout = async () => {
           >
             ☰
           </button>
-          <Link href="/" className="w-40 h-auto block">
+          <Link href="/" prefetch={false} className="w-40 h-auto block" onClick={() => setMenuOpen(false)}>
             <img src="/logo.svg" alt="Logo" className="w-full h-auto" />
           </Link>
         </div>
@@ -144,33 +135,23 @@ const handleLogout = async () => {
             <ul className="space-y-2 pt-2">
               {/* Visible to all roles: Directory & On Call */}
               <li>
-                <Link href="/oncall" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">On Call</Link>
+                <Link href="/oncall" prefetch={false} className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md" onClick={() => setMenuOpen(false)}>On Call</Link>
               </li>
               <li>
-                <Link href="/directory" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Directory</Link>
+                <Link href="/directory" prefetch={false} className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md" onClick={() => setMenuOpen(false)}>Directory</Link>
               </li>
 
               {/* Scheduler: visible to admin & scheduler */}
               {(role === 'admin' || role === 'scheduler') && (
                 <li>
-                  <Link href="/schedule" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Scheduler</Link>
+                  <Link href="/schedule" prefetch={false} className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md" onClick={() => setMenuOpen(false)}>Scheduler</Link>
                 </li>
               )}
 
               {/* Admin-only link */}
               {role === 'admin' && (
                 <li>
-                  <Link href="/admin" className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md">Admin Panel</Link>
-                </li>
-              )}
-              {role === 'scheduler' && (
-                <li>
-                  <Link
-                    href="/admin?tab=integrity"
-                    className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md"
-                  >
-                    Scheduler Portal
-                  </Link>
+                  <Link href="/admin" prefetch={false} className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md" onClick={() => setMenuOpen(false)}>Admin Panel</Link>
                 </li>
               )}
             </ul>
