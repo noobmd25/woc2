@@ -1,4 +1,6 @@
 "use client";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 import { toast } from 'react-hot-toast';
 import SimpleHeader from '@/components/SimpleHeader';
 
@@ -38,7 +40,7 @@ function generateStrongPassword(len = 14) {
   return arr.join("");
 }
 
-export default function Home() {
+function PageContent() {
   const router = useRouter();
   const [showLogin, setShowLogin] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -398,5 +400,14 @@ export default function Home() {
         )}
       </main>
     </>
+  );
+}
+
+// Wrap the page in a Suspense boundary to satisfy Next.js requirement for useSearchParams/usePathname/useRouter
+export default function Page() {
+  return (
+    <React.Suspense fallback={<div className="p-4 text-gray-600">Loading…</div>}>
+      <PageContent />
+    </React.Suspense>
   );
 }
