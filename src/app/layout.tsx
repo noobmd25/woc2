@@ -3,17 +3,40 @@ import { Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import Footer from '@/components/Footer';
 import Providers from './providers';
+import { supabase } from "@/lib/supabaseClient";
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
   subsets: ["latin"],
 });
-
 export const metadata: Metadata = {
-  title: "Who's On Call",
-  description: "Hospital on-call scheduling and provider directory platform",
+  title: "Who's On Call",   // 👈 put your app/site name here
+  description: "Hospital On-call scheduling made simple.", // 👈 short tagline/description
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/site.webmanifest",
+  other: {
+    "application/ld+json": JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "url": "https://whosoncall.app",   // 👈 your real domain
+      "logo": "https://whosoncall.app/logo.svg" // 👈 must point to logo in /public
+    }),
+  },
 };
+// Extend the Window interface to include 'supabase'
+declare global {
+  interface Window {
+    supabase: any;
+  }
+}
 
+if (typeof window !== 'undefined') {
+  window.supabase = supabase;
+}
 export default function RootLayout({
   children,
 }: Readonly<{

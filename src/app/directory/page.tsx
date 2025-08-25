@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import useUserRole from '@/app/hooks/useUserRole';
+import { useAccessGate } from '@/lib/useAccessGate';
 
 interface Provider {
   id: string;
@@ -18,6 +19,8 @@ interface Specialty {
 }
 
 export default function DirectoryPage() {
+  useAccessGate();
+
   const [providers, setProviders] = useState<Provider[]>([]);
   const [search, setSearch] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');

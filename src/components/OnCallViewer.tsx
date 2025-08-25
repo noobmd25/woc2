@@ -16,6 +16,28 @@ export default function OnCallViewer() {
 
   const role = useUserRole();
 
+  const [specialties, setSpecialties] = useState<string[]>([]);
+
+  useEffect(() => {
+    const fetchSpecialties = async () => {
+      const { data, error } = await supabase
+        .from('specialties')
+        .select('name')
+        .eq('show_oncall', true)
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching specialties:', error);
+        setSpecialties([]);
+      } else {
+        const names = data?.map((s: { name: string }) => s.name) ?? [];
+        setSpecialties(names);
+      }
+    };
+
+    fetchSpecialties();
+  }, []);
+
   // Treat an on-call "day" as 7:00am local → 6:59am next day
   const effectiveOnCallDate = (dt: Date) => {
     const d = new Date(dt);
@@ -67,16 +89,6 @@ export default function OnCallViewer() {
     ? `/protected/directory?provider=${encodeURIComponent(providerData.provider_name)}`
     : '/protected/directory';
 
-  const specialties = [
-    'Cardiology',
-    'Gastroenterology',
-    'General Surgery',
-    'Internal Medicine',
-    'Obstetrics & Gynecology',
-    'Orthopedics',
-    'Pediatric Surgery',
-    'Vascular Surgery'
-  ];
 
   const plans = [
     'Triple S Advantage/Unattached',
@@ -258,6 +270,20 @@ export default function OnCallViewer() {
                 </option>
               ))}
             </select>
+            <div className="mt-2 flex gap-2 justify-end">
+              <Link
+                href="/lookup/mmm-pcp"
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#009c94] hover:bg-[#007F77] rounded shadow-sm"
+              >
+                MMM Group Lookup
+              </Link>
+              <Link
+                href="/lookup/vital-groups"
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#5c5ca2] hover:bg-[#4a4a88] rounded shadow-sm"
+              >
+                Vital Group Lookup
+              </Link>
+            </div>
             {!plan && (
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 Select a healthcare plan to see today’s provider.

@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { toast } from 'react-hot-toast';
@@ -40,6 +38,9 @@ export default function HomeClient() {
   const [showForgot, setShowForgot] = useState(false);
   const [position, setPosition] = useState<'Resident' | 'Attending' | ''>('');
   const [pgyYear, setPgyYear] = useState<string>('1');
+  const [showDebugPanel, setShowDebugPanel] = useState<boolean>(false);
+  const [isLocalhost, setIsLocalhost] = useState<boolean>(false);
+  const [mounted, setMounted] = useState<boolean>(false);
   const search = useSearchParams();
 
   useEffect(() => {
@@ -59,6 +60,14 @@ export default function HomeClient() {
       }
     }
   }, [search]);
+
+  useEffect(() => {
+    // mark mounted to avoid rendering window-dependent UI on server
+    setMounted(true);
+    if (typeof window !== 'undefined') {
+      setIsLocalhost(window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    }
+  }, []);
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 10);
@@ -169,14 +178,101 @@ export default function HomeClient() {
     }
   };
 
+  // Debug handlers (client-side only)
+  const handleLogClientSession = async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userRes = await supabase.auth.getUser();
+      console.log('[debug] client session:', sessionData);
+      console.log('[debug] client user:', userRes?.data ?? null);
+      toast.success('Logged client session to console');
+    } catch (e: any) {
+      console.error('[debug] client session error', e);
+      toast.error(String(e?.message ?? e));
+    }
+  };
+
+  const handleCallDebugCookies = async () => {
+    try {
+      const res = await fetch('/api/debug-cookies');
+      const json = await res.json();
+      console.log('[debug] /api/debug-cookies', json);
+      toast.success('/api/debug-cookies logged to console');
+    } catch (e: any) {
+      console.error('[debug] debug-cookies error', e);
+      toast.error('debug-cookies failed');
+    }
+  };
+
+  const handleCallDebugSession = async () => {
+    try {
+      const res = await fetch('/api/debug-session');
+      const json = await res.json();
+      console.log('[debug] /api/debug-session', json);
+      toast.success('/api/debug-session logged to console');
+    } catch (e: any) {
+      console.error('[debug] debug-session error', e);
+      toast.error('debug-session failed');
+    }
+  };
+
+  const handleCookieSync = async () => {
+    try {
+      // Find a likely supabase cookie in document.cookie
+      const raw = document.cookie || '';
+      const pair = raw.split('; ').find(p => /(^sb:|^sb-|supabase|sb_token|supabase-auth)/i.test(p.split('=')[0]));
+      if (!pair) {
+        toast.error('No supabase cookie found in document.cookie');
+        console.warn('[debug] document.cookie has no supabase cookie:', raw);
+        return;
+      }
+      const [name, ...rest] = pair.split('=');
+      const value = rest.join('=');
+
+      console.log('[debug] syncing cookie to server', { name, valueSnippet: String(value).slice(0,40) });
+      const resp = await fetch('/api/cookie-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, value }),
+      });
+      const json = await resp.json();
+      console.log('[debug] /api/cookie-sync', json);
+      if (resp.ok) {
+        toast.success('Cookie synced to server');
+      } else {
+        toast.error('Cookie sync failed');
+      }
+    } catch (e: any) {
+      console.error('[debug] cookie-sync error', e);
+      toast.error('cookie-sync failed');
+    }
+  };
+
   return (
     <>
       <SimpleHeader />
       <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center bg-white text-black dark:bg-black dark:text-white transition-colors duration-300">
         <h1 className="text-4xl font-bold mb-4">Welcome to Who's On Call</h1>
         <p className="text-lg text-gray-600 dark:text-gray-300"></p>
-        <button className="mt-6 inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition" onClick={() => setShowLogin(true)}>Login</button>
-        <button onClick={() => setShowRequestModal(true)} className="mt-6 inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition">Sign Up</button>
+        <button className="mt-6 inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition" onClick={() => setShowLogin(true)}>Login</button>
+        <button onClick={() => setShowRequestModal(true)} className="mt-6 inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition">Sign Up</button>
+
+        {/* Debug panel toggle - only show on client localhost to avoid exposing in prod and prevent SSR mismatch */}
+        {/* Render a stable container server-side to avoid hydration mismatch. We keep the button in the DOM but hidden until client mount + localhost detection. */}
+        <div className="mt-6" style={{ display: mounted && isLocalhost ? 'block' : 'none' }}>
+          <button onClick={() => setShowDebugPanel(s => !s)} className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded">{showDebugPanel ? 'Hide' : 'Show'} Debug Panel</button>
+        </div>
+
+        {/* Debug panel: keep stable DOM on server, hide until mounted+localhost; show contents only when visible. */}
+        <div className="mt-4 p-4 w-full max-w-md bg-gray-100 dark:bg-gray-800 rounded text-left text-sm" style={{ display: mounted && showDebugPanel && isLocalhost ? 'block' : 'none' }}>
+          <div className="flex flex-col space-y-2">
+            <button onClick={handleLogClientSession} className="px-3 py-2 bg-yellow-500 hover:bg-yellow-600 text-black rounded">Log client session</button>
+            <button onClick={handleCallDebugCookies} className="px-3 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded">Call /api/debug-cookies</button>
+            <button onClick={handleCallDebugSession} className="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded">Call /api/debug-session</button>
+            <button onClick={handleCookieSync} className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded">Sync supabase cookie to server</button>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Use these to inspect session/cookie state without touching admin UI.</p>
+          </div>
+        </div>
 
         {showLogin && (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }} onClick={() => setShowLogin(false)}>
@@ -192,12 +288,18 @@ export default function HomeClient() {
                   toast.error('Incorrect email or password');
                 } else {
                   toast.success('Login successful');
+                  // Ensure session is established client-side, then force a full-page navigation
+                  // so the Next middleware runs and sets the Supabase auth cookie on the server.
                   await supabase.auth.getSession();
-                  router.refresh();
                   setShowLogin(false);
                   const nextParam = search?.get('next');
                   const redirectTo = nextParam && nextParam.startsWith('/') ? nextParam : '/oncall';
-                  router.replace(redirectTo);
+                  // Use a full navigation to guarantee server middleware runs and cookies are set
+                  if (typeof window !== 'undefined') {
+                    window.location.assign(redirectTo);
+                  } else {
+                    router.replace(redirectTo);
+                  }
                 }
               }}>
                 <input type="email" name="email" placeholder="Email" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />

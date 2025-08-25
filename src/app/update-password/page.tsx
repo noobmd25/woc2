@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { supabase } from '@/lib/supabaseClient';
+import SimpleHeader from '@/components/SimpleHeader';
 
 export default function UpdatePasswordPage() {
   const [ready, setReady] = useState(false);
@@ -18,6 +19,13 @@ export default function UpdatePasswordPage() {
 
   // Wait for Supabase to establish the recovery session from the email link.
   useEffect(() => {
+    const hash = window.location.hash;
+    const accessToken = new URLSearchParams(hash.replace('#', '?')).get('access_token');
+
+    if (accessToken) {
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
+    }
+
     const t = setTimeout(async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setReady(!!session);
@@ -40,10 +48,10 @@ export default function UpdatePasswordPage() {
     toast.success('Password updated! Redirecting...');
     localStorage.setItem('openSignInModal', 'true');
     setTimeout(() => {
-      router.push('/');
+      router.push('/login');
     }, 3000);
   };
-
+  
   return (
     <div className="max-w-md mx-auto py-16 px-4">
       <h1 className="text-xl font-semibold mb-2">Set a new password</h1>
@@ -51,20 +59,26 @@ export default function UpdatePasswordPage() {
         <p className="text-sm text-gray-600">Loading session…</p>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <input
-            type="password"
-            placeholder="New password"
-            value={pwd}
-            onChange={e => setPwd(e.target.value)}
-            className="w-full rounded border px-3 py-2"
-          />
-          <input
-            type="password"
-            placeholder="Confirm password"
-            value={pwd2}
-            onChange={e => setPwd2(e.target.value)}
-            className="w-full rounded border px-3 py-2"
-          />
+          <label className="block text-sm font-medium text-gray-700">
+            New password
+            <input
+              type="password"
+              placeholder="New password"
+              value={pwd}
+              onChange={e => setPwd(e.target.value)}
+              className="w-full rounded border px-3 py-2 mt-1"
+            />
+          </label>
+          <label className="block text-sm font-medium text-gray-700">
+            Confirm password
+            <input
+              type="password"
+              placeholder="Confirm password"
+              value={pwd2}
+              onChange={e => setPwd2(e.target.value)}
+              className="w-full rounded border px-3 py-2 mt-1"
+            />
+          </label>
           <div className="text-sm space-y-1">
             {!strong && pwd.length > 0 && (
               <p className="text-rose-600">Password must have uppercase, lowercase, number, and special character, at least 8 characters.</p>
@@ -79,8 +93,9 @@ export default function UpdatePasswordPage() {
             {busy ? 'Saving…' : 'Update password'}
           </button>
           {msg && <p className="text-sm mt-2">{msg}</p>}
-        </form>
+        </form> 
       )}
+
     </div>
   );
 }
