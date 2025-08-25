@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 type RoleRequest = {
   id: string;
@@ -31,6 +31,7 @@ type PendingProfile = {
 };
 
 export default function AccessRequests() {
+  const supabase = getBrowserClient();
   const [rows, setRows] = React.useState<RoleRequest[] | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);

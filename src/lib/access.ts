@@ -1,8 +1,8 @@
 // src/lib/access.ts
-import { getServerSupabase } from "@/lib/supabaseServer";
+import { createClient } from '@/lib/supabase/server';
 
 export async function getUserAndProfile() {
-  const supabase = await getServerSupabase(); // <-- await
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { user: null, profile: null };
 

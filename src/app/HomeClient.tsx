@@ -7,7 +7,7 @@ import SimpleHeader from '@/components/SimpleHeader';
 import React, { useEffect, useState } from 'react';
 import ForgotPassword from '@/components/auth/ForgotPasswordModal';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 function generateStrongPassword(len = 14) {
   const lowers = 'abcdefghijklmnopqrstuvwxyz';
@@ -33,6 +33,7 @@ function generateStrongPassword(len = 14) {
 }
 
 export default function HomeClient() {
+  const supabase = getBrowserClient();
   const router = useRouter();
   const [showLogin, setShowLogin] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);

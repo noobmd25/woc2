@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import LayoutShell from './LayoutShell';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import useUserRole from '@/app/hooks/useUserRole';
 import Link from 'next/link';
 
 export default function OnCallViewer() {
+  const supabase = getBrowserClient();
   const [specialty, setSpecialty] = useState('Internal Medicine');
   const [plan, setPlan] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());

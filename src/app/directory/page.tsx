@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import useUserRole from '@/app/hooks/useUserRole';
 
@@ -14,10 +14,11 @@ interface Provider {
 
 interface Specialty {
   id: string;
-  name: string;
+  name: string | null;
 }
 
 export default function DirectoryPage() {
+  const supabase = getBrowserClient();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [search, setSearch] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
@@ -81,7 +82,7 @@ export default function DirectoryPage() {
 
   useEffect(() => {
     console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_KEY);
+    console.log("Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
     const fetchProviders = async () => {
       const { data, error } = await supabase.from('directory').select('*');
       if (error) console.error("Supabase fetch error:", error);

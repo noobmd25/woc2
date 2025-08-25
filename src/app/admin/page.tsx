@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import dynamic from 'next/dynamic';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 const PAGE_DEBUG = true;
 
@@ -23,6 +23,7 @@ const AccessRequests = dynamic(() => import('@/components/admin/AccessRequests')
  type TabKey = 'access' | 'integrity' | 'errors' | 'audit' | 'announcements' | 'usage';
 
 function PageContent() {
+  const supabase = getBrowserClient();
   const [role, setRole] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {

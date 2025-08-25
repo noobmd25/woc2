@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { Toaster, toast } from 'react-hot-toast';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
@@ -9,6 +9,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     let cancelled = false;
 
     (async () => {
+      const supabase = getBrowserClient();
       try {
         const { data, error } = await supabase.auth.getSession();
         if (!cancelled && (error || !data?.session)) {

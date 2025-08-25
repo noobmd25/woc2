@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 export default function UpdatePasswordPage() {
+  const supabase = getBrowserClient();
   const [ready, setReady] = useState(false);
   const [pwd, setPwd] = useState('');
   const [pwd2, setPwd2] = useState('');
