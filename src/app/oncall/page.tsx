@@ -1,15 +1,16 @@
-'use client';
-
-import { useAccessGate } from '@/lib/useAccessGate';
+import { getUserAndProfile } from '@/lib/access';
+import { redirect } from 'next/navigation';
 import OnCallViewer from '@/components/OnCallViewer';
 
-export default function OnCallPage() {
-  const { status } = useAccessGate({ requireApproved: true });
+export default async function OnCallPage() {
+  const { user, profile } = await getUserAndProfile();
+  console.log('[OnCall SSR] user:', user, 'profile:', profile);
 
-  if (status !== 'approved') {
-    return (
-      <div className="p-6 text-gray-600">Checking access…</div>
-    );
+  if (!user) {
+    redirect('/?showSignIn=true');
+  }
+  if (!profile || profile.status !== 'approved') {
+    redirect('/unauthorized');
   }
 
   return <OnCallViewer />;

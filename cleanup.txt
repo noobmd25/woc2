@@ -1,0 +1,5 @@
+Removed legacy supabase auth guard files after migration:
+- src/lib/supabaseClient.ts
+- src/lib/supabaseServer.ts
+- src/lib/useAccessGate.tsx
+- src/components/AuthGuard.tsx

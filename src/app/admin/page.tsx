@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import dynamic from 'next/dynamic';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 const PAGE_DEBUG = true;
 
@@ -23,6 +23,7 @@ const AccessRequests = dynamic(() => import('@/components/admin/AccessRequests')
  type TabKey = 'access' | 'integrity' | 'errors' | 'audit' | 'announcements' | 'usage';
 
 function PageContent() {
+  const supabase = getBrowserClient();
   const [role, setRole] = React.useState<string | undefined>(undefined);
 
   React.useEffect(() => {
@@ -64,14 +65,37 @@ function PageContent() {
     if (PAGE_DEBUG) console.log('[AdminPage] activeTab', activeTab);
   }, [activeTab]);
 
-  const [counts] = React.useState({
-    pendingAccess: 12,
+  const [counts, setCounts] = React.useState({
+    pendingAccess: 0,
     integrityIssues: 3,
     openErrors: 7,
     last24hEvents: 45,
     activeBanners: 2,
     weeklyVisits: 312,
   });
+
+  // Fetch pending access count from role_requests (pending) and refresh periodically
+  React.useEffect(() => {
+    let mounted = true;
+    const fetchPending = async () => {
+      try {
+        // Use head:true to retrieve count without rows
+        const res = await supabase
+          .from('role_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending');
+        const cnt = typeof (res.count) === 'number' ? res.count : 0;
+        if (mounted) setCounts((c) => ({ ...c, pendingAccess: cnt }));
+      } catch (e) {
+        // ignore errors for now
+        console.error('[AdminPage] fetchPending count failed', e);
+      }
+    };
+
+    fetchPending();
+    const id = setInterval(fetchPending, 10000); // refresh every 10s
+    return () => { mounted = false; clearInterval(id); };
+  }, []);
 
   // Helper to validate a tab value
   const isValidTab = (t: string | null): t is TabKey => !!t && ['access','integrity','errors','audit','announcements','usage'].includes(t);
@@ -135,7 +159,7 @@ function PageContent() {
 
   const tabs: { key: TabKey; label: string }[] = [];
   if (role === 'admin') {
-    tabs.push({ key: 'access', label: 'Access Requests' });
+    tabs.push({ key: 'access', label: 'Access Management' });
   }
   tabs.push(
     { key: 'integrity', label: 'Data Integrity' },

@@ -5,14 +5,16 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useState, useEffect, useRef, useCallback, JSX } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import LayoutShell from '@/components/LayoutShell';
 import { toast } from 'react-hot-toast';
+const supabase = getBrowserClient();
 import useUserRole from '@/app/hooks/useUserRole';
 import { EventClickArg, EventContentArg } from '@fullcalendar/core';
 import React from 'react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 // --- Provider search helpers: rank closest names ---
 const normalize = (s: string) =>
   s
@@ -121,16 +123,7 @@ const generateDistinctColors = (count: number) => {
   return colors;
 };
 
-const specialties = [
-  'Cardiology',
-  'Gastroenterology',
-  'General Surgery',
-  'Internal Medicine',
-  'Obstetrics & Gynecology',
-  'Orthopedics',
-  'Pediatric Surgery',
-  'Vascular Surgery',
-];
+
 
 const plans = [
   'Triple S Advantage/Unattached',
@@ -146,6 +139,31 @@ const plans = [
 ];
 
 export default function SchedulePage() {
+  // access enforced by server layout & client role redirect
+  // Specialties state and modal for admin editing
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specialtyEditList, setSpecialtyEditList] = useState<{ name: string; show_oncall: boolean }[]>([]);
+  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
+  // Load specialties from Supabase, both for display and editing
+  useEffect(() => {
+    const fetchSpecialties = async () => {
+      const { data, error } = await supabase
+        .from('specialties')
+        .select('name, show_oncall')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching specialties:', error);
+        setSpecialties([]);
+        setSpecialtyEditList([]);
+      } else {
+        const activeNames = data?.filter(s => s.show_oncall).map(s => s.name) ?? [];
+        setSpecialties(activeNames);
+        setSpecialtyEditList(data ?? []);
+      }
+    };
+    fetchSpecialties();
+  }, []);
   const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
   const [providerColorMap, setProviderColorMap] = useState<Record<string, string>>({});
@@ -173,6 +191,7 @@ export default function SchedulePage() {
   const [plan, setPlan] = useState('');
   const role = useUserRole(); // 'admin' | 'scheduler' | 'viewer' | null
   const canEdit = role === 'admin' || role === 'scheduler';
+  const isIMWithoutPlan = specialty === 'Internal Medicine' && !plan; // NEW: gating flag
   const [isEditing, setIsEditing] = useState(false);
   // Collect pending entries to save to DB only when "Save Changes" is pressed
   const [pendingEntries, setPendingEntries] = useState<any[]>([]);
@@ -675,13 +694,36 @@ if (role !== 'admin' && role !== 'scheduler') {
           Scheduler
         </h1>
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-4 mb-6">
+      {role === 'admin' && (
+        <div className="flex items-center justify-end mb-4">
+          <div className="flex gap-3 items-center">
+            <button onClick={() => setShowSpecialtyModal(true)} className="px-3 py-1 text-sm bg-indigo-600 text-white rounded">
+              Edit Specialties
+            </button>
+          </div>
+          {/* Medical Groups buttons only for admin */}
+          <div className="flex gap-3 items-center mt-2">
+            <Link
+              href="/schedule/mmm-medical-groups"
+              className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
+            >
+              MMM Medical Groups
+            </Link>
+            <Link
+              href="/schedule/vital-medical-groups"
+              className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
+            >
+              Vital Medical Groups
+            </Link>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-4 mb-6">
           <div>
             <label className="block text-gray-700 dark:text-gray-300 mb-1">Specialty</label>
             <select
               value={specialty}
               onChange={(e) => setSpecialty(e.target.value)}
-
               className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
             >
               {specialties.map(spec => (
@@ -714,6 +756,17 @@ if (role !== 'admin' && role !== 'scheduler') {
 
 
         <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-md" style={{ overflowX: 'auto' }}>
+          {/* Control panel: Add Refresh Calendar button */}
+          <div className="flex gap-3 mb-4">
+            <button
+              onClick={() => refreshCalendarVisibleRange()}
+              className={`bg-gray-700 hover:bg-gray-800 text-white text-sm px-3 py-2 rounded border border-gray-600 shadow-sm flex items-center gap-2 ${isIMWithoutPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isIMWithoutPlan}
+            >
+              🔄 <span>Refresh Calendar</span>
+            </button>
+          </div>
+          <div className="relative">{/* wrapper to allow overlay */}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -806,6 +859,8 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             eventClick={(clickInfo) => {
               if (!canEdit) return;
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // NEW guard
+
               const api = calendarRef.current?.getApi();
               const view = api?.view;
               if (!view) return;
@@ -871,6 +926,7 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             dateClick={(info: any) => {
               if (!canEdit) return;
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // NEW guard
               if (info.dayEl.classList.contains('fc-day-other')) {
                 info.jsEvent.preventDefault();
                 info.jsEvent.stopPropagation();
@@ -881,6 +937,22 @@ if (role !== 'admin' && role !== 'scheduler') {
               setIsEditing(false);
             }}
           />
+          {isIMWithoutPlan && (
+            <div
+              onClick={() => toast.error('Please select healthcare plan group before adding providers on call')}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md cursor-not-allowed text-center px-6 py-8 pointer-events-auto"
+              style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              role="presentation"
+            >
+              <p className="text-gray-800 dark:text-gray-100 font-semibold text-sm md:text-base mb-2">
+                Select a healthcare plan group before adding providers on call.
+              </p>
+              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                The Internal Medicine calendar is inactive until a plan is chosen.
+              </p>
+            </div>
+          )}
+          </div>
           {/* Global CSS to paint days outside current month black and unclickable */}
           <style jsx global>{`
             .fc-daygrid-day.fc-day-other {
@@ -893,10 +965,18 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         {canEdit && (
           <div className="flex justify-between items-center mt-4">
-            <button onClick={() => setShowClearModal(true)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+            <button onClick={() => {
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; }
+              setShowClearModal(true);
+            }} className={`px-4 py-2 rounded text-white ${isIMWithoutPlan ? 'bg-red-400 cursor-not-allowed opacity-60' : 'bg-red-600 hover:bg-red-700'}`}
+              disabled={isIMWithoutPlan}>
               {`Clear ${getVisibleMonthLabel()} — ${specialty === 'Internal Medicine' ? `IM · ${plan || 'Select plan'}` : specialty}`}
             </button>
-            <button onClick={() => handleSaveChanges('button')} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            <button onClick={() => {
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; }
+              handleSaveChanges('button');
+            }} className={`px-4 py-2 rounded text-white ${isIMWithoutPlan ? 'bg-green-400 cursor-not-allowed opacity-60' : 'bg-green-600 hover:bg-green-700'}`}
+              disabled={isIMWithoutPlan}>
               Save Changes
             </button>
           </div>
@@ -1355,6 +1435,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                 className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded"
                 id="save-btn"
                 onClick={async () => {
+                  if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // guard inside modal save just in case
                   const inputEl = providerInputRef.current;
                   const providerName = inputEl ? inputEl.value.trim() : '';
                   if (!providerName) {
@@ -1461,6 +1542,59 @@ if (role !== 'admin' && role !== 'scheduler') {
           </div>
         </div>
       </div>
+      {/* Specialty Edit Modal for admins */}
+      {showSpecialtyModal && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={(e) => {
+            if ((e.target as HTMLElement).id === 'specialty-modal') {
+              setShowSpecialtyModal(false);
+            }
+          }}
+          id="specialty-modal"
+        >
+          <div
+            className="relative bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-full max-w-md max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setShowSpecialtyModal(false)}
+              className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 dark:hover:text-white"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Edit Visible Specialties</h2>
+            <ul className="space-y-2">
+              {specialtyEditList.map((s, i) => (
+                <li key={s.name} className="flex justify-between items-center">
+                  <span className="text-gray-700 dark:text-white">{s.name}</span>
+                  <button
+                    className={`px-2 py-1 text-sm rounded ${s.show_oncall ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-700'}`}
+                    onClick={async () => {
+                      const updated = [...specialtyEditList];
+                      updated[i] = { ...updated[i], show_oncall: !updated[i].show_oncall };
+                      setSpecialtyEditList(updated);
+                      const { error } = await supabase
+                        .from('specialties')
+                        .update({ show_oncall: updated[i].show_oncall })
+                        .eq('name', updated[i].name);
+                      if (error) {
+                        console.error('Failed to update show_oncall:', error);
+                      } else {
+                        const active = updated.filter(s => s.show_oncall).map(s => s.name);
+                        setSpecialties(active);
+                      }
+                    }}
+                  >
+                    {s.show_oncall ? 'Yes' : 'No'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </LayoutShell>
   );
 }
