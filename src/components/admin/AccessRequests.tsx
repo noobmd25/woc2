@@ -386,25 +386,20 @@ export default function AccessRequests() {
       // client-side guard
       await ensureAdminOrThrow();
       setActingId(req.id);
-      const { data: userRes } = await supabase.auth.getUser();
-      const decider = userRes?.user?.id;
-      if (!decider) throw new Error('No authenticated user');
 
-      console.log('[approve] sending', {
-        p_request_id: req.id,
-        p_decider: decider,
-        p_role: (req.requested_role as any) ?? 'viewer',
-        p_reason: null,
+      // New: call server API to perform approval + email
+      const res = await fetch('/api/admin/approve-user', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: req.id })
       });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `Approve failed (${res.status})`);
+      }
 
-      const { error } = await supabase.rpc('approve_role_request', {
-        p_request_id: req.id,
-        p_decider: decider,
-        p_role: (req.requested_role as any) ?? 'viewer',
-        p_reason: null,
-      });
-      if (error) throw error;
-
+      // On success optionally trigger password reset (retain previous behavior)
       if (req.email) {
         const origin =
           (typeof window !== 'undefined' && window.location.origin) ||
@@ -415,6 +410,7 @@ export default function AccessRequests() {
         });
       }
 
+      addToast('Approved & email sent (if address on file).', 'info');
       await load();
     } catch (e: any) {
       setError(e.message ?? 'Approve failed');

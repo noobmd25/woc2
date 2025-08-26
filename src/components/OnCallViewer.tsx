@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import LayoutShell from './LayoutShell';
 import { getBrowserClient } from '@/lib/supabase/client';
@@ -18,26 +18,44 @@ export default function OnCallViewer() {
   const role = useUserRole();
 
   const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specialtyFetchMeta, setSpecialtyFetchMeta] = useState<{ error?: string; count: number; ts?: number }>({ count: 0 });
+  const specialtyToastRef = useRef(false);
+
+  const fetchSpecialties = useCallback(async () => {
+    specialtyToastRef.current = false; // allow new toast on retry
+    const { data, error } = await supabase
+      .from('specialties')
+      .select('name, show_oncall')
+      .eq('show_oncall', true)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('[OnCallViewer] Error fetching specialties:', error);
+      setSpecialties([]);
+      setSpecialtyFetchMeta({ error: error.message, count: 0, ts: Date.now() });
+      toast.error('Specialties fetch failed: ' + error.message);
+      return;
+    }
+    const names = Array.isArray(data) ? data.map((s: { name: string }) => s.name) : [];
+    setSpecialties(names);
+    setSpecialtyFetchMeta({ count: names.length, ts: Date.now() });
+    if (names.length === 0 && !specialtyToastRef.current) {
+      specialtyToastRef.current = true;
+      toast.error('No specialties returned (possible RLS / role issue).');
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchSpecialties = async () => {
-      const { data, error } = await supabase
-        .from('specialties')
-        .select('name')
-        .eq('show_oncall', true)
-        .order('name', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching specialties:', error);
-        setSpecialties([]);
-      } else {
-        const names = data?.map((s: { name: string }) => s.name) ?? [];
-        setSpecialties(names);
-      }
-    };
-
     fetchSpecialties();
-  }, []);
+  }, [fetchSpecialties]);
+
+  // Toast fallback on render if still empty after first load (avoid spamming)
+  useEffect(() => {
+    if (specialties.length === 0 && !specialtyFetchMeta.error && specialtyFetchMeta.ts && !specialtyToastRef.current) {
+      specialtyToastRef.current = true;
+      toast('Specialty list empty. Check RLS / viewer role mapping.');
+    }
+  }, [specialties, specialtyFetchMeta]);
 
   // Treat an on-call "day" as 7:00am local → 6:59am next day
   const effectiveOnCallDate = (dt: Date) => {
@@ -239,6 +257,32 @@ export default function OnCallViewer() {
 
         <div className="mb-4">
           <label className="block mb-1">Select a Specialty:</label>
+          {specialties.length === 0 && (
+            <div className="mb-2 p-2 text-xs rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+              {specialtyFetchMeta.error
+                ? `Error loading specialties: ${specialtyFetchMeta.error}`
+                : 'No specialties available. Viewer role may lack RLS select permission.'}
+              <div className="mt-1 flex gap-2">
+                <button
+                  onClick={fetchSpecialties}
+                  className="px-2 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700"
+                >
+                  Retry
+                </button>
+                {role === 'admin' && (
+                  <button
+                    onClick={() => {
+                      toast(JSON.stringify({ meta: specialtyFetchMeta }, null, 2));
+                      console.debug('[OnCallViewer] specialty meta', specialtyFetchMeta);
+                    }}
+                    className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Debug Meta
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <select
             value={specialty}
             onChange={(e) => {
@@ -247,7 +291,9 @@ export default function OnCallViewer() {
               if (newSpecialty !== 'Internal Medicine') setPlan('');
             }}
             className="w-full p-2 border border-gray-300 rounded"
+            disabled={specialties.length === 0}
           >
+            {specialties.length === 0 && <option value="">(none)</option>}
             {specialties.map((spec) => (
               <option key={spec} value={spec}>
                 {spec}
