@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
@@ -12,19 +11,15 @@ export default function SignUpPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          department,
-          provider_type: "physician", // or capture from UI if you want
-          requested_role: "viewer",    // always viewer by policy
-        },
-      },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, fullName, department }),
     });
-    if (error) return alert(error.message);
+    if (!res.ok) {
+      const data = await res.json();
+      return alert(data.error || "Signup failed");
+    }
     router.push("/auth/check-email");
   }
 
