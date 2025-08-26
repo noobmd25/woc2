@@ -4,17 +4,17 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { useState, useEffect, useRef, JSX, useCallback } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useState, useEffect, useRef, useCallback, JSX } from 'react';
+import { getBrowserClient } from '@/lib/supabase/client';
 import LayoutShell from '@/components/LayoutShell';
 import { toast } from 'react-hot-toast';
+const supabase = getBrowserClient();
 import useUserRole from '@/app/hooks/useUserRole';
 import { EventClickArg, EventContentArg } from '@fullcalendar/core';
 import React from 'react';
 import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAccessGate } from '@/lib/useAccessGate';
 // --- Provider search helpers: rank closest names ---
 const normalize = (s: string) =>
   s
@@ -139,7 +139,7 @@ const plans = [
 ];
 
 export default function SchedulePage() {
-  useAccessGate({ requireRoles: ['admin', 'scheduler'] });
+  // access enforced by server layout & client role redirect
   // Specialties state and modal for admin editing
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [specialtyEditList, setSpecialtyEditList] = useState<{ name: string; show_oncall: boolean }[]>([]);

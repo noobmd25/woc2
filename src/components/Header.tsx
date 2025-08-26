@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import useUserRole from '@/app/hooks/useUserRole';
+const supabase = getBrowserClient();
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);

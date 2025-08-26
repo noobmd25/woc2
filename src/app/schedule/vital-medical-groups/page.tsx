@@ -1,10 +1,9 @@
-
-
- "use client";
+"use client";
 import Header from '@/components/Header';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import toast from 'react-hot-toast';
+const supabase = getBrowserClient();
 
 type VitalGroup = {
   id: number;

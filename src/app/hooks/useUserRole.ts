@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 export type Role = 'admin' | 'scheduler' | 'viewer';
 
@@ -10,6 +10,7 @@ export type Role = 'admin' | 'scheduler' | 'viewer';
  */
 export default function useUserRole() {
   const [role, setRole] = useState<Role | null>(null);
+  const supabase = getBrowserClient();
 
   useEffect(() => {
     let mounted = true;
@@ -44,7 +45,7 @@ export default function useUserRole() {
     fetchRole();
     const { data: sub } = supabase.auth.onAuthStateChange(() => fetchRole());
     return () => { mounted = false; sub.subscription.unsubscribe(); };
-  }, []);
+  }, [supabase]);
 
   return role;
 }

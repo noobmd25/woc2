@@ -3,12 +3,13 @@ import { Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import Footer from '@/components/Footer';
 import Providers from './providers';
-import { supabase } from "@/lib/supabaseClient";
+import SupabaseProvider from '@/components/supabase-provider'; // unchanged path confirmation
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
   subsets: ["latin"],
 });
+
 export const metadata: Metadata = {
   title: "Who's On Call",   // 👈 put your app/site name here
   description: "Hospital On-call scheduling made simple.", // 👈 short tagline/description
@@ -27,16 +28,9 @@ export const metadata: Metadata = {
     }),
   },
 };
-// Extend the Window interface to include 'supabase'
-declare global {
-  interface Window {
-    supabase: any;
-  }
-}
 
-if (typeof window !== 'undefined') {
-  window.supabase = supabase;
-}
+export const runtime = 'nodejs';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,10 +41,12 @@ export default function RootLayout({
       <body
         className={`${robotoMono.variable} antialiased`}
         >
-        <Providers>
-          {children}
-          <Footer />
-        </Providers>
+        <SupabaseProvider>
+          <Providers>
+            {children}
+            <Footer />
+          </Providers>
+        </SupabaseProvider>
       </body>
     </html>
   );

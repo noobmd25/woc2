@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import LayoutShell from './LayoutShell';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import useUserRole from '@/app/hooks/useUserRole';
 import Link from 'next/link';
+const supabase = getBrowserClient();
 
 export default function OnCallViewer() {
   const [specialty, setSpecialty] = useState('Internal Medicine');

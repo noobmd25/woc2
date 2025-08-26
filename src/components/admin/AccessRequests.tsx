@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
+const supabase = getBrowserClient();
 
 type RoleRequest = {
   id: string;

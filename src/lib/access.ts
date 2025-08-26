@@ -1,5 +1,5 @@
 // src/lib/access.ts
-import { getServerSupabase } from "@/lib/supabaseServer";
+import { getServerSupabase } from "@/lib/supabase/server";
 
 export async function getUserAndProfile() {
   const { supabase } = await getServerSupabase();

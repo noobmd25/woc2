@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import SimpleHeader from '@/components/SimpleHeader';
+const supabase = getBrowserClient();
 
 export default function UpdatePasswordPage() {
   const [ready, setReady] = useState(false);

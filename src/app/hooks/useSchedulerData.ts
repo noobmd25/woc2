@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
+
+const supabase = getBrowserClient();
 
 export function useSchedulerData(selectedDate: Date) {
   const [entries, setEntries] = useState<any[]>([]);

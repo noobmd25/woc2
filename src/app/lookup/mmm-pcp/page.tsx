@@ -2,14 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import debounce from 'lodash/debounce';
-import { supabase } from '@/lib/supabaseClient';
-import { useAccessGate } from '@/lib/useAccessGate';
+import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+const supabase = getBrowserClient();
 
 export default function MMMPcpLookupPage() {
-  useAccessGate();
-
   const [pcpName, setPcpName] = useState('');
   const [results, setResults] = useState<{ name: string; medical_group: string }[]>([]);
   const [loading, setLoading] = useState(false);

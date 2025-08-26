@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-import { useAccessGate } from '@/lib/useAccessGate';
+import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
+const supabase = getBrowserClient();
 
 type VitalGroup = {
   id: number;
@@ -12,8 +12,6 @@ type VitalGroup = {
 };
 
 export default function VitalGroupsLookupPage() {
-  useAccessGate();
-
   const [groups, setGroups] = useState<VitalGroup[]>([]);
   const [search, setSearch] = useState('');
 

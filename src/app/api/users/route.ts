@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabaseServer';
+import { getServerSupabase } from '@/lib/supabase/server';
 
 // GET /api/users
 export async function GET(req: Request) {
@@ -74,7 +74,7 @@ export async function GET(req: Request) {
 
       // apply search
       if (search) {
-        const like = `%${search.replace(/%/g, '\%')}%`;
+        const like = `%${search.replace(/%/g, '\\%')}%`;
         q = q.or(`full_name.ilike.${like},email.ilike.${like}`);
       }
 
@@ -117,7 +117,7 @@ export async function GET(req: Request) {
     let base = supabase.from('profiles').select(selectCols, { count: 'exact' }).order(sortBy, { ascending: sortDir === 'asc' }).range(offset, offset + limit - 1);
 
     if (search) {
-      const like = `%${search.replace(/%/g, '\%')}%`;
+      const like = `%${search.replace(/%/g, '\\%')}%`;
       base = base.or(`full_name.ilike.${like},email.ilike.${like}`);
     }
 

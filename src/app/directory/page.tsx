@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import useUserRole from '@/app/hooks/useUserRole';
-import { useAccessGate } from '@/lib/useAccessGate';
 
 interface Provider {
   id: string;
@@ -15,12 +14,11 @@ interface Provider {
 
 interface Specialty {
   id: string;
-  name: string;
+  name: string | null;
 }
 
 export default function DirectoryPage() {
-  useAccessGate();
-
+  const supabase = getBrowserClient();
   const [providers, setProviders] = useState<Provider[]>([]);
   const [search, setSearch] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
@@ -84,7 +82,7 @@ export default function DirectoryPage() {
 
   useEffect(() => {
     console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_KEY);
+    console.log("Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
     const fetchProviders = async () => {
       const { data, error } = await supabase.from('directory').select('*');
       if (error) console.error("Supabase fetch error:", error);
@@ -109,7 +107,7 @@ export default function DirectoryPage() {
   }, [search, specialtyFilter, providers]);
 
   const specialties = (allSpecialties.length > 0
-    ? allSpecialties.map(s => s.name)
+    ? allSpecialties.map(s => s.name).filter((n): n is string => !!n)
     : Array.from(new Set(providers.map(p => p.specialty).filter(Boolean)))
   ).sort();
 
@@ -186,7 +184,7 @@ export default function DirectoryPage() {
   const handleStartEditSpecialty = (spec: Specialty) => {
     if (role !== 'admin') return;
     setEditingSpecId(spec.id);
-    setSpecEditName(spec.name);
+    setSpecEditName(spec.name ?? '');
   };
 
   const handleCancelEditSpecialty = () => {
