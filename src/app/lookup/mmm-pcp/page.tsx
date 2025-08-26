@@ -7,22 +7,55 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 const supabase = getBrowserClient();
 
+// Added: palette for group color coding
+const GROUP_COLOR_PALETTE = [
+  'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+  'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+  'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
+  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+  'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200',
+  'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
+  'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200',
+  'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
+];
+
 export default function MMMPcpLookupPage() {
   const [pcpName, setPcpName] = useState('');
   const [results, setResults] = useState<{ name: string; medical_group: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [sortByGroup, setSortByGroup] = useState(false);
+  const [groupColors, setGroupColors] = useState<Record<string, string>>({}); // NEW
 
   const debouncedLookup = debounce(async (name: string) => {
     setLoading(true);
     const { data, error } = await supabase
       .from('mmm_medical_groups')
       .select('name, medical_group')
-      .ilike('name', `%${name}%`);
+      .ilike('name', `%${name}%`)
+      .order('name', { ascending: true });
 
     if (!error) setResults(data || []);
     setLoading(false);
   }, 300);
+
+  // NEW: initial load of full list (blank filter) on mount
+  useEffect(() => {
+    debouncedLookup('');
+    return () => {
+      debouncedLookup.cancel();
+    };
+  }, []); // run once
+
+  // NEW: assign stable colors to each unique medical_group whenever result set changes
+  useEffect(() => {
+    if (results.length === 0) return;
+    const unique = Array.from(new Set(results.map(r => r.medical_group))).sort((a, b) => a.localeCompare(b));
+    const mapping: Record<string, string> = {};
+    unique.forEach((g, idx) => {
+      mapping[g] = GROUP_COLOR_PALETTE[idx % GROUP_COLOR_PALETTE.length];
+    });
+    setGroupColors(mapping);
+  }, [results]);
 
   return (
     <>
@@ -73,7 +106,11 @@ export default function MMMPcpLookupPage() {
                   .map((r, idx) => (
                     <tr key={idx} className="border-b hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white">
                       <td className="p-2">{r.name}</td>
-                      <td className="p-2 font-semibold">{r.medical_group}</td>
+                      <td className="p-2 font-semibold">
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold tracking-wide ${groupColors[r.medical_group] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}`}>
+                          {r.medical_group}
+                        </span>
+                      </td>
                     </tr>
                   ))}
               </tbody>

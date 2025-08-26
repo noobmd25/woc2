@@ -20,28 +20,34 @@ export default function OnCallViewer() {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [specialtyFetchMeta, setSpecialtyFetchMeta] = useState<{ error?: string; count: number; ts?: number }>({ count: 0 });
   const specialtyToastRef = useRef(false);
+  const [specialtyLoading, setSpecialtyLoading] = useState(false); // loading state for refresh control
 
   const fetchSpecialties = useCallback(async () => {
     specialtyToastRef.current = false; // allow new toast on retry
-    const { data, error } = await supabase
-      .from('specialties')
-      .select('name, show_oncall')
-      .eq('show_oncall', true)
-      .order('name', { ascending: true });
+    setSpecialtyLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('specialties')
+        .select('name, show_oncall')
+        .eq('show_oncall', true)
+        .order('name', { ascending: true });
 
-    if (error) {
-      console.error('[OnCallViewer] Error fetching specialties:', error);
-      setSpecialties([]);
-      setSpecialtyFetchMeta({ error: error.message, count: 0, ts: Date.now() });
-      toast.error('Specialties fetch failed: ' + error.message);
-      return;
-    }
-    const names = Array.isArray(data) ? data.map((s: { name: string }) => s.name) : [];
-    setSpecialties(names);
-    setSpecialtyFetchMeta({ count: names.length, ts: Date.now() });
-    if (names.length === 0 && !specialtyToastRef.current) {
-      specialtyToastRef.current = true;
-      toast.error('No specialties returned (possible RLS / role issue).');
+      if (error) {
+        console.error('[OnCallViewer] Error fetching specialties:', error);
+        setSpecialties([]);
+        setSpecialtyFetchMeta({ error: error.message, count: 0, ts: Date.now() });
+        toast.error('Specialties fetch failed: ' + error.message);
+        return;
+      }
+      const names = Array.isArray(data) ? data.map((s: { name: string }) => s.name) : [];
+      setSpecialties(names);
+      setSpecialtyFetchMeta({ count: names.length, ts: Date.now() });
+      if (names.length === 0 && !specialtyToastRef.current) {
+        specialtyToastRef.current = true;
+        toast.error('No specialties returned (possible RLS / role issue).');
+      }
+    } finally {
+      setSpecialtyLoading(false);
     }
   }, []);
 
@@ -238,6 +244,8 @@ export default function OnCallViewer() {
     return 'Resident/PA';
   })();
 
+  const planGateActive = specialty === 'Internal Medicine' && !plan;
+
   return (
     <LayoutShell>
       <div className="app-container px-4 py-6 max-w-[400px] mx-auto bg-gray-100 dark:bg-black">
@@ -256,7 +264,24 @@ export default function OnCallViewer() {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1">Select a Specialty:</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block">Select a Specialty:</label>
+            <div className="flex items-center gap-2 text-[10px] sm:text-xs">
+              {specialtyFetchMeta.ts && !specialtyLoading && (
+                <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">
+                  Updated {new Date(specialtyFetchMeta.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+              <button
+                onClick={() => fetchSpecialties()}
+                disabled={specialtyLoading}
+                className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh specialties"
+              >
+                {specialtyLoading ? '...' : 'Refresh'}
+              </button>
+            </div>
+          </div>
           {specialties.length === 0 && (
             <div className="mb-2 p-2 text-xs rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
               {specialtyFetchMeta.error
@@ -311,10 +336,8 @@ export default function OnCallViewer() {
               className="w-full p-2 border border-gray-300 rounded"
             >
               <option value="" disabled>Select Healthcare Plan</option>
-              {plans.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
+              {['Triple S Advantage/Unattached','Vital','405/M88','PAMG','REMAS','SMA','CSE','In Salud','IPA B','MCS'].map((p) => (
+                <option key={p} value={p}>{p}</option>
               ))}
             </select>
             <div className="mt-2 flex gap-2 justify-end">
@@ -342,84 +365,96 @@ export default function OnCallViewer() {
         <div className="flex items-center justify-center gap-4 mb-4">
           <button onClick={handlePrevDay} className="px-3 py-1 bg-blue-500 text-white rounded">&lt;</button>
           <div>
-            {formatDate(effectiveOnCallDate(currentDate))}
+            {(() => { const d = effectiveOnCallDate(currentDate); return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); })()}
             <div className="text-[11px] text-gray-500 dark:text-gray-400">7:00am – 6:59am window</div>
           </div>
           <button onClick={handleNextDay} className="px-3 py-1 bg-blue-500 text-white rounded">&gt;</button>
         </div>
-
         <div className="text-center mb-4">
           <button onClick={handleToday} className="px-4 py-2 bg-gray-700 text-white rounded">Today</button>
         </div>
 
-        <div id="schedule-container" className="mt-6">
-          {providerData ? (
-            <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center">
-              <h3 className="text-2xl font-bold">Dr. {providerData.provider_name}</h3>
-              {providerData.healthcare_plan && (
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Plan: {providerData.healthcare_plan}
-                </p>
-              )}
-              {providerData.phone_number && (
-                <div className="mt-2 space-y-1">
-                  <p className="text-2xl font-semibold text-black dark:text-white">Phone: {providerData.phone_number}</p>
-                  <div className="flex justify-center gap-4 mt-2">
-                    <a href={`tel:${cleanPhone(providerData.phone_number)}`} title="Call" className="text-blue-500 hover:text-blue-700">
-                      <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
-                    </a>
-                    <a href={`sms:${cleanPhone(providerData.phone_number)}`} title="Text" className="text-green-500 hover:text-green-700">
-                      <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
-                    </a>
-                    <a
-                      href={`https://wa.me/${toWhatsAppNumber(providerData.phone_number)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="WhatsApp"
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
-                    </a>
-                  </div>
-                </div>
-              )}
-              {providerData.show_second_phone && providerData.second_phone && (
-                <div className="mt-4 space-y-1">
-                  <p className="text-2xl font-semibold text-black dark:text-white">
-                    {secondPhoneLabel}: {providerData.second_phone}
-                  </p>
-                  {providerData._second_phone_source && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      ({providerData._second_phone_source})
-                    </p>
-                  )}
-                  <div className="flex justify-center gap-4 mt-2">
-                    <a href={`tel:${cleanPhone(providerData.second_phone)}`} title="Call" className="text-blue-500 hover:text-blue-700">
-                      <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
-                    </a>
-                    <a href={`sms:${cleanPhone(providerData.second_phone)}`} title="Text" className="text-green-500 hover:text-green-700">
-                      <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
-                    </a>
-                    <a
-                      href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="WhatsApp"
-                      className="text-green-600 hover:text-green-800"
-                    >
-                      <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
-                    </a>
-                  </div>
-                </div>
-              )}
+        {/* Schedule / Provider block with interaction gate */}
+        <div className={`relative ${planGateActive ? 'opacity-60' : ''}`}>
+          {planGateActive && (
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-transparent cursor-not-allowed"
+              onClick={() => toast.error('Select a healthcare plan first.')}
+            >
+              <span className="text-xs text-gray-600 dark:text-gray-300 bg-white/70 dark:bg-gray-800/70 px-2 py-1 rounded">
+                Plan required
+              </span>
             </div>
-          ) : (
-            <p className="text-center text-gray-500">
-              {specialty === 'Internal Medicine' && !plan
-                ? 'Please select a healthcare plan.'
-                : 'No provider found for this selection.'}
-            </p>
           )}
+          <div id="schedule-container" className="mt-6 pointer-events-auto">
+            {providerData ? (
+              <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center">
+                <h3 className="text-2xl font-bold">Dr. {providerData.provider_name}</h3>
+                {providerData.healthcare_plan && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Plan: {providerData.healthcare_plan}
+                  </p>
+                )}
+                {providerData.phone_number && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-2xl font-semibold text-black dark:text-white">Phone: {providerData.phone_number}</p>
+                    <div className="flex justify-center gap-4 mt-2">
+                      <a href={`tel:${cleanPhone(providerData.phone_number)}`} title="Call" className="text-blue-500 hover:text-blue-700">
+                        <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
+                      </a>
+                      <a href={`sms:${cleanPhone(providerData.phone_number)}`} title="Text" className="text-green-500 hover:text-green-700">
+                        <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
+                      </a>
+                      <a
+                        href={`https://wa.me/${toWhatsAppNumber(providerData.phone_number)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="WhatsApp"
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {providerData.show_second_phone && providerData.second_phone && (
+                  <div className="mt-4 space-y-1">
+                    <p className="text-2xl font-semibold text-black dark:text-white">
+                      {secondPhoneLabel}: {providerData.second_phone}
+                    </p>
+                    {providerData._second_phone_source && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        ({providerData._second_phone_source})
+                      </p>
+                    )}
+                    <div className="flex justify-center gap-4 mt-2">
+                      <a href={`tel:${cleanPhone(providerData.second_phone)}`} title="Call" className="text-blue-500 hover:text-blue-700">
+                        <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
+                      </a>
+                      <a href={`sms:${cleanPhone(providerData.second_phone)}`} title="Text" className="text-green-500 hover:text-green-700">
+                        <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
+                      </a>
+                      <a
+                        href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="WhatsApp"
+                        className="text-green-600 hover:text-green-800"
+                      >
+                        <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-center text-gray-500">
+                {specialty === 'Internal Medicine' && !plan
+                  ? 'Please select a healthcare plan.'
+                  : 'No provider found for this selection.'}
+              </p>
+            )}
+          </div>
         </div>
 
         {(role === 'admin' || role === 'scheduler') && debugInfo && (
