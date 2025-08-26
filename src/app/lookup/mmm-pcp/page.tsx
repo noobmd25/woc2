@@ -1,32 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import debounce from 'lodash/debounce';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-const supabase = getBrowserClient();
 
-// Added: palette for group color coding
-const GROUP_COLOR_PALETTE = [
-  'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
-  'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
-  'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
-  'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
-  'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200',
-  'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
-  'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200',
-  'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
-];
+// Force dynamic so Next does not attempt to pre-render this page at build time (needs runtime env + auth)
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default function MMMPcpLookupPage() {
+  // Move client creation inside component to avoid build-time (SSR) env checks
+  const supabase = useMemo(() => {
+    if (typeof window === 'undefined') return null as any; // safeguard
+    return getBrowserClient();
+  }, []);
+
   const [pcpName, setPcpName] = useState('');
   const [results, setResults] = useState<{ name: string; medical_group: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [sortByGroup, setSortByGroup] = useState(false);
-  const [groupColors, setGroupColors] = useState<Record<string, string>>({}); // NEW
+  const [groupColors, setGroupColors] = useState<Record<string, string>>({});
 
-  const debouncedLookup = debounce(async (name: string) => {
+  // Recreate debounced function after client ready
+  const debouncedLookup = useMemo(() => debounce(async (name: string) => {
+    if (!supabase) return;
     setLoading(true);
     const { data, error } = await supabase
       .from('mmm_medical_groups')
@@ -36,24 +35,29 @@ export default function MMMPcpLookupPage() {
 
     if (!error) setResults(data || []);
     setLoading(false);
-  }, 300);
+  }, 300), [supabase]);
 
-  // NEW: initial load of full list (blank filter) on mount
   useEffect(() => {
+    if (!supabase) return; // skip during build/SSR
     debouncedLookup('');
-    return () => {
-      debouncedLookup.cancel();
-    };
-  }, []); // run once
+    return () => { debouncedLookup.cancel(); };
+  }, [supabase, debouncedLookup]);
 
-  // NEW: assign stable colors to each unique medical_group whenever result set changes
   useEffect(() => {
     if (results.length === 0) return;
-    const unique = Array.from(new Set(results.map(r => r.medical_group))).sort((a, b) => a.localeCompare(b));
-    const mapping: Record<string, string> = {};
-    unique.forEach((g, idx) => {
-      mapping[g] = GROUP_COLOR_PALETTE[idx % GROUP_COLOR_PALETTE.length];
-    });
+    const palette = [
+      'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+      'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200',
+      'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200',
+      'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200',
+      'bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200',
+      'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200',
+      'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200',
+      'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200',
+    ];
+    const unique = Array.from(new Set(results.map(r => r.medical_group))).sort((a,b)=>a.localeCompare(b));
+    const mapping: Record<string,string> = {};
+    unique.forEach((g, idx) => { mapping[g] = palette[idx % palette.length]; });
     setGroupColors(mapping);
   }, [results]);
 
