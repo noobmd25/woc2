@@ -4,6 +4,7 @@ import "./globals.css";
 import Footer from '@/components/Footer';
 import Providers from './providers';
 import SupabaseProvider from '@/components/supabase-provider'; // unchanged path confirmation
+import '@/lib/disableConsole'; // silence console in production
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
