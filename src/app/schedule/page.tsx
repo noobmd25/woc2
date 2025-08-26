@@ -191,6 +191,7 @@ export default function SchedulePage() {
   const [plan, setPlan] = useState('');
   const role = useUserRole(); // 'admin' | 'scheduler' | 'viewer' | null
   const canEdit = role === 'admin' || role === 'scheduler';
+  const isIMWithoutPlan = specialty === 'Internal Medicine' && !plan; // NEW: gating flag
   const [isEditing, setIsEditing] = useState(false);
   // Collect pending entries to save to DB only when "Save Changes" is pressed
   const [pendingEntries, setPendingEntries] = useState<any[]>([]);
@@ -759,11 +760,13 @@ if (role !== 'admin' && role !== 'scheduler') {
           <div className="flex gap-3 mb-4">
             <button
               onClick={() => refreshCalendarVisibleRange()}
-              className="bg-gray-700 hover:bg-gray-800 text-white text-sm px-3 py-2 rounded border border-gray-600 shadow-sm flex items-center gap-2"
+              className={`bg-gray-700 hover:bg-gray-800 text-white text-sm px-3 py-2 rounded border border-gray-600 shadow-sm flex items-center gap-2 ${isIMWithoutPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isIMWithoutPlan}
             >
               🔄 <span>Refresh Calendar</span>
             </button>
           </div>
+          <div className="relative">{/* wrapper to allow overlay */}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -856,6 +859,8 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             eventClick={(clickInfo) => {
               if (!canEdit) return;
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // NEW guard
+
               const api = calendarRef.current?.getApi();
               const view = api?.view;
               if (!view) return;
@@ -921,6 +926,7 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             dateClick={(info: any) => {
               if (!canEdit) return;
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // NEW guard
               if (info.dayEl.classList.contains('fc-day-other')) {
                 info.jsEvent.preventDefault();
                 info.jsEvent.stopPropagation();
@@ -931,6 +937,22 @@ if (role !== 'admin' && role !== 'scheduler') {
               setIsEditing(false);
             }}
           />
+          {isIMWithoutPlan && (
+            <div
+              onClick={() => toast.error('Please select healthcare plan group before adding providers on call')}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md cursor-not-allowed text-center px-6 py-8 pointer-events-auto"
+              style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              role="presentation"
+            >
+              <p className="text-gray-800 dark:text-gray-100 font-semibold text-sm md:text-base mb-2">
+                Select a healthcare plan group before adding providers on call.
+              </p>
+              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                The Internal Medicine calendar is inactive until a plan is chosen.
+              </p>
+            </div>
+          )}
+          </div>
           {/* Global CSS to paint days outside current month black and unclickable */}
           <style jsx global>{`
             .fc-daygrid-day.fc-day-other {
@@ -943,10 +965,18 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         {canEdit && (
           <div className="flex justify-between items-center mt-4">
-            <button onClick={() => setShowClearModal(true)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+            <button onClick={() => {
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; }
+              setShowClearModal(true);
+            }} className={`px-4 py-2 rounded text-white ${isIMWithoutPlan ? 'bg-red-400 cursor-not-allowed opacity-60' : 'bg-red-600 hover:bg-red-700'}`}
+              disabled={isIMWithoutPlan}>
               {`Clear ${getVisibleMonthLabel()} — ${specialty === 'Internal Medicine' ? `IM · ${plan || 'Select plan'}` : specialty}`}
             </button>
-            <button onClick={() => handleSaveChanges('button')} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            <button onClick={() => {
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; }
+              handleSaveChanges('button');
+            }} className={`px-4 py-2 rounded text-white ${isIMWithoutPlan ? 'bg-green-400 cursor-not-allowed opacity-60' : 'bg-green-600 hover:bg-green-700'}`}
+              disabled={isIMWithoutPlan}>
               Save Changes
             </button>
           </div>
@@ -1405,6 +1435,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                 className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded"
                 id="save-btn"
                 onClick={async () => {
+                  if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // guard inside modal save just in case
                   const inputEl = providerInputRef.current;
                   const providerName = inputEl ? inputEl.value.trim() : '';
                   if (!providerName) {
