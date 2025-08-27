@@ -10,14 +10,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, message: 'Missing name or value' }, { status: 400 });
     }
 
-    // Log incoming Cookie header to see what cookies the browser sent with this request
-    try {
-      const incomingCookies = String(req.headers.get('cookie') ?? '');
-      console.log('[api/cookie-sync] incoming Cookie header:', incomingCookies.slice(0, 200));
-    } catch (e) {
-      // ignore
-    }
-
     // Normalize value: if it's a JSON array string, use first element (common for Supabase cookie format)
     let normalized = value;
     const safeDecode = (input: string) => {
@@ -27,7 +19,7 @@ export async function POST(req: Request) {
           const decoded = decodeURIComponent(cur);
           if (decoded === cur) break;
           cur = decoded;
-        } catch (e) {
+        } catch {
           break;
         }
       }
@@ -42,15 +34,8 @@ export async function POST(req: Request) {
           normalized = parsed[0];
         }
       }
-    } catch (e) {
+    } catch {
       // ignore parse errors
-    }
-
-    // Log (redact value length) for debugging
-    try {
-      console.log('[api/cookie-sync] setting cookie', { name, valueLength: String(normalized)?.length ?? 0 });
-    } catch (e) {
-      // ignore
     }
 
     const res = NextResponse.json({
@@ -72,6 +57,7 @@ export async function POST(req: Request) {
 
     return res;
   } catch (e: any) {
+    // Keep a single error log for observability. Client can surface toast based on response.
     console.error('[api/cookie-sync] error', e);
     return NextResponse.json({ ok: false, message: e?.message ?? String(e) }, { status: 500 });
   }

@@ -33,7 +33,6 @@ export default function OnCallViewer() {
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('[OnCallViewer] Error fetching specialties:', error);
         setSpecialties([]);
         setSpecialtyFetchMeta({ error: error.message, count: 0, ts: Date.now() });
         toast.error('Specialties fetch failed: ' + error.message);
@@ -49,7 +48,7 @@ export default function OnCallViewer() {
     } finally {
       setSpecialtyLoading(false);
     }
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     fetchSpecialties();
@@ -105,8 +104,7 @@ export default function OnCallViewer() {
 
   const debugRecord = () => {
     if (providerData) {
-      console.debug('[OnCallViewer] record:', providerData);
-      toast.success('Opened console: on‑call record');
+      toast.success('Record loaded');
     }
   };
 
@@ -173,7 +171,6 @@ export default function OnCallViewer() {
 
       const { data: scheduleData, error: scheduleError } = await query;
       if (scheduleError) {
-        console.error('Schedules fetch error:', scheduleError);
         toast.error('Error fetching schedule: ' + scheduleError.message);
         setProviderData(null);
         return;
@@ -206,14 +203,11 @@ export default function OnCallViewer() {
               ? [`${specialty} Residency`]
               : [`${specialty} PA Phone`, `${specialty} Residency`];
 
-        const { data: secondPhoneList, error: secondErr } = await supabase
+        const { data: secondPhoneList } = await supabase
           .from('directory')
           .select('provider_name, phone_number')
           .in('provider_name', lookupOrder);
 
-        if (secondErr) {
-          console.error('Second phone fetch error:', secondErr);
-        }
         if (Array.isArray(secondPhoneList) && secondPhoneList.length > 0) {
           const foundByOrder = lookupOrder
             .map(name => secondPhoneList.find(r => r.provider_name === name && r.phone_number))
@@ -298,7 +292,6 @@ export default function OnCallViewer() {
                   <button
                     onClick={() => {
                       toast(JSON.stringify({ meta: specialtyFetchMeta }, null, 2));
-                      console.debug('[OnCallViewer] specialty meta', specialtyFetchMeta);
                     }}
                     className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
                   >

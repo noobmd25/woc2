@@ -6,11 +6,9 @@ import Header from '@/components/Header';
 import dynamic from 'next/dynamic';
 import { getBrowserClient } from '@/lib/supabase/client';
 
-const PAGE_DEBUG = true;
-
 function LogWhenMounted({ label }: { label: string }) {
   React.useEffect(() => {
-    if (PAGE_DEBUG) console.log(`[AdminPage] mount:${label}`);
+    // Logging removed
   }, []);
   return null;
 }
@@ -61,10 +59,6 @@ function PageContent() {
   const initedFromURLRef = React.useRef(false);
   const lastQSRef = React.useRef<string | null>(null);
 
-  React.useEffect(() => {
-    if (PAGE_DEBUG) console.log('[AdminPage] activeTab', activeTab);
-  }, [activeTab]);
-
   const [counts, setCounts] = React.useState({
     pendingAccess: 0,
     integrityIssues: 3,
@@ -86,16 +80,15 @@ function PageContent() {
           .eq('status', 'pending');
         const cnt = typeof (res.count) === 'number' ? res.count : 0;
         if (mounted) setCounts((c) => ({ ...c, pendingAccess: cnt }));
-      } catch (e) {
-        // ignore errors for now
-        console.error('[AdminPage] fetchPending count failed', e);
+      } catch {
+        // ignore errors (non-critical)
       }
     };
 
     fetchPending();
     const id = setInterval(fetchPending, 10000); // refresh every 10s
     return () => { mounted = false; clearInterval(id); };
-  }, []);
+  }, [supabase]);
 
   // Helper to validate a tab value
   const isValidTab = (t: string | null): t is TabKey => !!t && ['access','integrity','errors','audit','announcements','usage'].includes(t);
@@ -108,10 +101,8 @@ function PageContent() {
     if (isValidTab(t)) {
       if (t === 'access' && role !== 'admin') {
         setActiveTab('integrity');
-        if (PAGE_DEBUG) console.log('[AdminPage] non-admin user tried to access access tab, defaulting to integrity');
       } else {
         setActiveTab(t);
-        if (PAGE_DEBUG) console.log('[AdminPage] URL -> activeTab (init)', t);
       }
     } else {
       const defaultTab = role === 'admin' ? 'access' : 'integrity';
@@ -121,11 +112,9 @@ function PageContent() {
       const currentQS = typeof window !== 'undefined' ? window.location.search.slice(1) : searchParams.toString();
       if (currentQS !== newQS && lastQSRef.current !== newQS) {
         const newURL = `${pathname}?${newQS}`;
-        if (PAGE_DEBUG) console.log('[AdminPage] replace(init)', { origin: typeof window !== 'undefined' ? window.location.origin : '(ssr)', newURL });
         router.replace(newURL, { scroll: false });
         lastQSRef.current = newQS;
       }
-      if (PAGE_DEBUG) console.log('[AdminPage] URL missing/invalid tab, setting default');
       setActiveTab(defaultTab);
     }
     initedFromURLRef.current = true;
@@ -150,7 +139,6 @@ function PageContent() {
       const currentQS2 = typeof window !== 'undefined' ? window.location.search.slice(1) : searchParams.toString();
       if (currentQS2 !== newQS2 && lastQSRef.current !== newQS2) {
         const newURL2 = `${pathname}?${newQS2}`;
-        if (PAGE_DEBUG) console.log('[AdminPage] replace(write)', { origin: typeof window !== 'undefined' ? window.location.origin : '(ssr)', newURL: newURL2, activeTab });
         router.replace(newURL2, { scroll: false });
         lastQSRef.current = newQS2;
       }

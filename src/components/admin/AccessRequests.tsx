@@ -49,16 +49,13 @@ export default function AccessRequests() {
       try {
         const sessRes = await supabase.auth.getSession();
         const userRes = await supabase.auth.getUser();
-        console.debug('[AccessRequests] supabase.auth.getSession()', sessRes?.data ?? sessRes);
-        console.debug('[AccessRequests] supabase.auth.getUser()', userRes?.data ?? userRes);
         if (!mounted) return;
         if (!sessRes?.data?.session) {
-          // no session in browser — surface user-friendly error
           setError('No active session in browser. Please sign in.');
           addToast('No active session — please sign in', 'error');
         }
-      } catch (e) {
-        console.error('[AccessRequests] debug getSession/getUser error', e);
+      } catch {
+        // silent
       }
     })();
     return () => { mounted = false; };
@@ -176,7 +173,6 @@ export default function AccessRequests() {
             if (p && p.id) map[p.id] = { full_name: (p as any).full_name ?? null };
           }
           setProfilesById(map);
-          console.log('[AccessRequests] name map', map);
         } else {
           setProfilesById({});
         }
@@ -205,19 +201,16 @@ export default function AccessRequests() {
     async ({ page: p = 1, search = '', sortBy: sBy = sortBy, sortDir: sDir = sortDir, cursor = null } : { page?: number; search?: string; sortBy?: typeof sortBy; sortDir?: typeof sortDir; cursor?: string | null } = {}) => {
       setUsersLoading(true);
       try {
-        // Ensure the current client user is an approved admin before calling the server API.
-        // This gives faster, clearer feedback if the signed-in user lacks admin privileges.
         try {
           await ensureAdminOrThrow();
         } catch (authErr: any) {
           const msg = authErr?.message ?? 'Not authorized';
-          console.warn('[AccessRequests] loadUsers blocked by client auth:', msg);
           setUsers([]);
-          setTotalUsers(null);
-          setError(msg);
-          addToast(msg, 'error');
-          setUsersLoading(false);
-          return;
+            setTotalUsers(null);
+            setError(msg);
+            addToast(msg, 'error');
+            setUsersLoading(false);
+            return;
         }
 
         const params = new URLSearchParams();
@@ -271,7 +264,6 @@ export default function AccessRequests() {
           });
         }
       } catch (e: any) {
-        console.error('[AccessRequests] loadUsers', e);
         setUsers([]);
         setTotalUsers(null);
         addToast('Failed to load users: ' + (e?.message ?? ''), 'error');
@@ -280,7 +272,7 @@ export default function AccessRequests() {
         setUsersLoading(false);
       }
     },
-    [pageSize, sortBy, sortDir]
+    [pageSize, sortBy, sortDir] // eslint-disable-line react-hooks/exhaustive-deps (intentional: ensureAdminOrThrow/addToast stable enough for our usage)
   );
 
   React.useEffect(() => {
@@ -478,39 +470,24 @@ export default function AccessRequests() {
   // ensure current user is an approved admin (client-side guard)
   const ensureAdminOrThrow = async () => {
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser();
-      if (userErr) {
-        console.warn('[ensureAdminOrThrow] supabase.auth.getUser error', userErr);
-        throw userErr;
-      }
+      const { data: userRes } = await supabase.auth.getUser();
       const userId = userRes?.user?.id;
-      console.debug('[ensureAdminOrThrow] userId', userId);
       if (!userId) throw new Error('Not authenticated');
-
-      const { data: profile, error: profErr } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('role, status')
         .eq('id', userId)
         .single();
-
-      if (profErr) {
-        console.warn('[ensureAdminOrThrow] profile lookup error', profErr);
-        throw profErr;
-      }
-      console.debug('[ensureAdminOrThrow] profile', profile);
       if (!profile || profile.role !== 'admin' || profile.status !== 'approved') {
         throw new Error('Forbidden — admin only');
       }
-
       return { userId, profile };
     } catch (e: any) {
-      // normalize error for callers
-      const msg = e?.message ?? String(e);
-      console.warn('[ensureAdminOrThrow] failing with', msg);
-      throw new Error(msg);
+      throw new Error(e?.message ?? String(e));
     }
   };
 
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
   return (
     <div className="space-y-4" id="access">
       <h2 className="text-xl font-semibold">Access Requests & Approvals</h2>
@@ -518,82 +495,48 @@ export default function AccessRequests() {
         Approve or deny pending role requests. Approvals update the user’s profile and email them a password setup link.
       </p>
 
-      {/* Debug panel: client cookies and server debug-session */}
-      <div className="rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <div className="font-medium text-sm">Debug: Session / Cookies</div>
-          <button
-            onClick={async () => {
-              try {
-                const c = typeof document !== 'undefined' ? document.cookie : '(no document)';
-                setError(null);
-                addToast('Copied document.cookie to console', 'info');
-                console.log('[debug] document.cookie ->', c);
-              } catch (e) {
-                console.error(e);
-              }
-            }}
-            className="px-2 py-1 rounded border text-xs"
-          >Log document.cookie</button>
-          <button
-            onClick={async () => {
-              try {
-                const s = await supabase.auth.getSession();
-                console.log('[debug] client supabase.auth.getSession()', s);
-                addToast('See console for client session', 'info');
-              } catch (e) { console.error(e); addToast('Failed to get client session', 'error'); }
-            }}
-            className="px-2 py-1 rounded border text-xs"
-          >Client getSession</button>
-          <button
-            onClick={async () => {
-              try {
-                setError(null);
-                const res = await fetch('/api/debug-session', { cache: 'no-store', credentials: 'include' });
-                const text = await res.text();
-                console.log('[debug] /api/debug-session', { status: res.status, body: text });
-                if (!res.ok) addToast('/api/debug-session returned ' + res.status, 'error');
-                else addToast('/api/debug-session OK — see console', 'info');
-              } catch (e) { console.error(e); addToast('Failed to call /api/debug-session', 'error'); }
-            }}
-            className="px-2 py-1 rounded border text-xs"
-          >Call /api/debug-session</button>
-          <button
-            onClick={async () => {
-              try {
-                // Find the supabase auth token cookie (name starts with sb-)
-                const dc = typeof document !== 'undefined' ? document.cookie : '';
-                const match = dc.match(/(?:^|; )([^=]+)=([^;]+)/g);
-                const sbCookie = (match || []).map(s => s.trim()).find(s => s.startsWith('sb-'));
-                if (!sbCookie) {
-                  addToast('No sb- cookie found in document.cookie', 'error');
-                  return;
-                }
-                const parts = sbCookie.split('=');
-                const name = parts[0];
-                const value = decodeURIComponent(parts.slice(1).join('='));
-
-                // Post to cookie-sync to set server cookie
-                const r = await fetch('/api/cookie-sync', {
-                  method: 'POST',
-                  credentials: 'include',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ name, value }),
-                });
-                const j = await r.json().catch(() => null);
-                console.log('[debug] cookie-sync', { status: r.status, body: j });
-                if (!r.ok) addToast('/api/cookie-sync failed ' + r.status, 'error');
-                else addToast('/api/cookie-sync OK — server cookie set', 'info');
-              } catch (e) {
-                console.error(e);
-                addToast('cookie-sync failed', 'error');
-              }
-            }}
-            className="px-2 py-1 rounded border text-xs"
-          >Sync cookie to server</button>
+      {isLocalhost && (
+        <div className="rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3">
+          <div className="font-medium text-sm mb-2">Local Debug Tools</div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button
+              onClick={async () => {
+                try {
+                  const s = await supabase.auth.getSession();
+                  addToast('Session fetch (see dev tools state)', 'info');
+                } catch { addToast('Session fetch failed', 'error'); }
+              }}
+              className="px-2 py-1 rounded border"
+            >Check Session</button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/debug-session', { cache: 'no-store', credentials: 'include' });
+                  addToast(`/api/debug-session ${res.ok ? 'OK' : res.status}`, res.ok ? 'info' : 'error');
+                } catch { addToast('debug-session failed', 'error'); }
+              }}
+              className="px-2 py-1 rounded border"
+            >Server Session</button>
+            <button
+              onClick={async () => {
+                try {
+                  const dc = typeof document !== 'undefined' ? document.cookie : '';
+                  const match = dc.match(/(?:^|; )([^=]+)=([^;]+)/g);
+                  const sbCookie = (match || []).map(s => s.trim()).find(s => s.startsWith('sb-'));
+                  if (!sbCookie) { addToast('No sb- cookie found', 'error'); return; }
+                  const parts = sbCookie.split('=');
+                  const name = parts[0];
+                  const value = decodeURIComponent(parts.slice(1).join('='));
+                  const r = await fetch('/api/cookie-sync', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, value }) });
+                  addToast(`cookie-sync ${r.ok ? 'OK' : r.status}`, r.ok ? 'info' : 'error');
+                } catch { addToast('cookie-sync failed', 'error'); }
+              }}
+              className="px-2 py-1 rounded border"
+            >Sync Cookie</button>
+          </div>
+          <div className="mt-2 text-xs text-gray-500">Visible only on localhost.</div>
         </div>
-        <div className="text-xs text-gray-500">Open browser console and server terminal to inspect outputs.</div>
-      </div>
+      )}
 
       {error && (
         <div className="rounded border border-red-300 bg-red-50 text-red-700 px-3 py-2 text-sm">

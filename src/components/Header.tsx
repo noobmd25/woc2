@@ -15,12 +15,10 @@ export default function Header() {
   const role = useUserRole();
 
 const handleLogout = async () => {
-  console.log('[logout] initiated; signingOut=', signingOut);
   if (signingOut) return;
   setSigningOut(true);
 
   const clearSupabaseAuthStorage = () => {
-    console.log('[logout] clearing localStorage/cookies');
     try {
       const keys: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -51,7 +49,7 @@ const handleLogout = async () => {
   };
 
   const trySignOut = async () => {
-    // @ts-ignore allow optional scope
+    // @ts-ignore optional scope
     return withTimeout(
       supabase.auth.signOut({ scope: 'global' }).catch(async () => {
         return supabase.auth.signOut();
@@ -61,42 +59,23 @@ const handleLogout = async () => {
   };
 
   try {
-    console.log('[logout] calling signOut…');
     await trySignOut();
-    console.log('[logout] signOut resolved');
-
-    console.log('[logout] checking session…');
     const sessionRes = await withTimeout(supabase.auth.getSession(), 'supabase.auth.getSession()');
     const session = (sessionRes as any)?.data?.session;
-    console.log('[logout] session after signOut =', session);
-
     if (session?.user) {
-      console.log('[logout] session still present; retry signOut…');
       await trySignOut();
     }
-
     toast.success('Signed out');
   } catch (e: any) {
-    console.warn('[logout] error:', e?.message || e);
     toast.error('Could not complete sign out. Clearing session…');
   } finally {
-    console.log('[logout] finalize: clearing storage and redirecting');
     clearSupabaseAuthStorage();
     setMenuOpen(false);
     setSigningOut(false);
-
-    try {
-      console.log('[logout] router.replace(/)');
-      router.replace('/');
-    } catch (e) {
-      console.warn('[logout] replace failed, will hard navigate', e);
-    }
+    try { router.replace('/'); } catch {}
     if (typeof window !== 'undefined') {
-      // Ensure we land on the same-origin home without prefetching
       setTimeout(() => {
-        if (window.location.pathname !== '/') {
-          window.location.assign('/');
-        }
+        if (window.location.pathname !== '/') window.location.assign('/');
       }, 50);
     }
   }

@@ -69,28 +69,21 @@ export default function DirectoryPage() {
   const role = useUserRole();
 
   const fetchSpecialties = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('specialties')
       .select('id, name')
       .order('name');
-    if (error) {
-      console.error('Error fetching specialties table:', error);
-      return;
-    }
     setAllSpecialties(data || []);
   };
 
   useEffect(() => {
-    console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log("Supabase Key:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
     const fetchProviders = async () => {
-      const { data, error } = await supabase.from('directory').select('*');
-      if (error) console.error("Supabase fetch error:", error);
+      const { data } = await supabase.from('directory').select('*');
       if (data) setProviders(data);
     };
     fetchProviders();
     fetchSpecialties();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const lowerSearch = search.toLowerCase();
@@ -132,8 +125,7 @@ export default function DirectoryPage() {
       })
       .eq('id', editingProvider.id);
     if (error) {
-      console.error('Error updating provider:', error);
-      return;
+      return; // silently fail (toast could be added)
     }
     setEditOpen(false);
     setEditingProvider(null);
@@ -147,14 +139,13 @@ export default function DirectoryPage() {
   const handleAddProvider = async (e: React.FormEvent) => {
     e.preventDefault();
     if (role !== 'admin') return;
-    const { data, error } = await supabase.from('directory').insert({
+    const { error } = await supabase.from('directory').insert({
       provider_name: newName,
       specialty: newSpecialty,
       phone_number: newPhone,
     });
     if (error) {
-      console.error('Error adding provider:', error);
-      return;
+      return; // silently fail
     }
     setNewName('');
     setNewSpecialty('');
@@ -173,11 +164,9 @@ export default function DirectoryPage() {
       .from('specialties')
       .insert({ name });
     if (error) {
-      console.error('Error adding specialty:', error);
       return;
     }
     setNewSpecName('');
-    // Refresh specialties from server to keep list in sync
     await fetchSpecialties();
   };
 
@@ -197,25 +186,21 @@ export default function DirectoryPage() {
     const newName = specEditName.trim();
     if (!newName || newName === spec.name) { setEditingSpecId(null); return; }
 
-    // 1) Update the specialties table
     const { error: err1 } = await supabase
       .from('specialties')
       .update({ name: newName })
       .eq('id', spec.id);
-    if (err1) { console.error('Error updating specialty:', err1); return; }
+    if (err1) { setEditingSpecId(null); return; }
 
-    // 2) Propagate rename to directory entries that used the old name
     const { error: err2 } = await supabase
       .from('directory')
       .update({ specialty: newName })
       .eq('specialty', spec.name);
-    if (err2) { console.error('Error updating directory specialties:', err2); }
+    if (err2) { /* ignore */ }
 
     setEditingSpecId(null);
     setSpecEditName('');
     await fetchSpecialties();
-
-    // Optionally refresh providers so the visible list reflects updates
     const { data: updatedProviders } = await supabase.from('directory').select('*');
     setProviders(updatedProviders || []);
   };
@@ -223,27 +208,23 @@ export default function DirectoryPage() {
   const handleDeleteSpecialty = async (spec: Specialty) => {
     if (role !== 'admin') return;
 
-    // Clear the specialty field on existing providers that reference this specialty
     const { error: err1 } = await supabase
       .from('directory')
       .update({ specialty: '' })
       .eq('specialty', spec.name);
-    if (err1) { console.error('Error clearing specialty on providers:', err1); return; }
+    if (err1) { return; }
 
-    // Delete from specialties table
     const { error: err2 } = await supabase
       .from('specialties')
       .delete()
       .eq('id', spec.id);
-    if (err2) { console.error('Error deleting specialty:', err2); return; }
+    if (err2) { return; }
 
-    // Refresh lists
     await fetchSpecialties();
     const { data: updatedProviders } = await supabase.from('directory').select('*');
     setProviders(updatedProviders || []);
   };
 
-  // Directory management handlers
   const handleDirectoryEdit = (provider: Provider) => {
     setEditingDirectoryId(provider.id);
     setDirEditName(provider.provider_name);
@@ -262,7 +243,6 @@ export default function DirectoryPage() {
       })
       .eq('id', providerId);
     if (error) {
-      console.error('Error updating provider:', error);
       return;
     }
     setEditingDirectoryId(null);
@@ -287,10 +267,8 @@ export default function DirectoryPage() {
       .delete()
       .eq('id', providerId);
     if (error) {
-      console.error('Error deleting provider:', error);
       return;
     }
-    // Refresh providers list
     const { data: updated } = await supabase.from('directory').select('*');
     setProviders(updated || []);
   };

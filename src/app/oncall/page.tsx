@@ -4,7 +4,6 @@ import OnCallViewer from '@/components/OnCallViewer';
 
 export default async function OnCallPage() {
   const { user, profile } = await getUserAndProfile();
-  console.log('[OnCall SSR] user:', user, 'profile:', profile);
 
   if (!user) {
     redirect('/?showSignIn=true');

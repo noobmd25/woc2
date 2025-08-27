@@ -8,16 +8,8 @@ export async function GET(req: Request) {
 
     // Authenticate and authorize (admin only)
     const { data: { session } } = await supabase.auth.getSession();
-    console.debug('[api/users] session from supabase.auth.getSession()', session);
     if (!session || !session.user) {
-      console.warn('[api/users] no session or user on request');
       const res = new NextResponse('Unauthorized', { status: 401 });
-      // helpful debug: show which cookies arrived
-      try {
-        const cookieStore = await (await import('next/headers')).cookies();
-        const allCookies = cookieStore.getAll().map(c => `${c.name}:${String(c.value).slice(0,40)}`).join('; ');
-        console.debug('[api/users] cookies present on request:', allCookies);
-      } catch (e) {}
       commit(res);
       return res;
     }
@@ -27,10 +19,8 @@ export async function GET(req: Request) {
       .select('role')
       .eq('id', session.user.id)
       .single();
-    console.debug('[api/users] profile lookup result', profile);
 
     if (!profile || profile.role !== 'admin') {
-      console.warn('[api/users] access denied — not admin', { profile });
       const res = new NextResponse('Forbidden', { status: 403 });
       commit(res);
       return res;
@@ -45,7 +35,6 @@ export async function GET(req: Request) {
     const sortDir = (qp.get('sortDir') ?? 'asc') === 'asc' ? 'asc' : 'desc';
     const search = (qp.get('search') ?? '').trim();
 
-    // allowed sort columns mapping to actual DB columns
     const allowedSort: Record<string, string> = {
       full_name: 'full_name',
       email: 'email',
@@ -57,28 +46,23 @@ export async function GET(req: Request) {
 
     const selectCols = 'id, email, full_name, role, status, created_at, updated_at';
 
-    // If cursor provided, use simple id-based cursor semantics: cursor is base64(JSON.stringify({ lastId }))
     if (cursor) {
       let lastId: string | null = null;
       try {
         const decoded = Buffer.from(cursor, 'base64').toString('utf8');
         const parsed = JSON.parse(decoded);
         lastId = parsed?.lastId ?? null;
-      } catch (e) {
-        // ignore decode errors - treat as no cursor
+      } catch {
         lastId = null;
       }
 
-      // Build query
       let q = supabase.from('profiles').select(selectCols).order(sortBy, { ascending: sortDir === 'asc' }).limit(limit + 1);
 
-      // apply search
       if (search) {
         const like = `%${search.replace(/%/g, '\\%')}%`;
         q = q.or(`full_name.ilike.${like},email.ilike.${like}`);
       }
 
-      // If we have a lastId, apply id-based cursor filter (best-effort)
       if (lastId) {
         if (sortDir === 'asc') {
           q = q.gt('id', lastId);
@@ -99,11 +83,9 @@ export async function GET(req: Request) {
       let nextCursor: string | null = null;
       if (rows.length > limit) {
         const nextRow = rows[limit];
-        // encode next cursor as lastId from nextRow (we return first `limit` rows)
         nextCursor = Buffer.from(JSON.stringify({ lastId: nextRow.id })).toString('base64');
       }
 
-      // return only the requested page rows
       const pageRows = rows.slice(0, limit);
 
       const res = NextResponse.json({ rows: pageRows, nextCursor, count: null });
@@ -111,7 +93,6 @@ export async function GET(req: Request) {
       return res;
     }
 
-    // Offset pagination (page param)
     const offset = (page - 1) * limit;
 
     let base = supabase.from('profiles').select(selectCols, { count: 'exact' }).order(sortBy, { ascending: sortDir === 'asc' }).range(offset, offset + limit - 1);
