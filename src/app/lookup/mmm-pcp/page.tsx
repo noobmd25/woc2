@@ -7,7 +7,6 @@ import Header from '@/components/Header';
 
 // Force dynamic so Next does not attempt to pre-render this page at build time (needs runtime env + auth)
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 export default function MMMPcpLookupPage() {
   // Move client creation inside component to avoid build-time (SSR) env checks

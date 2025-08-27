@@ -6,7 +6,6 @@ import type { Database } from '@/types/database';
 export async function createClient() {
   const cookieStore = await cookies();
   const cookieGetter = () => cookieStore.getAll().map(c => ({ name: c.name, value: String(c.value) }));
-  let cookieSetQueue: { name: string; value: string; options: any }[] = [];
 
   const client = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,14 +13,13 @@ export async function createClient() {
     {
       cookies: {
         getAll: cookieGetter,
-        setAll(cookiesToSet) {
-          cookieSetQueue = cookiesToSet as any;
+        setAll(_cookiesToSet) {
+          // intentionally no-op for simple server usage
         },
       },
     }
   );
 
-  // Return client (caller can ignore cookieSetQueue; middleware/route handlers can manually set if needed)
   return client;
 }
 

@@ -21,16 +21,6 @@ type RoleRequest = {
   updated_at: string;
 };
 
-type PendingProfile = {
-  id: string;
-  email: string | null;
-  provider_type: string | null;
-  role: 'viewer' | 'scheduler' | 'admin' | null;
-  status: 'pending' | 'approved' | 'denied' | 'revoked' | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
 export default function AccessRequests() {
   const [rows, setRows] = React.useState<RoleRequest[] | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -94,7 +84,6 @@ export default function AccessRequests() {
   // Cursor pagination state (server returns nextCursor). Keep a cursor history to enable Prev navigation.
   const [cursors, setCursors] = React.useState<(string | null)[]>([null]); // index 0 = page 1
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
-  const [cursorMode, setCursorMode] = React.useState<boolean>(true);
 
   // --- New: simple toast notifications ---
   type Toast = { id: string; message: string; kind?: 'info' | 'error' };
@@ -234,10 +223,8 @@ export default function AccessRequests() {
 
         if (cursor) {
           params.set('cursor', cursor);
-          setCursorMode(true);
         } else {
           params.set('page', String(p));
-          setCursorMode(false);
         }
 
         const res = await fetch(`/api/users?${params.toString()}`, { cache: 'no-store', credentials: 'include' });
@@ -456,7 +443,7 @@ export default function AccessRequests() {
       setError(null);
 
       // Prefer server-side RPC (security definer) to bypass RLS
-      const { data, error } = await supabase.rpc('backfill_missing_role_requests');
+      const { error } = await supabase.rpc('backfill_missing_role_requests');
       if (error) {
         // Surface a clear action item if the function isn't installed
         setError(
@@ -492,7 +479,7 @@ export default function AccessRequests() {
             <button
               onClick={async () => {
                 try {
-                  const s = await supabase.auth.getSession();
+                  await supabase.auth.getSession();
                   addToast('Session fetch (see dev tools state)', 'info');
                 } catch { addToast('Session fetch failed', 'error'); }
               }}
@@ -512,7 +499,7 @@ export default function AccessRequests() {
                 try {
                   const dc = typeof document !== 'undefined' ? document.cookie : '';
                   const match = dc.match(/(?:^|; )([^=]+)=([^;]+)/g);
-                  const sbCookie = (match || []).map(s => s.trim()).find(s => s.startsWith('sb-'));
+                  const sbCookie = (match || []).map(str => str.trim()).find(str => str.startsWith('sb-')); // renamed s->str to avoid unused var
                   if (!sbCookie) { addToast('No sb- cookie found', 'error'); return; }
                   const parts = sbCookie.split('=');
                   const name = parts[0];

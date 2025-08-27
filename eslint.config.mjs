@@ -2,11 +2,10 @@ import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import nextPlugin from "@next/eslint-plugin-next";
 
-// Flat ESLint config (ESLint v9). Removed FlatCompat legacy extends causing plugin array warning.
-// Combines Next core-web-vitals + TS recommended adjustments.
+// Flat ESLint config (ESLint v9) manually wiring Next.js plugin to avoid rushstack patch issue.
 export default [
   {
-    files: ["**/*.{js,jsx,ts,tsx}"],
+    files: ["**/*.{js,mjs,cjs,jsx,ts,tsx}"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -16,13 +15,14 @@ export default [
       },
     },
     plugins: {
-      "@typescript-eslint": tseslint,
       "@next/next": nextPlugin,
+      "@typescript-eslint": tseslint,
+    },
+    settings: {
+      next: { rootDir: ["."] },
     },
     rules: {
-      // Next.js core web vitals rules
       ...nextPlugin.configs["core-web-vitals"].rules,
-      // Custom TypeScript adjustments
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/ban-ts-comment": "off",

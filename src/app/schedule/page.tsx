@@ -2,7 +2,6 @@
 
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { useState, useEffect, useRef, useCallback, JSX } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
@@ -10,9 +9,10 @@ import LayoutShell from '@/components/LayoutShell';
 import { toast } from 'react-hot-toast';
 const supabase = getBrowserClient();
 import useUserRole from '@/app/hooks/useUserRole';
-import { EventClickArg, EventContentArg } from '@fullcalendar/core';
+import { EventContentArg } from '@fullcalendar/core';
 import React from 'react';
-import dayjs from 'dayjs';
+// Removed unused dayjs import
+// import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 // --- Provider search helpers: rank closest names ---
@@ -1273,13 +1273,6 @@ if (role !== 'admin' && role !== 'scheduler') {
                       };
                     }
 
-                    // Type-safe function for day cell className (for possible future use)
-                    const dayStyles = (date: Date): string => {
-                      // Example: highlight today, weekends, etc.
-                      // For now, return empty string (customize as needed)
-                      return '';
-                    };
-
                     for (let i = 0; i < firstDayOfMonth; i++) {
                       calendarCells.push(<div key={`empty-${i}`} className="p-1" />);
                     }
@@ -1322,7 +1315,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                                   e =>
                                     !(
                                       e.date === dateStr &&
-                                      e.title === `Dr. ${getProviderInputValue()}`
+                                      e.title === `Dr. ${modalProvider.provider_name}`
                                     )
                                 )
                               );
@@ -1330,7 +1323,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                                 ...prev,
                                 {
                                   date: dateStr,
-                                  provider: `Dr. ${getProviderInputValue()}`,
+                                  provider: `Dr. ${modalProvider.provider_name}`,
                                 },
                               ]);
                               setSelectedAdditionalDays(prev =>
@@ -1457,7 +1450,6 @@ if (role !== 'admin' && role !== 'scheduler') {
 
                   const {
                     data: { user },
-                    error: userError
                   } = await supabase.auth.getUser();
 
                   if (!user) {
@@ -1600,10 +1592,7 @@ if (role !== 'admin' && role !== 'scheduler') {
 }
 
 // Dummy MiniCalendar component for demonstration. Replace with your actual MiniCalendar import.
-function MiniCalendar({ initialDate }: { initialDate: Date }) {
-  // Use the current month based on initialDate, not next month
-  const currentMonth = dayjs(initialDate);
-  // Use currentMonth as the reference for generating the mini calendar grid
-  // This is a placeholder. Replace with your actual MiniCalendar implementation or import.
+function MiniCalendar({ initialDate: _initialDate }: { initialDate: Date }) {
+  // Removed unused currentMonth variable
   return null;
 }
