@@ -48,7 +48,6 @@ export default function AccessRequests() {
     (async () => {
       try {
         const sessRes = await supabase.auth.getSession();
-        const userRes = await supabase.auth.getUser();
         if (!mounted) return;
         if (!sessRes?.data?.session) {
           setError('No active session in browser. Please sign in.');
@@ -100,18 +99,32 @@ export default function AccessRequests() {
   // --- New: simple toast notifications ---
   type Toast = { id: string; message: string; kind?: 'info' | 'error' };
   const [toasts, setToasts] = React.useState<Toast[]>([]);
-  const addToast = (message: string, kind: Toast['kind'] = 'info', ttl = 6000) => {
+  const addToast = React.useCallback((message: string, kind: Toast['kind'] = 'info', ttl = 6000) => {
     const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
     const t = { id, message, kind } as Toast;
     setToasts((s) => [t, ...s]);
     setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), ttl);
-  };
+  }, []);
 
-  // debounce search
-  React.useEffect(() => {
-    const h = setTimeout(() => setDebouncedSearchQ(searchQ.trim()), 400);
-    return () => clearTimeout(h);
-  }, [searchQ]);
+  // ensure current user is an approved admin (client-side guard)
+  const ensureAdminOrThrow = React.useCallback(async () => {
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, status')
+        .eq('id', userId)
+        .single();
+      if (!profile || profile.role !== 'admin' || profile.status !== 'approved') {
+        throw new Error('Forbidden — admin only');
+      }
+      return { userId, profile };
+    } catch (e: any) {
+      throw new Error(e?.message ?? String(e));
+    }
+  }, []);
 
   const computeMissingCount = React.useCallback(async () => {
     // Try server-side counter first (security definer). If it doesn't exist, fall back to client calc.
@@ -206,11 +219,11 @@ export default function AccessRequests() {
         } catch (authErr: any) {
           const msg = authErr?.message ?? 'Not authorized';
           setUsers([]);
-            setTotalUsers(null);
-            setError(msg);
-            addToast(msg, 'error');
-            setUsersLoading(false);
-            return;
+          setTotalUsers(null);
+          setError(msg);
+          addToast(msg, 'error');
+          setUsersLoading(false);
+          return;
         }
 
         const params = new URLSearchParams();
@@ -230,7 +243,6 @@ export default function AccessRequests() {
         const res = await fetch(`/api/users?${params.toString()}`, { cache: 'no-store', credentials: 'include' });
         if (!res.ok) {
           const txt = await res.text();
-          // handle auth/forbidden explicitly
           if (res.status === 401) {
             setUsers([]);
             setTotalUsers(null);
@@ -250,12 +262,10 @@ export default function AccessRequests() {
           throw new Error(txt || `Server returned ${res.status}`);
         }
         const json = await res.json();
-        // expected: { rows: ProfileRow[], nextCursor?: string | null, count?: number | null }
         setUsers((json.rows ?? []) as ProfileRow[]);
         setNextCursor(json.nextCursor ?? null);
         setTotalUsers(typeof json.count === 'number' ? json.count : null);
 
-        // maintain cursors for cursor-mode navigation
         if (cursor) {
           setCursors((cur) => {
             const copy = cur.slice(0, p - 1);
@@ -272,7 +282,7 @@ export default function AccessRequests() {
         setUsersLoading(false);
       }
     },
-    [pageSize, sortBy, sortDir] // eslint-disable-line react-hooks/exhaustive-deps (intentional: ensureAdminOrThrow/addToast stable enough for our usage)
+    [pageSize, sortBy, sortDir, ensureAdminOrThrow, addToast]
   );
 
   React.useEffect(() => {
@@ -464,26 +474,6 @@ export default function AccessRequests() {
       addToast(e?.message ?? 'Backfill failed', 'error');
     } finally {
       setBackfilling(false);
-    }
-  };
-
-  // ensure current user is an approved admin (client-side guard)
-  const ensureAdminOrThrow = async () => {
-    try {
-      const { data: userRes } = await supabase.auth.getUser();
-      const userId = userRes?.user?.id;
-      if (!userId) throw new Error('Not authenticated');
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, status')
-        .eq('id', userId)
-        .single();
-      if (!profile || profile.role !== 'admin' || profile.status !== 'approved') {
-        throw new Error('Forbidden — admin only');
-      }
-      return { userId, profile };
-    } catch (e: any) {
-      throw new Error(e?.message ?? String(e));
     }
   };
 

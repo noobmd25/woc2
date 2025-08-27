@@ -6,19 +6,13 @@ import Header from '@/components/Header';
 import dynamic from 'next/dynamic';
 import { getBrowserClient } from '@/lib/supabase/client';
 
-function LogWhenMounted({ label }: { label: string }) {
-  React.useEffect(() => {
-    // Logging removed
-  }, []);
-  return null;
-}
-
 const AccessRequests = dynamic(() => import('@/components/admin/AccessRequests'), {
   ssr: false,
   loading: () => <div className="p-4 text-gray-600">Loading access requests…</div>,
 });
 
- type TabKey = 'access' | 'integrity' | 'errors' | 'audit' | 'announcements' | 'usage';
+// Type for tab keys
+type TabKey = 'access' | 'integrity' | 'errors' | 'audit' | 'announcements' | 'usage';
 
 function PageContent() {
   const supabase = getBrowserClient();
@@ -33,7 +27,6 @@ function PageContent() {
         setRole(undefined);
         return;
       }
-      // Prefer profiles.role from DB
       const { data: dbProfile } = await supabase
         .from('profiles')
         .select('role')
@@ -43,13 +36,12 @@ function PageContent() {
       if (dbProfile?.role) {
         setRole(dbProfile.role as string);
       } else {
-        // Fallback to user metadata if present
         const meta: any = user.user_metadata as any;
         setRole((meta && meta.role) as string | undefined);
       }
     })();
     return () => { mounted = false; };
-  }, []);
+  }, [supabase]);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -171,6 +163,7 @@ function PageContent() {
                       ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
                       : 'border-transparent hover:text-gray-800 dark:hover:text-gray-100'
                   }`}
+                  aria-selected={activeTab === tab.key}
                   onClick={() => setActiveTab(tab.key)}
                 >
                   {tab.label}
@@ -196,7 +189,6 @@ function PageContent() {
         <section className="py-6">
           {role === 'admin' && activeTab === 'access' && (
             <>
-              <LogWhenMounted label="AccessRequests" />
               <AccessRequests />
             </>
           )}

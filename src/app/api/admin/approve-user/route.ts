@@ -45,7 +45,8 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const { requestId, userId } = body || {};
     if (!requestId && !userId) {
-      return NextResponse.json({ ok: false, error: 'Missing requestId or userId' }, { status: 400 });
+      const res = NextResponse.json({ ok: false, error: 'Missing requestId or userId' }, { status: 400 });
+      commit(res); return res;
     }
 
     let targetUserId: string | null = null;
@@ -61,7 +62,8 @@ export async function POST(req: Request) {
         .eq('id', requestId)
         .single();
       if (reqErr || !reqRow) {
-        return NextResponse.json({ ok: false, error: 'Role request not found' }, { status: 404 });
+        const res = NextResponse.json({ ok: false, error: 'Role request not found' }, { status: 404 });
+        commit(res); return res;
       }
       targetUserId = reqRow.user_id;
       email = reqRow.email;
@@ -69,7 +71,8 @@ export async function POST(req: Request) {
       fullName = (reqRow as any)?.metadata?.full_name || (reqRow as any)?.metadata?.fullName || null;
 
       if (!targetUserId) {
-        return NextResponse.json({ ok: false, error: 'Role request missing user_id' }, { status: 400 });
+        const res = NextResponse.json({ ok: false, error: 'Role request missing user_id' }, { status: 400 });
+        commit(res); return res;
       }
 
       // Call RPC to perform approval logic (should update role_requests + profiles atomically)
@@ -80,7 +83,8 @@ export async function POST(req: Request) {
         p_reason: null
       });
       if (rpcErr) {
-        return NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500 });
+        const res = NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500 });
+        commit(res); return res;
       }
     } else if (userId) {
       targetUserId = userId;
@@ -91,7 +95,8 @@ export async function POST(req: Request) {
         .eq('id', userId)
         .single();
       if (profErr || !prof) {
-        return NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404 });
+        const res = NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404 });
+        commit(res); return res;
       }
       email = prof.email;
       fullName = prof.full_name;
@@ -103,7 +108,8 @@ export async function POST(req: Request) {
         .update({ status: 'approved', role })
         .eq('id', userId);
       if (updErr) {
-        return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
+        const res = NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
+        commit(res); return res;
       }
     }
 
@@ -112,9 +118,9 @@ export async function POST(req: Request) {
       const serviceId = process.env.EMAILJS_SERVICE_ID;
       const templateId = process.env.EMAILJS_TEMPLATE_ID_APPROVAL;
       const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-      const privateKey = process.env.EMAILJS_PRIVATE_KEY; // optional depending on EmailJS plan
+      const privateKey = process.env.EMAILJS_PRIVATE_KEY;
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
-      const fromName = process.env.EMAIL_FROM_NAME || "Who's On Call";
+      const fromName = process.env.EMAIL_FROM_NAME || "Who's On Call"; // retained for template completeness
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
 
       if (serviceId && templateId && publicKey) {
@@ -138,12 +144,12 @@ export async function POST(req: Request) {
               template_params: params,
             }),
           });
+          // Suppress non-critical logging in production; could record to external monitoring here.
           if (!resp.ok) {
-            const txt = await resp.text();
-            console.error('[approve-user] email send failed', resp.status, txt);
+            // no console output per logging policy
           }
-        } catch (e) {
-          console.error('[approve-user] email send error', e);
+        } catch {
+          // swallow email errors (non-critical)
         }
       }
     }
@@ -152,7 +158,9 @@ export async function POST(req: Request) {
     commit(res);
     return res;
   } catch (e: any) {
-    console.error('[api/admin/approve-user] error', e);
-    return new NextResponse(e?.message ?? 'Internal error', { status: 500 });
+    const { commit } = await getServerSupabase();
+    const res = new NextResponse(e?.message ?? 'Internal error', { status: 500 });
+    commit(res);
+    return res;
   }
 }

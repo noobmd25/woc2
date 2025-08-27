@@ -150,11 +150,10 @@ export default function HomeClient() {
       }
     }
     toast.success('Login successful');
-    await supabase.auth.getSession();
     setShowLogin(false);
     const nextParam = search?.get('next');
     const redirectTo = nextParam && nextParam.startsWith('/') ? nextParam : '/oncall';
-    if (typeof window !== 'undefined') window.location.assign(redirectTo); else router.replace(redirectTo);
+    router.replace(redirectTo);
   };
 
   return (
@@ -171,8 +170,8 @@ export default function HomeClient() {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-2xl font-semibold mb-4 text-black dark:text-white">Login</h2>
               <form className="space-y-4" onSubmit={handleLoginSubmit}>
-                <input type="email" name="email" placeholder="Email" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                <input type="password" name="password" placeholder="Password" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                <input type="email" name="email" placeholder="Email" autoComplete="email" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                <input type="password" name="password" placeholder="Password" autoComplete="current-password" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 <p className="text-sm mt-1">
                   <button type="button" className="text-blue-600 dark:text-blue-400 hover:underline" onClick={() => setShowForgot(true)}>Forgot your password?</button>
                 </p>
@@ -190,9 +189,9 @@ export default function HomeClient() {
             <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-md">
               <h2 className="text-2xl font-semibold mb-4 text-black dark:text-white">Create Account</h2>
               <form className="space-y-4" onSubmit={handleSignupSubmit}>
-                <input name="full_name" placeholder="Full Name (e.g., John Doe)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" onBlur={() => setShowPasswordFields(true)} />
-                <input name="email" type="email" placeholder="Email (e.g., john.doe@example.com)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" onBlur={() => setShowPasswordFields(true)} />
-                <input name="phone" placeholder="Phone Number (e.g., (787) 123-4567)" value={phoneInput} onChange={(e) => setPhoneInput(formatPhone(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                <input name="full_name" placeholder="Full Name (e.g., John Doe)" autoComplete="name" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" onBlur={() => setShowPasswordFields(true)} />
+                <input name="email" type="email" placeholder="Email (e.g., john.doe@example.com)" autoComplete="email" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" onBlur={() => setShowPasswordFields(true)} />
+                <input name="phone" placeholder="Phone Number (e.g., (787) 123-4567)" autoComplete="tel" value={phoneInput} onChange={(e) => setPhoneInput(formatPhone(e.target.value))} className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                 <div className="flex flex-col text-left">
                   <label className="text-sm font-medium text-black dark:text-white mb-1">Position</label>
                   <div className="flex space-x-4">
@@ -227,8 +226,8 @@ export default function HomeClient() {
                 )}
                 {showPasswordFields && (
                   <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <input name="password" type="password" placeholder="Create Password (min 12 chars)" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
-                    <input name="confirm_password" type="password" placeholder="Confirm Password" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <input name="password" type="password" placeholder="Create Password (min 12 chars)" autoComplete="new-password" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
+                    <input name="confirm_password" type="password" placeholder="Confirm Password" autoComplete="new-password" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
                     <p className="text-xs text-gray-500 dark:text-gray-400">Password must include upper & lower case letters and a number. You cannot log in until an admin approves your account.</p>
                   </div>
                 )}

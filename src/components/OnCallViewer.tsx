@@ -102,15 +102,9 @@ export default function OnCallViewer() {
     }
   };
 
-  const debugRecord = () => {
-    if (providerData) {
-      toast.success('Record loaded');
-    }
-  };
-
   const dirHref = providerData?.provider_name
-    ? `/protected/directory?provider=${encodeURIComponent(providerData.provider_name)}`
-    : '/protected/directory';
+    ? `/directory?provider=${encodeURIComponent(providerData.provider_name)}`
+    : '/directory';
 
 
   const plans = [
@@ -229,7 +223,7 @@ export default function OnCallViewer() {
     };
 
     fetchSchedule();
-  }, [specialty, plan, currentDate]);
+  }, [specialty, plan, currentDate, supabase]);
 
   const secondPhoneLabel = (() => {
     const s = providerData?._second_phone_source || '';
@@ -479,13 +473,13 @@ export default function OnCallViewer() {
                 Copy resident phone
               </button>
               <Link
-                href="/protected/admin/access?tab=integrity"
+                href="/admin?tab=integrity"
                 className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
               >
                 Open Data Integrity
               </Link>
               <Link
-                href="/protected/admin/access?tab=usage"
+                href="/admin?tab=usage"
                 className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
               >
                 Admin Dashboard
@@ -496,13 +490,6 @@ export default function OnCallViewer() {
               >
                 Open Directory Entry
               </Link>
-              <button
-                onClick={debugRecord}
-                disabled={!providerData}
-                className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
-              >
-                View raw record (console)
-              </button>
             </div>
             <p className="mt-2 text-xs text-gray-500">
               TODO: Wire these to edit routes/actions as you roll them out.
@@ -531,7 +518,7 @@ export default function OnCallViewer() {
                 Copy resident phone
               </button>
               <Link
-                href="/protected/admin/access?tab=integrity"
+                href="/admin?tab=integrity"
                 className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-center"
               >
                 Open Data Integrity
