@@ -1,1 +1,0 @@
-// (removed) Legacy file deleted. Use getBrowserClient() from '@/lib/supabase/client'.

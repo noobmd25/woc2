@@ -28,7 +28,6 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
           {children}
         </div>
       </main>
-      <Footer />
       <Toaster position="top-center" />
     </div>
   );
