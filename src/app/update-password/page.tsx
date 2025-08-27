@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { getBrowserClient } from '@/lib/supabase/client';
-import SimpleHeader from '@/components/SimpleHeader';
 const supabase = getBrowserClient();
 
 export default function UpdatePasswordPage() {

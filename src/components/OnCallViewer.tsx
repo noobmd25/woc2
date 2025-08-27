@@ -107,37 +107,28 @@ export default function OnCallViewer() {
     : '/directory';
 
 
-  const plans = [
-    'Triple S Advantage/Unattached',
-    'Vital',
-    '405/M88',
-    'PAMG',
-    'REMAS',
-    'SMA',
-    'CSE',
-    'In Salud',
-    'IPA B',
-    'MCS',
-  ];
+  const planGateActive = specialty === 'Internal Medicine' && !plan;
 
-  const formatDate = (date: Date) =>
-    date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  // Add missing navigation handlers
+  const handlePrevDay = useCallback(() => {
+    setCurrentDate((d) => {
+      const nd = new Date(d);
+      nd.setDate(nd.getDate() - 1);
+      return nd;
+    });
+  }, []);
 
-  const handlePrevDay = () => {
-    const prev = new Date(currentDate);
-    prev.setDate(currentDate.getDate() - 1);
-    setCurrentDate(prev);
-  };
+  const handleNextDay = useCallback(() => {
+    setCurrentDate((d) => {
+      const nd = new Date(d);
+      nd.setDate(nd.getDate() + 1);
+      return nd;
+    });
+  }, []);
 
-  const handleNextDay = () => {
-    const next = new Date(currentDate);
-    next.setDate(currentDate.getDate() + 1);
-    setCurrentDate(next);
-  };
-
-  const handleToday = () => {
-    setCurrentDate(new Date());
-  };
+  const handleToday = useCallback(() => {
+    setCurrentDate(() => new Date());
+  }, []);
 
   useEffect(() => {
     const fetchSchedule = async () => {
@@ -231,8 +222,6 @@ export default function OnCallViewer() {
     if (/Residency/i.test(s)) return 'Resident';
     return 'Resident/PA';
   })();
-
-  const planGateActive = specialty === 'Internal Medicine' && !plan;
 
   return (
     <LayoutShell>

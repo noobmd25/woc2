@@ -120,7 +120,6 @@ export async function POST(req: Request) {
       const publicKey = process.env.EMAILJS_PUBLIC_KEY;
       const privateKey = process.env.EMAILJS_PRIVATE_KEY;
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
-      const fromName = process.env.EMAIL_FROM_NAME || "Who's On Call"; // retained for template completeness
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
 
       if (serviceId && templateId && publicKey) {
@@ -134,7 +133,7 @@ export async function POST(req: Request) {
           const headers: Record<string, string> = { 'Content-Type': 'application/json' };
           if (privateKey) headers['Authorization'] = `Bearer ${privateKey}`;
 
-          const resp = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          await fetch('https://api.emailjs.com/api/v1.0/email/send', {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -144,10 +143,6 @@ export async function POST(req: Request) {
               template_params: params,
             }),
           });
-          // Suppress non-critical logging in production; could record to external monitoring here.
-          if (!resp.ok) {
-            // no console output per logging policy
-          }
         } catch {
           // swallow email errors (non-critical)
         }

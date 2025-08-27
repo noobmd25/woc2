@@ -67,7 +67,7 @@ export default function HomeClient() {
     if (!full_name || !email) { toast.error('Name and email are required'); return; }
     if (!chosenPosition) { toast.error('Please select a position'); return; }
 
-    let provider_type = chosenPosition;
+    const provider_type = chosenPosition; // changed to const
     let department = '';
     let year_of_training = '';
 

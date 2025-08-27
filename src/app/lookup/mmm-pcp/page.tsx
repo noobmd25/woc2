@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import debounce from 'lodash/debounce';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
-import Footer from '@/components/Footer';
 
 // Force dynamic so Next does not attempt to pre-render this page at build time (needs runtime env + auth)
 export const dynamic = 'force-dynamic';
