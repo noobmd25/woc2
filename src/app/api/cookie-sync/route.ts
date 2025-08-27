@@ -57,8 +57,7 @@ export async function POST(req: Request) {
 
     return res;
   } catch (e: any) {
-    // Keep a single error log for observability. Client can surface toast based on response.
-    console.error('[api/cookie-sync] error', e);
+    // Swallow non-critical error log per cleanup request
     return NextResponse.json({ ok: false, message: e?.message ?? String(e) }, { status: 500 });
   }
 }
