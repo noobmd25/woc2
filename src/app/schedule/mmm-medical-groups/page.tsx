@@ -54,50 +54,78 @@ export default function MMMGroupsTab() {
   return (
     <>
       <Header />
-      <div className="p-4">
-        <h1 className="text-2xl font-semibold mb-4">MMM Medical Groups</h1>
-        <div className="flex gap-2 mb-4">
-          <Input
-            placeholder="Provider Name"
-            value={newProvider.name}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setNewProvider({ ...newProvider, name: e.target.value })
-            }
-          />
-          <Input
-            placeholder="Medical Group"
-            value={newProvider.medical_group}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setNewProvider({ ...newProvider, medical_group: e.target.value })
-            }
-          />
-          <Button onClick={handleAdd}>Add</Button>
+      <section className="mx-auto max-w-5xl px-4 py-6">
+        <h1 className="text-2xl font-semibold mb-6 tracking-tight">MMM Medical Groups</h1>
+        <div className="mb-6 flex flex-col md:flex-row gap-3 items-start md:items-end bg-white/70 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg p-4 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-gray-900/30 shadow-sm">
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">
+              Provider Name
+            </label>
+            <Input
+              placeholder="Provider Name"
+              value={newProvider.name}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setNewProvider({ ...newProvider, name: e.target.value })
+              }
+              className="bg-white dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 shadow-sm"
+            />
+          </div>
+          <div className="md:w-60 w-full">
+            <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">
+              Medical Group
+            </label>
+            <Input
+              placeholder="Medical Group"
+              value={newProvider.medical_group}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setNewProvider({ ...newProvider, medical_group: e.target.value })
+              }
+              className="bg-white dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 shadow-sm"
+            />
+          </div>
+          <Button
+            onClick={handleAdd}
+            className="h-10 mt-1 md:mt-0 bg-blue-600 hover:bg-blue-500 text-white shadow-sm"
+          >
+            Add
+          </Button>
         </div>
 
         {loading ? (
-          <p>Loading...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">Loading...</p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {groups.map((item) => (
               <div
                 key={item.id}
-                className="flex justify-between items-center border rounded-lg p-4 bg-white shadow-sm"
+                className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 backdrop-blur supports-[backdrop-filter]:bg-gray-900/40 p-4 shadow-sm hover:shadow-md transition-all hover:border-blue-400/70 dark:hover:border-blue-500/60 flex flex-col"
               >
-                <div>
-                  <p className="text-base font-medium text-gray-900">{item.name}</p>
-                  <p className="text-lg font-bold text-gray-700">{item.medical_group}</p>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900 dark:text-gray-100 tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1">
+                    {item.name}
+                  </p>
+                  <span className="inline-flex items-center rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ring-blue-200/60 dark:ring-blue-700/40 mb-1">
+                    {item.medical_group}
+                  </span>
+                  <div className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    Entry ID: {item.id}
+                  </div>
                 </div>
                 <Button
-                    className="bg-[#fbe9e9] hover:bg-[#f5dede] text-[#991b1b] font-semibold border border-[#f2cfcf]"
-                    onClick={() => handleDelete(item.id)}
+                  className="mt-4 self-start bg-[#fbe9e9] hover:bg-[#f5dede] text-[#991b1b] font-semibold border border-[#f2cfcf] text-xs"
+                  onClick={() => handleDelete(item.id)}
                 >
-                    Delete
+                  Delete
                 </Button>
               </div>
             ))}
           </div>
         )}
-      </div>
+
+        {!loading && groups.length === 0 && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">No providers yet.</p>
+        )}
+      </section>
     </>
   );
 }

@@ -70,52 +70,64 @@ export default function VitalMedicalGroupsEditor() {
   return (
     <>
       <Header />
-      <div className="max-w-xl mx-auto p-4">
-        <h1 className="text-xl font-bold mb-4">Vital Medical Group Editor</h1>
-
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            placeholder="Group Name"
-            value={newGroupName}
-            onChange={(e) => setNewGroupName(e.target.value)}
-            className="flex-1 border p-2 rounded"
-          />
-          <input
-            type="text"
-            placeholder="Group Code"
-            value={newGroupCode}
-            onChange={(e) => setNewGroupCode(e.target.value)}
-            className="w-40 border p-2 rounded"
-          />
+      <section className="mx-auto max-w-5xl px-4 py-6">
+        <h1 className="text-2xl font-semibold mb-6 tracking-tight">Vital Medical Group Editor</h1>
+        <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-end bg-white/70 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg p-4 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-gray-900/30 shadow-sm">
+          <div className="flex-1 w-full">
+            <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">Group Name</label>
+            <input
+              type="text"
+              placeholder="Group Name"
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/70 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm"
+            />
+          </div>
+          <div className="sm:w-48 w-full">
+            <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">Code</label>
+            <input
+              type="text"
+              placeholder="Group Code"
+              value={newGroupCode}
+              onChange={(e) => setNewGroupCode(e.target.value)}
+              className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/70 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm"
+            />
+          </div>
           <button
             onClick={addGroup}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            className="h-10 px-5 mt-1 sm:mt-0 inline-flex items-center justify-center rounded-md bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-gray-900 disabled:opacity-60"
           >
             Add
           </button>
         </div>
 
-        <ul className="space-y-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {groups.map((g) => (
-            <li
+            <div
               key={g.id}
-              className="flex justify-between items-center bg-white border p-3 rounded shadow-sm"
+              className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 backdrop-blur supports-[backdrop-filter]:bg-gray-900/40 p-4 shadow-sm hover:shadow-md transition-all hover:border-blue-400/70 dark:hover:border-blue-500/60 flex flex-col"
             >
-              <div>
-                <p className="font-semibold">{g.vital_group_name}</p>
-                <p className="text-xs text-gray-700">Code: <span className="font-extrabold text-black">{g.group_code}</span></p>
+              <div className="flex-1">
+                <h2 className="font-medium text-gray-900 dark:text-gray-100 tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1">{g.vital_group_name}</h2>
+                <div className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                  Code:
+                  <span className="inline-flex items-center rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ring-blue-200/60 dark:ring-blue-700/40">{g.group_code}</span>
+                </div>
               </div>
               <button
                 onClick={() => deleteGroup(g.id)}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="mt-4 self-start text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
               >
                 Delete
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
-      </div>
+        </div>
+
+        {groups.length === 0 && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">No groups yet.</p>
+        )}
+      </section>
     </>
   );
 }
