@@ -3,13 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import debounce from 'lodash/debounce';
 import { getBrowserClient } from '@/lib/supabase/client';
-import Header from '@/components/Header';
+import Header from '@/components/Header'; // added
 
-// Force dynamic so Next does not attempt to pre-render this page at build time (needs runtime env + auth)
 export const dynamic = 'force-dynamic';
 
 export default function MMMPcpLookupPage() {
-  // Move client creation inside component to avoid build-time (SSR) env checks
   const supabase = useMemo(() => {
     if (typeof window === 'undefined') return null as any; // safeguard
     return getBrowserClient();
@@ -21,7 +19,6 @@ export default function MMMPcpLookupPage() {
   const [sortByGroup, setSortByGroup] = useState(false);
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
 
-  // Recreate debounced function after client ready
   const debouncedLookup = useMemo(() => debounce(async (name: string) => {
     if (!supabase) return;
     setLoading(true);
@@ -59,7 +56,6 @@ export default function MMMPcpLookupPage() {
     setGroupColors(mapping);
   }, [results]);
 
-  // Derived sorted list for cards
   const sorted = [...results].sort((a, b) => {
     const key = sortByGroup ? 'medical_group' : 'name';
     return a[key].localeCompare(b[key]);
@@ -68,7 +64,7 @@ export default function MMMPcpLookupPage() {
   return (
     <>
       <Header />
-      <div className="mx-auto max-w-5xl px-4 py-6">
+      <section className="mx-auto max-w-5xl px-4 py-6">
         <h1 className="text-2xl font-semibold mb-6 tracking-tight">MMM PCP Medical Group Lookup</h1>
         <div className="flex flex-col md:flex-row gap-3 mb-4 items-start md:items-center">
           <input
@@ -127,7 +123,7 @@ export default function MMMPcpLookupPage() {
         {!loading && results.length === 0 && pcpName && (
           <p className="text-sm text-gray-600 dark:text-gray-400">No matching provider found.</p>
         )}
-      </div>
+      </section>
     </>
   );
 }
