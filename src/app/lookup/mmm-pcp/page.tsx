@@ -59,12 +59,18 @@ export default function MMMPcpLookupPage() {
     setGroupColors(mapping);
   }, [results]);
 
+  // Derived sorted list for cards
+  const sorted = [...results].sort((a, b) => {
+    const key = sortByGroup ? 'medical_group' : 'name';
+    return a[key].localeCompare(b[key]);
+  });
+
   return (
     <>
       <Header />
-      <div className="p-4">
-        <h1 className="text-2xl font-semibold mb-4">MMM PCP Medical Group Lookup</h1>
-        <div className="flex flex-col md:flex-row gap-2 mb-4">
+      <div className="mx-auto max-w-5xl px-4 py-6">
+        <h1 className="text-2xl font-semibold mb-6 tracking-tight">MMM PCP Medical Group Lookup</h1>
+        <div className="flex flex-col md:flex-row gap-3 mb-4 items-start md:items-center">
           <input
             type="text"
             placeholder="Enter PCP Name"
@@ -73,55 +79,53 @@ export default function MMMPcpLookupPage() {
               setPcpName(e.target.value);
               debouncedLookup(e.target.value);
             }}
-            className="w-full md:w-auto border border-gray-300 rounded px-3 py-2 text-sm"
+            className="w-full md:w-72 border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 outline-none rounded-md px-3 py-2 text-sm bg-white dark:bg-gray-800/70 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 shadow-sm"
           />
-        </div>
-
-        {loading && <p>Looking up...</p>}
-
-        {!loading && results.length > 0 && (
-          <>
-            <div className="mb-2 text-sm text-right">
-              <label className="mr-2">Sort:</label>
+          {results.length > 0 && (
+            <div className="inline-flex items-center gap-2 text-sm">
+              <label className="text-gray-600 dark:text-gray-300">Sort:</label>
               <select
                 value={sortByGroup ? 'group' : 'name'}
                 onChange={(e) => setSortByGroup(e.target.value === 'group')}
-                className="border rounded px-2 py-1 text-sm"
+                className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800/70 rounded px-2 py-1 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none text-gray-800 dark:text-gray-100"
               >
                 <option value="name">By Physician</option>
                 <option value="group">By Group</option>
               </select>
             </div>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">Name</th>
-                  <th className="text-left p-2">Group</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...results]
-                  .sort((a, b) => {
-                    const key = sortByGroup ? 'medical_group' : 'name';
-                    return a[key].localeCompare(b[key]);
-                  })
-                  .map((r, idx) => (
-                    <tr key={idx} className="border-b hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white">
-                      <td className="p-2">{r.name}</td>
-                      <td className="p-2 font-semibold">
-                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold tracking-wide ${groupColors[r.medical_group] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}`}>
-                          {r.medical_group}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </>
+          )}
+          <p className="text-xs text-gray-500 dark:text-gray-400 ml-0 md:ml-auto">{results.length} result{results.length === 1 ? '' : 's'}</p>
+        </div>
+
+        {loading && (
+          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">Looking up...</p>
+        )}
+
+        {!loading && results.length > 0 && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sorted.map((r, idx) => (
+              <div
+                key={idx}
+                className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 backdrop-blur supports-[backdrop-filter]:bg-gray-900/40 p-4 shadow-sm hover:shadow-md transition-all hover:border-blue-400/70 dark:hover:border-blue-500/60"
+              >
+                <div className="flex items-start justify-between mb-1">
+                  <span className="font-medium text-gray-900 dark:text-gray-100 tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    {r.name}
+                  </span>
+                  <span className={`ml-2 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${groupColors[r.medical_group] || 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'} ring-black/0`}>
+                    {r.medical_group}
+                  </span>
+                </div>
+                <div className="mt-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  PCP #{idx + 1}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
         {!loading && results.length === 0 && pcpName && (
-          <p>No matching provider found.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">No matching provider found.</p>
         )}
       </div>
     </>

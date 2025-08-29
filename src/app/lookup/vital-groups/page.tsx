@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
 
-// Force dynamic so Next.js doesn't try to prerender with missing public env vars
 export const dynamic = 'force-dynamic';
 
 type VitalGroup = {
@@ -14,14 +13,13 @@ type VitalGroup = {
 };
 
 export default function VitalGroupsLookupPage() {
-  // Create browser client only on client side
+  const [groups, setGroups] = useState<VitalGroup[]>([]);
+  const [search, setSearch] = useState('');
+
   const supabase = useMemo(() => {
     if (typeof window === 'undefined') return null as any;
     return getBrowserClient();
   }, []);
-
-  const [groups, setGroups] = useState<VitalGroup[]>([]);
-  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (!supabase) return; // skip during SSR/build
@@ -41,27 +39,44 @@ export default function VitalGroupsLookupPage() {
   );
 
   return (
-    <div className="p-4">
+    <div className="mx-auto max-w-5xl px-4 py-6">
       <Header />
-      <h1 className="text-2xl font-semibold mb-4">Vital Medical Group Lookup</h1>
-      <input
-        type="text"
-        placeholder="Search by name or group code"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-md px-3 py-2 border rounded mb-4"
-      />
-      <ul className="space-y-2">
+      <h1 className="text-2xl font-semibold mb-6 tracking-tight">Vital Medical Group Lookup</h1>
+      <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <input
+          type="text"
+          placeholder="Search by name or group code"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full sm:w-80 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800/70 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm"
+        />
+        <p className="text-xs text-gray-500 dark:text-gray-400">{filtered.length} result{filtered.length === 1 ? '' : 's'}</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((group) => (
-          <li
+          <div
             key={group.id}
-            className="flex justify-between items-center border px-4 py-2 rounded"
+            className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-900/50 backdrop-blur supports-[backdrop-filter]:bg-gray-900/40 p-4 shadow-sm hover:shadow-md transition-shadow hover:border-blue-400/70 dark:hover:border-blue-500/60"
           >
-            <span className="font-medium">{group.vital_group_name}</span>
-            <span className="text-sm font-bold text-gray-800">{group.group_code}</span>
-          </li>
+            <div className="flex items-start justify-between mb-1">
+              <span className="font-medium text-gray-900 dark:text-gray-100 tracking-tight group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                {group.vital_group_name}
+              </span>
+              <span className="ml-2 inline-flex items-center rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200 px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ring-blue-200/60 dark:ring-blue-700/40">
+                {group.group_code}
+              </span>
+            </div>
+            <div className="mt-2 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Group ID: {group.id}
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
+
+      {filtered.length === 0 && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">No groups found.</p>
+      )}
     </div>
   );
 }
