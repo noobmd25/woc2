@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
-const supabase = getBrowserClient();
+
+// Force dynamic so Next.js doesn't try to prerender with missing public env vars
+export const dynamic = 'force-dynamic';
 
 type VitalGroup = {
   id: number;
@@ -12,19 +14,25 @@ type VitalGroup = {
 };
 
 export default function VitalGroupsLookupPage() {
+  // Create browser client only on client side
+  const supabase = useMemo(() => {
+    if (typeof window === 'undefined') return null as any;
+    return getBrowserClient();
+  }, []);
+
   const [groups, setGroups] = useState<VitalGroup[]>([]);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
+    if (!supabase) return; // skip during SSR/build
     const fetchGroups = async () => {
       const { data, error } = await supabase
         .from('vital_medical_groups')
         .select('*');
       if (!error && data) setGroups(data);
     };
-
     fetchGroups();
-  }, []);
+  }, [supabase]);
 
   const filtered = groups.filter(
     (g) =>
