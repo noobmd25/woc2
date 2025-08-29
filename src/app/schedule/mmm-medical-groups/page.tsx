@@ -112,7 +112,7 @@ export default function MMMGroupsTab() {
                   </div>
                 </div>
                 <Button
-                  className="mt-4 self-start bg-[#fbe9e9] hover:bg-[#f5dede] text-[#991b1b] font-semibold border border-[#f2cfcf] text-xs"
+                  className="mt-4 self-start text-xs font-medium text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
                   onClick={() => handleDelete(item.id)}
                 >
                   Delete
