@@ -60,9 +60,9 @@ const handleLogout = async () => {
 
   try {
     await trySignOut();
-    const sessionRes = await withTimeout(supabase.auth.getSession(), 'supabase.auth.getSession()');
-    const session = (sessionRes as any)?.data?.session;
-    if (session?.user) {
+    const sessionRes = await withTimeout(supabase.auth.getUser(), 'supabase.auth.getUser()');
+    const user = (sessionRes as any)?.data?.user;
+    if (user) {
       await trySignOut();
     }
     toast.success('Signed out');

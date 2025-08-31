@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import LayoutShell from './LayoutShell';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { usePageRefresh } from '@/components/PullToRefresh';
 import useUserRole from '@/app/hooks/useUserRole';
 import Link from 'next/link';
 const supabase = getBrowserClient();
@@ -53,6 +54,13 @@ export default function OnCallViewer() {
   useEffect(() => {
     fetchSpecialties();
   }, [fetchSpecialties]);
+
+  // Register refresh handler (refetch specialties + trigger schedule reload)
+  usePageRefresh(async () => {
+    await fetchSpecialties();
+    // force schedule refetch by toggling date state (or call internal logic)
+    setCurrentDate(d => new Date(d));
+  });
 
   // Toast fallback on render if still empty after first load (avoid spamming)
   useEffect(() => {

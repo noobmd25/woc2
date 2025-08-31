@@ -1,7 +1,8 @@
 "use client";
 import Header from '@/components/Header';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { usePageRefresh } from '@/components/PullToRefresh';
 import toast from 'react-hot-toast';
 const supabase = getBrowserClient();
 
@@ -16,7 +17,7 @@ export default function VitalMedicalGroupsEditor() {
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupCode, setNewGroupCode] = useState('');
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     const { data, error } = await supabase
       .from('vital_medical_groups')
       .select('*')
@@ -28,11 +29,13 @@ export default function VitalMedicalGroupsEditor() {
     } else {
       setGroups(data);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchGroups();
-  }, []);
+  }, [fetchGroups]);
+
+  usePageRefresh(fetchGroups);
 
   const addGroup = async () => {
     if (!newGroupName.trim() || !newGroupCode.trim()) return;

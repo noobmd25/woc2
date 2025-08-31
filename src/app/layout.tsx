@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import Providers from './providers';
 import SupabaseProvider from '@/components/supabase-provider'; // unchanged path confirmation
 import '@/lib/disableConsole'; // silence console in production
+import PullToRefresh from '@/components/PullToRefresh'; // added
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
@@ -20,6 +21,11 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: "Who's On Call"
+  },
   other: {
     "application/ld+json": JSON.stringify({
       "@context": "https://schema.org",
@@ -28,6 +34,13 @@ export const metadata: Metadata = {
       "logo": "https://whosoncall.app/logo.svg" // 👈 must point to logo in /public
     }),
   },
+};
+
+export const viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#2563eb' },
+    { media: '(prefers-color-scheme: dark)', color: '#001f3f' }
+  ],
 };
 
 export const runtime = 'nodejs';
@@ -44,8 +57,10 @@ export default function RootLayout({
         >
         <SupabaseProvider>
           <Providers>
-            {children}
-            <Footer />
+            <PullToRefresh>
+              {children}
+              <Footer />
+            </PullToRefresh>
           </Providers>
         </SupabaseProvider>
       </body>

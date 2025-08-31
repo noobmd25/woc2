@@ -17,12 +17,11 @@ export default function Providers({ children }: { children: React.ReactNode }) {
     const check = async (attempt = 1) => {
       const supabase = getBrowserClient();
       try {
-        const { data, error } = await supabase.auth.getSession();
+        const { data: { user } } = await supabase.auth.getUser();
         if (cancelled) return;
-        const sess = data?.session;
         const pathname = window.location.pathname;
         if (!isProtectedPath(pathname)) return; // no gating for public
-        if (!sess || error) {
+        if (!user) {
           if (attempt < 3) {
             setTimeout(() => { if (!cancelled) check(attempt + 1); }, attempt * 350);
             return;

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { FaSortUp, FaSortDown } from 'react-icons/fa';
 import useUserRole from '@/app/hooks/useUserRole';
+import { usePageRefresh } from '@/components/PullToRefresh';
 
 interface Provider {
   id: string;
@@ -68,22 +69,25 @@ export default function DirectoryPage() {
   };
   const role = useUserRole();
 
-  const fetchSpecialties = async () => {
+  const fetchProviders = useCallback(async () => {
+    const { data } = await supabase.from('directory').select('*');
+    if (data) setProviders(data);
+  }, [supabase]);
+
+  const fetchSpecialties = useCallback(async () => {
     const { data } = await supabase
       .from('specialties')
       .select('id, name')
       .order('name');
     setAllSpecialties(data || []);
-  };
+  }, [supabase]);
 
   useEffect(() => {
-    const fetchProviders = async () => {
-      const { data } = await supabase.from('directory').select('*');
-      if (data) setProviders(data);
-    };
     fetchProviders();
     fetchSpecialties();
-  }, [supabase]);
+  }, [fetchProviders, fetchSpecialties]);
+
+  usePageRefresh(async () => { await Promise.all([fetchProviders(), fetchSpecialties()]); });
 
   useEffect(() => {
     const lowerSearch = search.toLowerCase();

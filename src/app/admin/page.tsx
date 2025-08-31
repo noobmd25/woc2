@@ -5,6 +5,7 @@ import { useSearchParams, usePathname, useRouter } from 'next/navigation';
 import Header from '@/components/Header';
 import dynamic from 'next/dynamic';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { usePageRefresh } from '@/components/PullToRefresh';
 
 const AccessRequests = dynamic(() => import('@/components/admin/AccessRequests'), {
   ssr: false,
@@ -65,7 +66,6 @@ function PageContent() {
     let mounted = true;
     const fetchPending = async () => {
       try {
-        // Use head:true to retrieve count without rows
         const res = await supabase
           .from('role_requests')
           .select('id', { count: 'exact', head: true })
@@ -81,6 +81,17 @@ function PageContent() {
     const id = setInterval(fetchPending, 10000); // refresh every 10s
     return () => { mounted = false; clearInterval(id); };
   }, [supabase]);
+
+  usePageRefresh(async () => {
+    try {
+      const res = await supabase
+        .from('role_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      const cnt = typeof (res.count) === 'number' ? res.count : 0;
+      setCounts(c => ({ ...c, pendingAccess: cnt }));
+    } catch {}
+  });
 
   // Helper to validate a tab value
   const isValidTab = (t: string | null): t is TabKey => !!t && ['access','integrity','errors','audit','announcements','usage'].includes(t);

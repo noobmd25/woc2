@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import Header from '@/components/Header';
+import { usePageRefresh } from '@/components/PullToRefresh';
 const supabase = getBrowserClient();
 
 type MedicalGroupEntry = {
@@ -19,13 +20,19 @@ export default function MMMGroupsTab() {
   const [newProvider, setNewProvider] = useState({ name: '', medical_group: '' });
   const [loading, setLoading] = useState(true);
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.from('mmm_medical_groups').select('*');
     if (error) toast.error('Error fetching groups');
     else setGroups(data as MedicalGroupEntry[]);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  usePageRefresh(fetchGroups);
 
   const handleAdd = async () => {
     if (!newProvider.name || !newProvider.medical_group) return toast.warning('Fill all fields');
@@ -46,10 +53,6 @@ export default function MMMGroupsTab() {
       fetchGroups();
     }
   };
-
-  useEffect(() => {
-    fetchGroups();
-  }, []);
 
   return (
     <>

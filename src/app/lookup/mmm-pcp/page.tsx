@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import debounce from 'lodash/debounce';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header'; // added
+import { usePageRefresh } from '@/components/PullToRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export default function MMMPcpLookupPage() {
   const [sortByGroup, setSortByGroup] = useState(false);
   const [groupColors, setGroupColors] = useState<Record<string, string>>({});
 
-  const debouncedLookup = useMemo(() => debounce(async (name: string) => {
+  const runLookup = useCallback(async (name: string) => {
     if (!supabase) return;
     setLoading(true);
     const { data, error } = await supabase
@@ -27,16 +28,18 @@ export default function MMMPcpLookupPage() {
       .select('name, medical_group')
       .ilike('name', `%${name}%`)
       .order('name', { ascending: true });
-
     if (!error) setResults(data || []);
     setLoading(false);
-  }, 300), [supabase]);
+  }, [supabase]);
+
+  const debouncedLookup = useMemo(() => debounce(runLookup, 300), [runLookup]);
 
   useEffect(() => {
-    if (!supabase) return; // skip during build/SSR
     debouncedLookup('');
     return () => { debouncedLookup.cancel(); };
-  }, [supabase, debouncedLookup]);
+  }, [debouncedLookup]);
+
+  usePageRefresh(async () => { await runLookup(pcpName); });
 
   useEffect(() => {
     if (results.length === 0) return;

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 import Header from '@/components/Header';
+import { usePageRefresh } from '@/components/PullToRefresh';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,16 +22,19 @@ export default function VitalGroupsLookupPage() {
     return getBrowserClient();
   }, []);
 
-  useEffect(() => {
-    if (!supabase) return; // skip during SSR/build
-    const fetchGroups = async () => {
-      const { data, error } = await supabase
-        .from('vital_medical_groups')
-        .select('*');
-      if (!error && data) setGroups(data);
-    };
-    fetchGroups();
+  const fetchGroups = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('vital_medical_groups')
+      .select('*');
+    if (!error && data) setGroups(data);
   }, [supabase]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, [fetchGroups]);
+
+  usePageRefresh(fetchGroups);
 
   const filtered = groups.filter(
     (g) =>

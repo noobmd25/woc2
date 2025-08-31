@@ -2,10 +2,11 @@
 
 import { toast } from 'react-hot-toast';
 import SimpleHeader from '@/components/SimpleHeader';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ForgotPassword from '@/components/auth/ForgotPasswordModal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getBrowserClient } from '@/lib/supabase/client';
+import { usePageRefresh } from '@/components/PullToRefresh';
 
 export default function HomeClient() {
   const supabase = getBrowserClient();
@@ -36,6 +37,14 @@ export default function HomeClient() {
       }
     }
   }, [search]);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      await supabase.auth.getUser();
+    } catch {}
+  }, [supabase]);
+
+  usePageRefresh(refreshSession);
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 10);
@@ -115,6 +124,41 @@ export default function HomeClient() {
         try { await supabase.from('signup_errors').insert({ email, error_text: error.message || String(error), context: { full_name, provider_type, department, year_of_training } }); } catch {}
         return;
       }
+
+      // Persist profile fields explicitly (metadata alone not durable for queries)
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            email,
+            full_name,
+            provider_type,
+            department,
+            // The following assume columns exist (add via migration if not yet):
+            phone,            // add column: ALTER TABLE public.profiles ADD COLUMN phone text;
+            year_of_training, // add column: ALTER TABLE public.profiles ADD COLUMN year_of_training text;
+            requested_role: 'viewer',
+            status: 'pending',
+          }, { onConflict: 'id' });
+        }
+      } catch { /* ignore profile upsert errors, already logged via signup_errors if needed */ }
+
+      // optional: create role_request record
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('role_requests').insert({
+            user_id: user.id,
+            email,
+            provider_type,
+            requested_role: 'viewer',
+            metadata: { department, phone, year_of_training },
+            status: 'pending',
+            source: 'signup'
+          });
+        }
+      } catch { /* ignore */ }
 
       try { await supabase.auth.signOut(); } catch {}
 
