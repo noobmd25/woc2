@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "pwa:splash:light": "pwa-asset-generator public/brand/wordmark.png public/splash/light --type splashscreens --background '#2563eb' --padding '12%' --splash-only --path-override /splash/light --xhtml",
+    "pwa:splash:dark": "pwa-asset-generator public/brand/wordmark.png public/splash/dark --type splashscreens --background '#0b1220' --padding '12%' --splash-only --path-override /splash/dark --xhtml",
+    "pwa:splash": "npm run pwa:splash:light && npm run pwa:splash:dark"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.18",
@@ -39,6 +42,7 @@
     "@typescript-eslint/parser": "^8.39.0",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
+    "pwa-asset-generator": "^8.1.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
