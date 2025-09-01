@@ -73,100 +73,51 @@ export default function HomeClient() {
     const password = String(formData.get('password') || '');
     const confirm = String(formData.get('confirm_password') || '');
 
-    if (!full_name || !email) { toast.error('Name and email are required'); return; }
-    if (!chosenPosition) { toast.error('Please select a position'); return; }
+    if (!full_name || !email) { toast.error('Name and email required'); return; }
+    if (!chosenPosition) { toast.error('Select a position'); return; }
 
-    const provider_type = chosenPosition; // changed to const
+    const provider_type = chosenPosition;
     let department = '';
     let year_of_training = '';
-
     if (chosenPosition === 'Attending') {
-      if (!specialtyAttending) { toast.error('Please enter your service/department'); return; }
+      if (!specialtyAttending) { toast.error('Service / department required'); return; }
       department = specialtyAttending;
     } else if (chosenPosition === 'Resident') {
-      if (!specialtyResident) { toast.error('Please enter your residency specialty'); return; }
-      if (!pgy || !/^[1-7]$/.test(pgy)) { toast.error('Please select your PGY year (1-7)'); return; }
+      if (!specialtyResident) { toast.error('Residency specialty required'); return; }
+      if (!pgy || !/^[1-7]$/.test(pgy)) { toast.error('PGY year 1-7 required'); return; }
       department = specialtyResident;
       year_of_training = `PGY-${pgy}`;
     }
 
-    if (!password || password.length < 12) { toast.error('Password must be at least 12 characters'); return; }
+    if (!password || password.length < 12) { toast.error('Password min 12 chars'); return; }
     if (password !== confirm) { toast.error('Passwords do not match'); return; }
-    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) {
-      toast.error('Password must include upper, lower, number');
-      return;
-    }
+    if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/\d/.test(password)) { toast.error('Need upper, lower, number'); return; }
 
     try {
       const origin = (typeof window !== 'undefined' && window.location.origin)
         || process.env.NEXT_PUBLIC_SITE_URL
         || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
 
-      const { error } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: `${origin}/auth/pending`,
-          data: {
-            full_name,
-            department,
-            provider_type,
-            phone,
-            year_of_training,
-            requested_role: 'viewer',
-            status: 'pending',
-          },
+          data: { full_name, department, provider_type, phone, year_of_training, requested_role: 'viewer', status: 'pending' },
         },
       });
-
-      if (error) {
-        toast.error(error.message || 'Could not create account');
-        try { await supabase.from('signup_errors').insert({ email, error_text: error.message || String(error), context: { full_name, provider_type, department, year_of_training } }); } catch {}
+      if (signUpError) {
+        toast.error(signUpError.message || 'Sign up failed');
+        try { await supabase.from('signup_errors').insert({ email, error_text: signUpError.message || String(signUpError), context: { stage: 'signup' } }); } catch {}
         return;
       }
 
-      // Persist profile fields explicitly (metadata alone not durable for queries)
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('profiles').upsert({
-            id: user.id,
-            email,
-            full_name,
-            provider_type,
-            department,
-            // The following assume columns exist (add via migration if not yet):
-            phone,            // add column: ALTER TABLE public.profiles ADD COLUMN phone text;
-            year_of_training, // add column: ALTER TABLE public.profiles ADD COLUMN year_of_training text;
-            requested_role: 'viewer',
-            status: 'pending',
-          }, { onConflict: 'id' });
-        }
-      } catch { /* ignore profile upsert errors, already logged via signup_errors if needed */ }
-
-      // optional: create role_request record
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('role_requests').insert({
-            user_id: user.id,
-            email,
-            provider_type,
-            requested_role: 'viewer',
-            metadata: { department, phone, year_of_training },
-            status: 'pending',
-            source: 'signup'
-          });
-        }
-      } catch { /* ignore */ }
-
-      try { await supabase.auth.signOut(); } catch {}
-
-      toast.success('Account created. Await admin approval before logging in.');
+      // Provisioning of profile & role request handled by DB trigger (provision_profile)
+      toast.success('Account created. Check your email to confirm.');
       router.push('/auth/pending');
-    } catch (e: any) {
-      toast.error(e?.message || 'Unexpected error during sign up');
-      try { await supabase.from('signup_errors').insert({ email: String(formData.get('email')||''), error_text: e?.message || String(e), context: { tag: 'unexpected' } }); } catch {}
+    } catch (err: any) {
+      toast.error(err?.message || 'Unexpected signup error');
+      try { await supabase.from('signup_errors').insert({ email, error_text: err?.message || String(err), context: { stage: 'unexpected' } }); } catch {}
     }
   };
 

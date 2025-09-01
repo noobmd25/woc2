@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase/server';
+import { Resend } from 'resend';
 
 /*
   POST /api/admin/approve-user
@@ -113,49 +114,75 @@ export async function POST(req: Request) {
       }
     }
 
-    // Send email via EmailJS (server-side fetch)
+    // Fallback: if fullName still missing, look it up from profiles (ensures email template has a name)
+    if (!fullName && targetUserId) {
+      const { data: profName } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', targetUserId)
+        .maybeSingle();
+      if (profName?.full_name) fullName = profName.full_name;
+    }
+
+    // Send approval email via Resend using new template
     if (email) {
-      const serviceId = process.env.EMAILJS_SERVICE_ID;
-      const templateId = process.env.EMAILJS_TEMPLATE_ID_APPROVAL;
-      const publicKey = process.env.EMAILJS_PUBLIC_KEY;
-      const privateKey = process.env.EMAILJS_PRIVATE_KEY;
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
-
-      if (serviceId && templateId && publicKey) {
+      const resendApiKey = process.env.RESEND_API_KEY;
+      const fromAddress = process.env.APPROVAL_EMAIL_FROM || "Who's On Call <no-reply@whosoncall.app>";
+      const subject = process.env.APPROVAL_EMAIL_SUBJECT || "Access Granted ✅";
+      if (resendApiKey) {
         try {
-          const params: Record<string, string> = {
-            user_name: fullName || email.split('@')[0],
-            login_url: loginUrl,
-            current_year: String(new Date().getFullYear()),
-          };
-
-          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-          if (privateKey) headers['Authorization'] = `Bearer ${privateKey}`;
-
-          await fetch('https://api.emailjs.com/api/v1.0/email/send', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-              service_id: serviceId,
-              template_id: templateId,
-              user_id: publicKey,
-              template_params: params,
-            }),
-          });
-        } catch {
-          // swallow email errors (non-critical)
+          const resend = new Resend(resendApiKey);
+          const safeName = fullName || email.split('@')[0];
+          const html = buildApprovalHtml({ name: safeName, loginUrl, baseUrl });
+          const { error: sendErr } = await resend.emails.send({
+            from: fromAddress,
+            to: email,
+            subject,
+            html,
+          }) as any;
+          if (sendErr) {
+            try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_failed: ${sendErr.message}`.slice(0,1000), context: { stage: 'approval_email', provider: 'resend' } }); } catch {}
+          }
+        } catch (err: any) {
+          try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_exception: ${err?.message || String(err)}`.slice(0,1000), context: { stage: 'approval_email_exception', provider: 'resend' } }); } catch {}
         }
+      } else {
+        if (process.env.NODE_ENV !== 'production') console.warn('RESEND_API_KEY missing; approval email skipped');
+        try { await supabase.from('signup_errors').insert({ email, error_text: 'approval_email_skipped: missing RESEND_API_KEY', context: { stage: 'approval_email', provider: 'resend' } }); } catch {}
       }
     }
 
     const res = NextResponse.json({ ok: true, userId: targetUserId, role, email });
-    commit(res);
-    return res;
+    commit(res); return res;
   } catch (e: any) {
     const { commit } = await getServerSupabase();
     const res = new NextResponse(e?.message ?? 'Internal error', { status: 500 });
-    commit(res);
-    return res;
+    commit(res); return res;
   }
 }
+
+function buildApprovalHtml({ name, loginUrl, baseUrl }: { name: string; loginUrl: string; baseUrl: string }) {
+  const escName = escapeHtml(name);
+  const year = new Date().getFullYear();
+  const logoUrl = `${baseUrl.replace(/\/$/, '')}/logo.png`;
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eeeeee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <div style="font-family:sans-serif;max-width:600px;margin:auto;background:#f9f9f9;border-radius:8px;overflow:hidden;color:#222;">
+    <div style="background-color:#0070f3;padding:16px 24px;text-align:center;">
+      <a href="${loginUrl}" target="_blank" rel="noopener"><img style="max-width:160px;height:auto;" src="${logoUrl}" alt="Who's On Call Logo" /></a>
+    </div>
+    <div style="padding:32px;">
+      <h2 style="color:#0070f3;margin:0 0 16px;">Access Granted ✅</h2>
+      <p style="margin:16px 0;">Hi ${escName},</p>
+      <p style="margin:16px 0;">Your request to access <strong>Who&apos;s On Call</strong> has been approved by an administrator.</p>
+      <p style="margin:16px 0;">You can now log in and start using the platform:</p>
+      <p style="margin-top:24px;"><a style="background-color:#0070f3;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;" href="${loginUrl}">Log In</a></p>
+      <p style="margin-top:32px;">If you have any questions, please reach out to support.</p>
+      <p style="margin-top:24px;">— The Who&apos;s On Call Team</p>
+    </div>
+    <div style="text-align:center;font-size:12px;color:#777;padding:16px;">© ${year} Who&apos;s On Call. All rights reserved.</div>
+  </div>
+</body></html>`;
+}
+function escapeHtml(s: string) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]!)); }
