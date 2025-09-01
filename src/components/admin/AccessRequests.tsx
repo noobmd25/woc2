@@ -387,19 +387,12 @@ export default function AccessRequests() {
         const txt = await res.text();
         throw new Error(txt || `Approve failed (${res.status})`);
       }
+      let emailUsed: string | null = null;
+      try { const data = await res.json(); emailUsed = data?.email ?? null; } catch {}
 
-      // On success optionally trigger password reset (retain previous behavior)
-      if (req.email) {
-        const origin =
-          (typeof window !== 'undefined' && window.location.origin) ||
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        await supabase.auth.resetPasswordForEmail(req.email, {
-          redirectTo: `${origin}/auth/update-password`,
-        });
-      }
+      // Removed: password reset email (user already set password at signup)
 
-      addToast('Approved & email sent (if address on file).', 'info');
+      addToast(`Approved${emailUsed ? ' – approval email queued' : ''}.`, 'info');
       await load();
     } catch (e: any) {
       setError(e.message ?? 'Approve failed');
@@ -469,7 +462,7 @@ export default function AccessRequests() {
     <div className="space-y-4" id="access">
       <h2 className="text-xl font-semibold">Access Requests & Approvals</h2>
       <p className="text-sm text-gray-600 dark:text-gray-300">
-        Approve or deny pending role requests. Approvals update the user’s profile and email them a password setup link.
+        Approve or deny pending role requests. Approvals update the user’s profile and send an approval email.
       </p>
 
       {isLocalhost && (

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { Resend } from 'resend';
+import { ApprovalEmail } from '@/components/emails/ApprovalEmail';
 
 /*
   POST /api/admin/approve-user
@@ -12,15 +13,7 @@ import { Resend } from 'resend';
        - Determine desired role from role_requests.requested_role
        - Mark profile.status='approved' & profile.role=that role (RPC expected to do it).
     3. Else if userId provided: directly update profiles (status='approved', keep existing role or default 'viewer').
-    4. Send approval email via EmailJS REST API (server-side) using private key.
-       Required env vars:
-        - EMAILJS_SERVICE_ID
-        - EMAILJS_TEMPLATE_ID_APPROVAL
-        - EMAILJS_PUBLIC_KEY
-        - EMAILJS_PRIVATE_KEY (used in Authorization header if needed)
-        - APP_BASE_URL (fallback include https://www.whosoncall.app)
-        - EMAIL_FROM_NAME (for template params)
-     Template variables expected now: user_name, login_url, current_year
+    4. Send approval email via Resend (React template) if configured.
 */
 
 export async function POST(req: Request) {
@@ -124,37 +117,47 @@ export async function POST(req: Request) {
       if (profName?.full_name) fullName = profName.full_name;
     }
 
-    // Send approval email via Resend using new template
+    // Send approval email via Resend using React template
+    let emailStatus: 'sent' | 'skipped' | 'error' | null = null;
     if (email) {
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
       const resendApiKey = process.env.RESEND_API_KEY;
       const fromAddress = process.env.APPROVAL_EMAIL_FROM || "Who's On Call <no-reply@whosoncall.app>";
-      const subject = process.env.APPROVAL_EMAIL_SUBJECT || "Access Granted ✅";
+      const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted ✅';
+      const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
       if (resendApiKey) {
         try {
           const resend = new Resend(resendApiKey);
           const safeName = fullName || email.split('@')[0];
-          const html = buildApprovalHtml({ name: safeName, loginUrl, baseUrl });
-          const { error: sendErr } = await resend.emails.send({
+          // Primary path: React template
+          const { data: sendData, error: sendErr } = await resend.emails.send({
             from: fromAddress,
             to: email,
             subject,
-            html,
+            react: ApprovalEmail({ name: safeName, loginUrl, baseUrl, supportEmail }),
+            text: buildPlainText({ name: safeName, loginUrl, supportEmail })
           }) as any;
           if (sendErr) {
-            try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_failed: ${sendErr.message}`.slice(0,1000), context: { stage: 'approval_email', provider: 'resend' } }); } catch {}
+            emailStatus = 'error';
+            try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_failed: ${sendErr.message}`.slice(0,1000), context: { stage: 'approval_email', provider: 'resend', mode: 'react' } }); } catch {}
+          } else {
+            emailStatus = 'sent';
+            // Optional: record success (low severity)
+            try { await supabase.from('signup_errors').insert({ email, error_text: 'approval_email_sent', context: { stage: 'approval_email', provider: 'resend', id: sendData?.id || null } }); } catch {}
           }
         } catch (err: any) {
-          try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_exception: ${err?.message || String(err)}`.slice(0,1000), context: { stage: 'approval_email_exception', provider: 'resend' } }); } catch {}
+          emailStatus = 'error';
+          try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_exception: ${err?.message || String(err)}`.slice(0,1000), context: { stage: 'approval_email_exception', provider: 'resend', mode: 'react' } }); } catch {}
         }
       } else {
+        emailStatus = 'skipped';
         if (process.env.NODE_ENV !== 'production') console.warn('RESEND_API_KEY missing; approval email skipped');
         try { await supabase.from('signup_errors').insert({ email, error_text: 'approval_email_skipped: missing RESEND_API_KEY', context: { stage: 'approval_email', provider: 'resend' } }); } catch {}
       }
     }
 
-    const res = NextResponse.json({ ok: true, userId: targetUserId, role, email });
+    const res = NextResponse.json({ ok: true, userId: targetUserId, role, email, emailStatus });
     commit(res); return res;
   } catch (e: any) {
     const { commit } = await getServerSupabase();
@@ -163,26 +166,8 @@ export async function POST(req: Request) {
   }
 }
 
-function buildApprovalHtml({ name, loginUrl, baseUrl }: { name: string; loginUrl: string; baseUrl: string }) {
-  const escName = escapeHtml(name);
-  const year = new Date().getFullYear();
-  const logoUrl = `${baseUrl.replace(/\/$/, '')}/logo.png`;
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eeeeee;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-  <div style="font-family:sans-serif;max-width:600px;margin:auto;background:#f9f9f9;border-radius:8px;overflow:hidden;color:#222;">
-    <div style="background-color:#0070f3;padding:16px 24px;text-align:center;">
-      <a href="${loginUrl}" target="_blank" rel="noopener"><img style="max-width:160px;height:auto;" src="${logoUrl}" alt="Who's On Call Logo" /></a>
-    </div>
-    <div style="padding:32px;">
-      <h2 style="color:#0070f3;margin:0 0 16px;">Access Granted ✅</h2>
-      <p style="margin:16px 0;">Hi ${escName},</p>
-      <p style="margin:16px 0;">Your request to access <strong>Who&apos;s On Call</strong> has been approved by an administrator.</p>
-      <p style="margin:16px 0;">You can now log in and start using the platform:</p>
-      <p style="margin-top:24px;"><a style="background-color:#0070f3;color:#ffffff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;" href="${loginUrl}">Log In</a></p>
-      <p style="margin-top:32px;">If you have any questions, please reach out to support.</p>
-      <p style="margin-top:24px;">— The Who&apos;s On Call Team</p>
-    </div>
-    <div style="text-align:center;font-size:12px;color:#777;padding:16px;">© ${year} Who&apos;s On Call. All rights reserved.</div>
-  </div>
-</body></html>`;
+// Plain-text fallback for email clients / logs
+function buildPlainText({ name, loginUrl, supportEmail }: { name: string; loginUrl: string; supportEmail: string }) {
+  const safeName = name || 'there';
+  return `Hi ${safeName},\n\nYour access to Who's On Call has been approved. You can now log in: ${loginUrl}\n\nIf you have questions contact ${supportEmail}.\n\n— The Who's On Call Team`;
 }
-function escapeHtml(s: string) { return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]!)); }

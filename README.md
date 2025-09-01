@@ -7,6 +7,7 @@
 - **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Headless UI
 - **Backend**: Supabase (PostgreSQL) with Row-Level Security (RLS)
 - **Auth**: Supabase Auth with custom roles (`scheduler`, `admin`)
+- **Email**: Resend (transactional) for approval notifications (migrated from legacy EmailJS)
 - **UI**: Calendar views, modals, responsive sidebars, Framer Motion animations
 
 ## 📱 Core Features
@@ -65,6 +66,20 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+### Email Configuration
+
+Set the following environment variables for approval emails (Resend):
+
+```
+RESEND_API_KEY=your_key
+APP_BASE_URL=https://www.whosoncall.app
+APPROVAL_EMAIL_FROM="Who's On Call <no-reply@whosoncall.app>"
+APPROVAL_EMAIL_SUBJECT=Access Granted ✅
+SUPPORT_EMAIL=support@premuss.org
+```
+
+If `RESEND_API_KEY` is missing in non-production environments the API will log a warning and skip sending.
 
 ## Learn More
 
