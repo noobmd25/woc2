@@ -20,6 +20,13 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Slide-up animation for bottom sheet */
+@keyframes sheet-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.sheet-slide-up { animation: sheet-up 0.28s ease-out; will-change: transform; }
+
 /* Override FullCalendar event background to be fully transparent */
 .fc-event {
   background: none !important;

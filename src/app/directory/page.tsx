@@ -758,7 +758,7 @@ export default function DirectoryPage() {
           aria-label="Contact Options"
         >
           <div
-            className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl"
+            className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl sheet-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 pt-5 pb-3 border-b dark:border-gray-700">
