@@ -25,7 +25,7 @@ export interface Database {
           user_id: string | null;
           email: string;
           provider_type: string | null;
-          requested_role: 'viewer' | 'scheduler' | 'admin';
+            requested_role: 'viewer' | 'scheduler' | 'admin';
           justification: string | null;
           metadata: Json | null;
           status: 'pending' | 'approved' | 'denied' | 'withdrawn';
@@ -40,9 +40,10 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['role_requests']['Row']>;
       };
       specialties: {
-        Row: { name: string; show_oncall: boolean };
-        Insert: { name: string; show_oncall?: boolean };
-        Update: Partial<{ name: string; show_oncall: boolean }>;
+        // Updated to include id (uuid) which is referenced in code
+        Row: { id: string; name: string; show_oncall: boolean };
+        Insert: { id?: string; name: string; show_oncall?: boolean };
+        Update: Partial<{ id: string; name: string; show_oncall: boolean }>;
       };
       schedules: {
         Row: {
@@ -57,9 +58,10 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['schedules']['Row']>;
       };
       directory: {
-        Row: { provider_name: string; phone_number: string | null };
-        Insert: { provider_name: string; phone_number?: string | null };
-        Update: Partial<{ provider_name: string; phone_number: string | null }>;
+        // Updated to include id + specialty per runtime usage
+        Row: { id: string; provider_name: string; specialty: string | null; phone_number: string | null };
+        Insert: { id?: string; provider_name: string; specialty?: string | null; phone_number?: string | null };
+        Update: Partial<{ provider_name: string; specialty: string | null; phone_number: string | null }>;
       };
       mmm_medical_groups: {
         Row: { id: number; name: string; medical_group: string };

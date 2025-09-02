@@ -35,7 +35,7 @@ export default function VitalMedicalGroupsEditor() {
     fetchGroups();
   }, [fetchGroups]);
 
-  usePageRefresh(fetchGroups);
+  usePageRefresh(null); // full reload on pull-to-refresh
 
   const addGroup = async () => {
     if (!newGroupName.trim() || !newGroupCode.trim()) return;

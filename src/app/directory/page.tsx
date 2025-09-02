@@ -87,7 +87,7 @@ export default function DirectoryPage() {
     fetchSpecialties();
   }, [fetchProviders, fetchSpecialties]);
 
-  usePageRefresh(async () => { await Promise.all([fetchProviders(), fetchSpecialties()]); });
+  usePageRefresh(null); // full reload on pull-to-refresh
 
   useEffect(() => {
     const lowerSearch = search.toLowerCase();
@@ -116,47 +116,84 @@ export default function DirectoryPage() {
     setEditOpen(true);
   };
 
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const handleUpdateProvider = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (role !== 'admin') return;
     if (!editingProvider) return;
-    const { error } = await supabase
+    setSaving(true);
+    const { error, data } = await supabase
       .from('directory')
       .update({
-        provider_name: editName,
-        specialty: editSpecialty,
-        phone_number: editPhone,
+        provider_name: editName.trim(),
+        specialty: editSpecialty.trim(),
+        phone_number: editPhone.trim() || null,
       })
-      .eq('id', editingProvider.id);
+      .eq('id', editingProvider.id)
+      .select('*')
+      .maybeSingle();
+    setSaving(false);
     if (error) {
-      return; // silently fail (toast could be added)
+      console.error('Update provider failed', error);
+      setFormError('Failed to update provider.');
+      return;
     }
     setEditOpen(false);
     setEditingProvider(null);
     setEditName('');
     setEditSpecialty('');
     setEditPhone('');
-    const { data: updated } = await supabase.from('directory').select('*');
-    setProviders(updated || []);
+    // Optimistic update
+    if (data) {
+      setProviders(prev => prev.map(p => p.id === data.id ? (data as Provider) : p));
+    } else {
+      const { data: updated } = await supabase.from('directory').select('*');
+      setProviders(updated || []);
+    }
   };
 
   const handleAddProvider = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (role !== 'admin') return;
-    const { error } = await supabase.from('directory').insert({
-      provider_name: newName,
-      specialty: newSpecialty,
-      phone_number: newPhone,
-    });
+    if (!newName.trim() || !newSpecialty.trim()) {
+      setFormError('Name and Specialty are required.');
+      return;
+    }
+    setSaving(true);
+    const { error, data } = await supabase
+      .from('directory')
+      .insert({
+        provider_name: newName.trim(),
+        specialty: newSpecialty.trim(),
+        phone_number: newPhone.trim() || null,
+      })
+      .select('*')
+      .maybeSingle();
+    setSaving(false);
     if (error) {
-      return; // silently fail
+      console.error('Add provider failed (directory insert)', error);
+      // Common RLS / permission hint
+      if (error.message?.toLowerCase().includes('row-level security') || error.code === '42501') {
+        setFormError('Permission denied (RLS). Ensure your profile role=admin & status=approved and RLS policy allows insert.');
+      } else {
+        setFormError(error.message || 'Failed to add provider.');
+      }
+      return;
     }
     setNewName('');
     setNewSpecialty('');
     setNewPhone('');
     setModalOpen(false);
-    const { data: updated } = await supabase.from('directory').select('*');
-    setProviders(updated || []);
+    if (data) {
+      setProviders(prev => [...prev, data as Provider]);
+    } else {
+      const { data: updated } = await supabase.from('directory').select('*');
+      setProviders(updated || []);
+    }
   };
 
   const handleAddSpecialty = async (e: React.FormEvent) => {
@@ -289,7 +326,7 @@ export default function DirectoryPage() {
 
   return (
     <>
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main className="relative max-w-4xl mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold mb-4">Provider Directory</h1>
         <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
           <input
@@ -425,10 +462,20 @@ export default function DirectoryPage() {
       </main>
 
       {role === 'admin' && modalOpen && (
-        <div className="fixed inset-0 z-[1000] bg-black bg-opacity-70 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl z-[1001]">
+        <div
+          className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { if(!saving){ setModalOpen(false); setFormError(null);} }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add Provider"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl z-[1001]"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold mb-4">Add New Provider</h2>
             <form onSubmit={handleAddProvider} className="space-y-4">
+              {formError && <p className="text-sm text-red-600" role="alert">{formError}</p>}
               <input
                 type="text"
                 placeholder="Provider Name"
@@ -437,17 +484,21 @@ export default function DirectoryPage() {
                 required
                 className="w-full px-4 py-2 border rounded"
               />
-              <select
-                value={newSpecialty}
-                onChange={e => setNewSpecialty(e.target.value)}
-                required
-                className="w-full px-4 py-2 border rounded"
-              >
-                <option value="">Select Specialty</option>
-                {specialties.map(spec => (
-                  <option key={spec} value={spec}>{spec}</option>
-                ))}
-              </select>
+              <div>
+                <input
+                  list="specialty-options"
+                  placeholder="Specialty"
+                  value={newSpecialty}
+                  onChange={e => setNewSpecialty(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border rounded"
+                />
+                <datalist id="specialty-options">
+                  {specialties.map(spec => (
+                    <option key={spec} value={spec} />
+                  ))}
+                </datalist>
+              </div>
               <input
                 type="tel"
                 placeholder="Phone Number"
@@ -456,11 +507,11 @@ export default function DirectoryPage() {
                 className="w-full px-4 py-2 border rounded"
               />
               <div className="flex justify-end gap-4">
-                <button type="button" onClick={() => setModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded">
+                <button type="button" onClick={() => { if(!saving){ setModalOpen(false); setFormError(null);} }} className="px-4 py-2 bg-gray-300 rounded">
                   Cancel
                 </button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
-                  Save
+                <button disabled={saving} type="submit" className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60">
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>
@@ -469,10 +520,20 @@ export default function DirectoryPage() {
       )}
 
       {role === 'admin' && editOpen && (
-        <div className="fixed inset-0 z-[1100] bg-black/70 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl">
+        <div
+          className="fixed inset-0 z-[1100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => { if(!saving){ setEditOpen(false); setEditingProvider(null); setFormError(null);} }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit Provider"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2 className="text-xl font-bold mb-4">Edit Provider</h2>
             <form onSubmit={handleUpdateProvider} className="space-y-4">
+              {formError && <p className="text-sm text-red-600" role="alert">{formError}</p>}
               <input
                 type="text"
                 placeholder="Provider Name"
@@ -481,16 +542,21 @@ export default function DirectoryPage() {
                 required
                 className="w-full px-4 py-2 border rounded"
               />
-              <select
-                value={editSpecialty}
-                onChange={e => setEditSpecialty(e.target.value)}
-                required
-                className="w-full px-4 py-2 border rounded"
-              >
-                {Array.from(new Set([editSpecialty, ...specialties].filter(Boolean))).map(spec => (
-                  <option key={spec} value={spec}>{spec}</option>
-                ))}
-              </select>
+              <div>
+                <input
+                  list="edit-specialty-options"
+                  placeholder="Specialty"
+                  value={editSpecialty}
+                  onChange={e => setEditSpecialty(e.target.value)}
+                  required
+                  className="w-full px-4 py-2 border rounded"
+                />
+                <datalist id="edit-specialty-options">
+                  {specialties.map(spec => (
+                    <option key={spec} value={spec} />
+                  ))}
+                </datalist>
+              </div>
               <input
                 type="tel"
                 placeholder="Phone Number"
@@ -501,7 +567,7 @@ export default function DirectoryPage() {
               <div className="flex justify-between gap-4">
                 <button
                   type="button"
-                  onClick={() => { setEditOpen(false); setEditingProvider(null); }}
+                  onClick={() => { if(!saving){ setEditOpen(false); setEditingProvider(null); setFormError(null);} }}
                   className="px-4 py-2 bg-gray-300 rounded"
                 >
                   Cancel
@@ -509,9 +575,10 @@ export default function DirectoryPage() {
                 <div className="ml-auto flex gap-3">
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded"
+                    disabled={saving}
+                    className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
                   >
-                    Save Changes
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </div>
@@ -521,8 +588,17 @@ export default function DirectoryPage() {
       )}
 
       {role === 'admin' && manageSpecsOpen && (
-        <div className="fixed inset-0 z-[1200] bg-black/70 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-2xl shadow-xl">
+        <div
+          className="fixed inset-0 z-[1200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setManageSpecsOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Manage Directory"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-2xl shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Manage Directory</h2>
               <div className="flex items-center gap-2">
@@ -674,8 +750,17 @@ export default function DirectoryPage() {
         </div>
       )}
       {phoneActionsOpen && phoneTarget && (
-        <div className="fixed inset-0 z-[1300] bg-black/60 flex items-end sm:items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl">
+        <div
+          className="fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
+          onClick={() => { setPhoneActionsOpen(false); setPhoneTarget(null); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Contact Options"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 pt-5 pb-3 border-b dark:border-gray-700">
               <h3 className="text-lg font-semibold">{phoneTarget.name}</h3>
               <p className="text-sm text-gray-600 dark:text-gray-300">{phoneTarget.phone}</p>

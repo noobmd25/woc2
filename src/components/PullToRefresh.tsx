@@ -164,7 +164,7 @@ export default function PullToRefresh({
             </div>
           </div>
         </div>
-        <div style={{ transform: `translateY(${pullY ? pullY / 6 : 0}px)` }} className="flex-1 flex flex-col">
+        <div style={{ transform: pullY ? `translateY(${pullY / 6}px)` : undefined }} className="flex-1 flex flex-col">
           {children}
         </div>
       </div>

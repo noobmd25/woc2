@@ -82,16 +82,7 @@ function PageContent() {
     return () => { mounted = false; clearInterval(id); };
   }, [supabase]);
 
-  usePageRefresh(async () => {
-    try {
-      const res = await supabase
-        .from('role_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      const cnt = typeof (res.count) === 'number' ? res.count : 0;
-      setCounts(c => ({ ...c, pendingAccess: cnt }));
-    } catch {}
-  });
+  usePageRefresh(null); // full reload on pull-to-refresh (counts rehydrated after reload)
 
   // Helper to validate a tab value
   const isValidTab = (t: string | null): t is TabKey => !!t && ['access','integrity','errors','audit','announcements','usage'].includes(t);

@@ -44,7 +44,7 @@ export default function HomeClient() {
     } catch {}
   }, [supabase]);
 
-  usePageRefresh(refreshSession);
+  usePageRefresh(null); // full reload on pull-to-refresh
 
   const formatPhone = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 10);

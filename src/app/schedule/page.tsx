@@ -1306,80 +1306,52 @@ if (role !== 'admin' && role !== 'scheduler') {
                               : undefined
                           }
                           onClick={() => {
-                            // If assigned to other provider, do nothing (should be blocked by pointer-events)
-                            if (status.isAssignedToOtherProvider) return;
-                            // If assigned to current provider, toggle assignment (remove on second click)
-                            if (status.isAssignedToCurrentProvider) {
-                              setEvents(prev =>
-                                prev.filter(
-                                  e =>
-                                    !(
-                                      e.date === dateStr &&
-                                      e.title === `Dr. ${modalProvider.provider_name}`
-                                    )
-                                )
-                              );
-                              setPendingDeletions(prev => [
-                                ...prev,
-                                {
-                                  date: dateStr,
-                                  provider: `Dr. ${modalProvider.provider_name}`,
-                                },
-                              ]);
-                              setSelectedAdditionalDays(prev =>
-                                prev.filter(d => d !== dateStr)
-                              );
-                              return;
-                            }
-                            // If primary date, do nothing (cannot deselect)
-                            if (status.isPrimaryDate) return;
-                            // --- Begin: New logic for small calendar selection ---
-                            if (!canEdit) return;
-                            // We need to add a new pending entry for this date using current modal selections
-                            // Find modalProvider, modalSpecialty, modalHealthcarePlan, isResident from modal state
-                            // We'll try to infer these from the modal controls
+                            // Determine current modal provider name early (avoid temporal dead zone)
                             const providerName = getProviderInputValue();
                             const modalProvider = directory.find(d => d.provider_name === providerName);
-                            const modalSpecialty = specialty;
-                            const modalHealthcarePlan = specialty === 'Internal Medicine' ? plan : null;
-                            // Use showResident as isResident
-                            const isSecond = secondPref !== 'none';
-                            // (removed debug logging)
-                            if (modalProvider && modalSpecialty && (modalHealthcarePlan !== undefined)) {
+
+                            // If assigned to other provider, do nothing (blocked visually too)
+                            if (status.isAssignedToOtherProvider) return;
+
+                            // If this date currently assigned to the provider in the input, toggle (remove it)
+                            if (status.isAssignedToCurrentProvider) {
+                              setEvents(prev => prev.filter(e => !(e.date === dateStr && e.title === `Dr. ${providerName}`)));
+                              setPendingDeletions(prev => [
+                                ...prev,
+                                { date: dateStr, provider: `Dr. ${providerName}` },
+                              ]);
+                              setSelectedAdditionalDays(prev => prev.filter(d => d !== dateStr));
+                              return;
+                            }
+                            // Primary date cannot be toggled off
+                            if (status.isPrimaryDate) return;
+                            if (!canEdit) return;
+
+                            // Add new pending entry if not already added
+                            if (modalProvider) {
                               const alreadySelected = pendingEntries.some(
-                                (entry) =>
-                                  entry.on_call_date === dateStr &&
-                                  entry.provider_name === modalProvider.provider_name
+                                entry => entry.on_call_date === dateStr && entry.provider_name === modalProvider.provider_name
                               );
                               if (!alreadySelected) {
                                 const newEntry = {
                                   on_call_date: dateStr,
                                   provider_name: modalProvider.provider_name,
-                                  specialty: modalSpecialty,
-                                  healthcare_plan: modalHealthcarePlan,
-                                  show_second_phone: isSecond,
+                                  specialty,
+                                  healthcare_plan: specialty === 'Internal Medicine' ? plan : null,
+                                  show_second_phone: secondPref !== 'none',
                                   second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
                                 } as const;
                                 setPendingEntries(prev => [...prev, newEntry]);
                                 setEvents(prevEvents => {
                                   const exists = prevEvents.some(e => e.title === `Dr. ${modalProvider.provider_name}` && e.date === dateStr);
-                                  if (exists) return prevEvents;
-                                  return [
-                                    ...prevEvents,
-                                    {
-                                      title: `Dr. ${modalProvider.provider_name}`,
-                                      date: dateStr,
-                                    }
-                                  ];
+                                  return exists ? prevEvents : [...prevEvents, { title: `Dr. ${modalProvider.provider_name}`, date: dateStr }];
                                 });
                               }
                             }
-                            // --- End: New logic for small calendar selection ---
-                            // Toggle selection for additional days
+
+                            // Toggle selection highlight (even if provider not resolved yet)
                             setSelectedAdditionalDays(prev =>
-                              prev.includes(dateStr)
-                                ? prev.filter(d => d !== dateStr)
-                                : [...prev, dateStr]
+                              prev.includes(dateStr) ? prev.filter(d => d !== dateStr) : [...prev, dateStr]
                             );
                           }}
                         >

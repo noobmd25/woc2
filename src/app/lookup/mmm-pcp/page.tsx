@@ -39,7 +39,7 @@ export default function MMMPcpLookupPage() {
     return () => { debouncedLookup.cancel(); };
   }, [debouncedLookup]);
 
-  usePageRefresh(async () => { await runLookup(pcpName); });
+  usePageRefresh(null); // full reload on pull-to-refresh
 
   useEffect(() => {
     if (results.length === 0) return;

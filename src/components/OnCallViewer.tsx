@@ -55,12 +55,8 @@ export default function OnCallViewer() {
     fetchSpecialties();
   }, [fetchSpecialties]);
 
-  // Register refresh handler (refetch specialties + trigger schedule reload)
-  usePageRefresh(async () => {
-    await fetchSpecialties();
-    // force schedule refetch by toggling date state (or call internal logic)
-    setCurrentDate(d => new Date(d));
-  });
+  // Register refresh handler (now full page reload instead of partial refetch)
+  usePageRefresh(null); // full reload on pull-to-refresh; specialties & schedule refetched via normal lifecycle
 
   // Toast fallback on render if still empty after first load (avoid spamming)
   useEffect(() => {

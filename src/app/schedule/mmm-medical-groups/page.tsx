@@ -32,7 +32,7 @@ export default function MMMGroupsTab() {
     fetchGroups();
   }, [fetchGroups]);
 
-  usePageRefresh(fetchGroups);
+  usePageRefresh(null); // full reload on pull-to-refresh
 
   const handleAdd = async () => {
     if (!newProvider.name || !newProvider.medical_group) return toast.warning('Fill all fields');

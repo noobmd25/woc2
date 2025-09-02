@@ -34,7 +34,7 @@ export default function VitalGroupsLookupPage() {
     fetchGroups();
   }, [fetchGroups]);
 
-  usePageRefresh(fetchGroups);
+  usePageRefresh(null); // full reload on pull-to-refresh
 
   const filtered = groups.filter(
     (g) =>
