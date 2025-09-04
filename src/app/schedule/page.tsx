@@ -984,8 +984,8 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         {/* Clear Month Confirmation Modal */}
         {canEdit && showClearModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-sm w-full transform transition-transform duration-300 ease-out scale-95 animate-fadeIn">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out modal-overlay-in">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-sm w-full transform transition-transform duration-300 ease-out scale-95 animate-fadeIn modal-pop-in">
               <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Confirm Deletion</h2>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
                   Are you sure you want to clear all on-call entries for <strong>{specialty}</strong>
@@ -1027,7 +1027,7 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         <div
           id="provider-modal"
-          className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out ${isModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out modal-overlay-in ${isModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           onClick={(e) => {
             if ((e.target as HTMLElement).id === 'provider-modal') {
               setIsModalOpen(false);
@@ -1047,7 +1047,7 @@ if (role !== 'admin' && role !== 'scheduler') {
             }
           }}
         >
-          <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md transition-transform duration-300 ease-in-out transform ${isModalOpen ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'}`}>
+          <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md transition-transform duration-300 ease-in-out transform modal-pop-in ${isModalOpen ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'}`}>
             <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
               {isEditing ? 'Edit On-Call Entry' : 'Add On-Call Entry'}
             </h2>
@@ -1509,7 +1509,7 @@ if (role !== 'admin' && role !== 'scheduler') {
       {/* Specialty Edit Modal for admins */}
       {showSpecialtyModal && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 modal-overlay-in"
           onClick={(e) => {
             if ((e.target as HTMLElement).id === 'specialty-modal') {
               setShowSpecialtyModal(false);
@@ -1518,7 +1518,7 @@ if (role !== 'admin' && role !== 'scheduler') {
           id="specialty-modal"
         >
           <div
-            className="relative bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-full max-w-md max-h-[80vh] overflow-y-auto"
+            className="relative bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-full max-w-md max-h-[80vh] overflow-y-auto modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             <button

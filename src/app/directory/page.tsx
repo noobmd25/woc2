@@ -49,6 +49,7 @@ export default function DirectoryPage() {
   // Phone action sheet state
   const [phoneActionsOpen, setPhoneActionsOpen] = useState(false);
   const [phoneTarget, setPhoneTarget] = useState<{ name: string; phone: string } | null>(null);
+  const [closingSheet, setClosingSheet] = useState(false);
 
   const cleanPhone = (s: string) => s.replace(/[^\d+]/g, "");
 
@@ -65,8 +66,24 @@ export default function DirectoryPage() {
 
   const openPhoneActions = (provider: Provider) => {
     setPhoneTarget({ name: provider.provider_name, phone: provider.phone_number });
+    setClosingSheet(false); // ensure we reset exit animation state when opening
     setPhoneActionsOpen(true);
   };
+
+  // Gracefully close the phone action sheet with exit animation
+  const closePhoneSheet = useCallback(() => {
+    if (!phoneActionsOpen) return; // nothing to do
+    if (closingSheet) return; // already animating out
+    setClosingSheet(true);
+    // Match the sheet-slide-down / overlay-fade-out duration (approx 240-260ms)
+    const timeout = setTimeout(() => {
+      setPhoneActionsOpen(false);
+      setPhoneTarget(null);
+      setClosingSheet(false); // reset for next open
+    }, 260);
+    return () => clearTimeout(timeout);
+  }, [phoneActionsOpen, closingSheet]);
+
   const role = useUserRole();
 
   const fetchProviders = useCallback(async () => {
@@ -463,14 +480,14 @@ export default function DirectoryPage() {
 
       {role === 'admin' && modalOpen && (
         <div
-          className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
           onClick={() => { if(!saving){ setModalOpen(false); setFormError(null);} }}
           role="dialog"
           aria-modal="true"
           aria-label="Add Provider"
         >
           <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl z-[1001]"
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl z-[1001] modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold mb-4">Add New Provider</h2>
@@ -521,14 +538,14 @@ export default function DirectoryPage() {
 
       {role === 'admin' && editOpen && (
         <div
-          className="fixed inset-0 z-[1100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[1100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
           onClick={() => { if(!saving){ setEditOpen(false); setEditingProvider(null); setFormError(null);} }}
           role="dialog"
           aria-modal="true"
           aria-label="Edit Provider"
         >
           <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl"
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-xl font-bold mb-4">Edit Provider</h2>
@@ -589,14 +606,14 @@ export default function DirectoryPage() {
 
       {role === 'admin' && manageSpecsOpen && (
         <div
-          className="fixed inset-0 z-[1200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[1200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
           onClick={() => setManageSpecsOpen(false)}
           role="dialog"
           aria-modal="true"
           aria-label="Manage Directory"
         >
           <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-2xl shadow-xl"
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-2xl shadow-xl modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
@@ -751,14 +768,14 @@ export default function DirectoryPage() {
       )}
       {phoneActionsOpen && phoneTarget && (
         <div
-          className="fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center"
-          onClick={() => { setPhoneActionsOpen(false); setPhoneTarget(null); }}
+          className={`fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center ${closingSheet ? 'overlay-fade-out' : 'modal-overlay-in'}`}
+          onClick={closePhoneSheet}
           role="dialog"
           aria-modal="true"
           aria-label="Contact Options"
         >
           <div
-            className="bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl sheet-slide-up"
+            className={`bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl ${closingSheet ? 'sheet-slide-down' : 'sheet-slide-up'}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 pt-5 pb-3 border-b dark:border-gray-700">
@@ -789,7 +806,7 @@ export default function DirectoryPage() {
             </div>
             <button
               type="button"
-              onClick={() => { setPhoneActionsOpen(false); setPhoneTarget(null); }}
+              onClick={closePhoneSheet}
               className="w-full px-6 py-4 text-center hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               Cancel

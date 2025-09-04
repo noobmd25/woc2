@@ -81,6 +81,20 @@ SUPPORT_EMAIL=support@premuss.org
 
 If `RESEND_API_KEY` is missing in non-production environments the API will log a warning and skip sending.
 
+## 📲 PWA / iOS Installability
+
+PWA manifest: `public/manifest.json` (replaces older `site.webmanifest`).
+
+Generate iOS light/dark splash screens after updating `public/brand/wordmark.png`:
+```bash
+npm run pwa:splash
+```
+Assets are written to `public/splash/light` and `public/splash/dark` and already referenced in `app/layout.tsx`.
+
+Add a maskable icon (optional, Android adaptive shapes): create `public/icon-512-maskable.png` and add to `icons` array in the manifest with `"purpose": "any maskable"`.
+
+See `docs/pwa-ios.md` for validation steps and checklist.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

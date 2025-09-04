@@ -1,0 +1,53 @@
+{
+  "id": "/?source=pwa",
+  "name": "Who's On Call",
+  "short_name": "On Call",
+  "description": "Hospital on-call scheduling made simple.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "categories": ["health", "productivity", "medical"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Today On Call",
+      "short_name": "Today",
+      "url": "/schedule?view=today",
+      "description": "Jump to today's on-call schedule"
+    },
+    {
+      "name": "Directory",
+      "short_name": "Directory",
+      "url": "/directory",
+      "description": "Open provider directory"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "label": "App Icon / Branding"
+    }
+  ]
+}

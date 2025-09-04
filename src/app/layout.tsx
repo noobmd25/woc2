@@ -23,20 +23,16 @@ export const metadata: Metadata = {
   publisher: "Who's On Call",
   category: 'Healthcare',
   keywords: ['on-call', 'schedule', 'hospital', 'providers', 'directory', 'healthcare', 'roster'],
+  manifest: '/manifest.json',
   icons: {
     icon: ['/favicon.ico'],
     shortcut: ['/favicon.ico'],
     apple: ['/apple-touch-icon.png'],
     other: [
       { rel: 'icon', url: '/icon-192.png' },
-      { rel: 'icon', url: '/icon-512.png' }
+      { rel: 'icon', url: '/icon-512.png' },
+      { rel: 'apple-touch-icon', url: '/apple-touch-icon.png' }
     ]
-  },
-  manifest: '/site.webmanifest',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: "Who's On Call"
   },
   formatDetection: { telephone: true, email: true, address: false },
   alternates: { canonical: 'https://whosoncall.app' },
@@ -144,6 +140,16 @@ export default function RootLayout({ children }: { children: React.ReactNode; })
         <link rel="apple-touch-startup-image" href="/splash/light/apple-splash-2160-1620.jpg" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) and (prefers-color-scheme: light)" />
         <link rel="apple-touch-startup-image" href="/splash/dark/apple-splash-1620-2160.jpg" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait) and (prefers-color-scheme: dark)" />
         <link rel="apple-touch-startup-image" href="/splash/dark/apple-splash-2160-1620.jpg" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape) and (prefers-color-scheme: dark)" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Who's On Call" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="Who's On Call" />
+        <meta name="theme-color" content="#2563eb" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
       </head>
       <body className={`${robotoMono.variable} antialiased`}>
         <SupabaseProvider>

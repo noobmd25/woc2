@@ -27,6 +27,26 @@ body {
 }
 .sheet-slide-up { animation: sheet-up 0.28s ease-out; will-change: transform; }
 
+/* Slide-down (exit) animation for bottom sheet */
+@keyframes sheet-down {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(100%); opacity: 0; }
+}
+.sheet-slide-down { animation: sheet-down 0.24s ease-in forwards; will-change: transform; }
+
+/* Optional overlay fade-out helper */
+@keyframes overlay-fade-out { from { opacity: 1; } to { opacity: 0; } }
+.overlay-fade-out { animation: overlay-fade-out 0.25s ease-in forwards; }
+
+/* Overlay entrance animations (fade + blur) */
+@keyframes overlay-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes overlay-blur-in { from { backdrop-filter: blur(0); } to { backdrop-filter: blur(4px); } }
+.modal-overlay-in { animation: overlay-fade-in 0.25s ease-out, overlay-blur-in 0.35s ease-out; }
+
+/* Modal content pop-in (scale + rise) */
+@keyframes modal-pop-in { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.modal-pop-in { animation: modal-pop-in 0.28s cubic-bezier(.16,.84,.44,1); }
+
 /* Override FullCalendar event background to be fully transparent */
 .fc-event {
   background: none !important;
@@ -71,5 +91,13 @@ body {
 }
 
 .modal-overlay {
-  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  transition: opacity 0.3s;
 }
