@@ -698,14 +698,14 @@ if (role !== 'admin' && role !== 'scheduler') {
         </h1>
 
       {role === 'admin' && (
-        <div className="flex items-center justify-end mb-4">
+        <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
           <div className="flex gap-3 items-center">
             <button onClick={() => setShowSpecialtyModal(true)} className="px-3 py-1 text-sm bg-indigo-600 text-white rounded">
               Edit Specialties
             </button>
           </div>
           {/* Medical Groups buttons only for admin */}
-          <div className="flex gap-3 items-center mt-2">
+          <div className="flex gap-3 items-center">
             <Link
               href="/schedule/mmm-medical-groups"
               className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
