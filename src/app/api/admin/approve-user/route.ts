@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 import { ApprovalEmail } from '@/components/emails/ApprovalEmail';
+import { buildFromHeader, sanitizeFromRaw, buildApprovalPlainText } from '@/lib/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -141,7 +142,7 @@ export async function POST(req: Request) {
             to: email,
             subject,
             react: ApprovalEmail({ name: safeName, loginUrl, baseUrl, supportEmail }),
-            text: buildPlainText({ name: safeName, loginUrl, supportEmail }),
+            text: buildApprovalPlainText({ name: safeName, loginUrl, supportEmail }),
             reply_to: supportEmail,
           }) as any;
           if (sendErr) {
@@ -175,43 +176,4 @@ export async function POST(req: Request) {
     const res = new NextResponse(e?.message ?? 'Internal error', { status: 500 });
     commit(res); return res;
   }
-}
-
-// Plain-text fallback for email clients / logs
-function buildPlainText({ name, loginUrl, supportEmail }: { name: string; loginUrl: string; supportEmail: string }) {
-  const safeName = name || 'there';
-  return `Hi ${safeName},\n\nYour access to Who's On Call has been approved. You can now log in: ${loginUrl}\n\nIf you have questions contact ${supportEmail}.\n\n— The Who's On Call Team`;
-}
-
-// Validate/build a proper "From" header for Resend
-function buildFromHeader(raw: string | undefined, defaultName: string, env?: string): string | null {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (raw) {
-    const trimmed = raw.trim();
-    if (trimmed.includes('<') && trimmed.includes('>')) {
-      const inner = trimmed.substring(trimmed.indexOf('<') + 1, trimmed.indexOf('>')).trim();
-      return emailRegex.test(inner) ? trimmed : null;
-    }
-    if (emailRegex.test(trimmed)) {
-      return `${defaultName} <${trimmed}>`;
-    }
-    return null;
-  }
-  // Dev fallback allowed by Resend without domain verification
-  if (env !== 'production') return 'onboarding@resend.dev';
-  return null;
-}
-
-function sanitizeFromRaw(raw?: string) {
-  if (!raw) return raw;
-  let s = raw.trim();
-  const qStart = s[0];
-  const qEnd = s[s.length - 1];
-  const openQuotes = new Set(['"', "'", '\u2018', '\u201C']);
-  const closeQuotes = new Set(['"', "'", '\u2019', '\u201D']);
-  if (openQuotes.has(qStart) && closeQuotes.has(qEnd)) {
-    s = s.slice(1, -1).trim();
-  }
-  s = s.replace(/\u2019/g, "'");
-  return s;
 }

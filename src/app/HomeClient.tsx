@@ -38,7 +38,7 @@ export default function HomeClient() {
     }
   }, [search]);
 
-  const refreshSession = useCallback(async () => {
+  const _refreshSession = useCallback(async () => {
     try {
       await supabase.auth.getUser();
     } catch {}
