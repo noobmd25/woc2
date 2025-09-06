@@ -35,13 +35,14 @@ export async function POST(req: Request) {
       commit(res); return res;
     }
 
-    const fromRaw = useOnboarding
+    const fromRawSource = useOnboarding
       ? "Who's On Call <onboarding@resend.dev>"
       : (process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM || "Who's On Call <cgcmd@premuss.org>");
 
+    const fromRaw = sanitizeFromRaw(fromRawSource);
     const from = buildFromHeader(fromRaw, "Who's On Call", process.env.NODE_ENV);
     if (!from) {
-      const res = NextResponse.json({ ok: false, error: 'Invalid FROM address. Check APPROVAL_EMAIL_FROM/RESEND_FROM.' }, { status: 400 });
+      const res = NextResponse.json({ ok: false, error: 'Invalid FROM address. Check APPROVAL_EMAIL_FROM/RESEND_FROM.', details: { rawFrom: fromRaw } }, { status: 400 });
       commit(res); return res;
     }
 
@@ -65,10 +66,12 @@ export async function POST(req: Request) {
         type: (error as any)?.type,
         code: (error as any)?.code,
         raw: safeSerializeError(error),
+        from,
+        rawFrom: fromRaw,
       };
       // Server-side log for quick diagnosis during dev
       try { console.error('Resend test-email failed', { from, to, subject, details }); } catch {}
-      try { await supabase.from('signup_errors').insert({ email: to, error_text: `test_email_failed: ${error.message}`.slice(0,1000), context: { stage: 'test_email', provider: 'resend', from, ...details } }); } catch {}
+      try { await supabase.from('signup_errors').insert({ email: to, error_text: `test_email_failed: ${error.message}`.slice(0,1000), context: { stage: 'test_email', provider: 'resend', from, rawFrom: fromRaw, ...details } }); } catch {}
       const status = (error as any)?.statusCode || 500;
       const res = NextResponse.json({ ok: false, error: error.message, details }, { status });
       commit(res); return res;
@@ -101,6 +104,20 @@ function buildFromHeader(raw: string | undefined, defaultName: string, env?: str
   }
   if (env !== 'production') return 'onboarding@resend.dev';
   return null;
+}
+
+function sanitizeFromRaw(raw?: string) {
+  if (!raw) return raw;
+  let s = raw.trim();
+  const qStart = s[0];
+  const qEnd = s[s.length - 1];
+  const openQuotes = new Set(['"', "'", '\u2018', '\u201C']);
+  const closeQuotes = new Set(['"', "'", '\u2019', '\u201D']);
+  if (openQuotes.has(qStart) && closeQuotes.has(qEnd)) {
+    s = s.slice(1, -1).trim();
+  }
+  s = s.replace(/\u2019/g, "'");
+  return s;
 }
 
 function safeSerializeError(err: unknown) {

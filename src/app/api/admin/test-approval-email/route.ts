@@ -40,10 +40,11 @@ export async function POST(req: Request) {
     const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
     const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
 
-    const rawFrom = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM || "Who's On Call <no-reply@whosoncall.app>";
+    const rawFromEnv = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM;
+    const rawFrom = sanitizeFromRaw(rawFromEnv) || "Who's On Call <no-reply@whosoncall.app>";
     const from = buildFromHeader(rawFrom, "Who's On Call", process.env.NODE_ENV);
     if (!from) {
-      const res = NextResponse.json({ ok: false, error: 'Invalid FROM address. Check APPROVAL_EMAIL_FROM/RESEND_FROM.' }, { status: 400 });
+      const res = NextResponse.json({ ok: false, error: 'Invalid FROM address. Check APPROVAL_EMAIL_FROM/RESEND_FROM.', details: { rawFrom } }, { status: 400 });
       commit(res); return res;
     }
 
@@ -67,9 +68,11 @@ export async function POST(req: Request) {
         type: (error as any)?.type,
         code: (error as any)?.code,
         raw: safeSerializeError(error),
+        from,
+        rawFrom,
       };
-      try { console.error('Resend test-approval-email failed', { from, to, subject, details }); } catch {}
-      try { await supabase.from('signup_errors').insert({ email: to, error_text: `approval_email_test_failed: ${error.message}`.slice(0,1000), context: { stage: 'approval_email_test', provider: 'resend', from, ...details } }); } catch {}
+      try { console.error('Resend test-approval-email failed', { from, rawFrom, to, subject, details }); } catch {}
+      try { await supabase.from('signup_errors').insert({ email: to, error_text: `approval_email_test_failed: ${error.message}`.slice(0,1000), context: { stage: 'approval_email_test', provider: 'resend', from, rawFrom, ...details } }); } catch {}
       const status = (error as any)?.statusCode || 500;
       const res = NextResponse.json({ ok: false, error: error.message, details }, { status });
       commit(res); return res;
@@ -103,6 +106,22 @@ function buildFromHeader(raw: string | undefined, defaultName: string, env?: str
   }
   if (env !== 'production') return 'onboarding@resend.dev';
   return null;
+}
+
+function sanitizeFromRaw(raw?: string) {
+  if (!raw) return raw;
+  let s = raw.trim();
+  // strip surrounding straight or curly quotes if present
+  const qStart = s[0];
+  const qEnd = s[s.length - 1];
+  const openQuotes = new Set(['"', "'", '\u2018', '\u201C']); // ' “
+  const closeQuotes = new Set(['"', "'", '\u2019', '\u201D']); // ' ”
+  if (openQuotes.has(qStart) && closeQuotes.has(qEnd)) {
+    s = s.slice(1, -1).trim();
+  }
+  // normalize curly apostrophes in display name
+  s = s.replace(/\u2019/g, "'");
+  return s;
 }
 
 function buildPlainText({ name, loginUrl, supportEmail }: { name: string; loginUrl: string; supportEmail: string }) {

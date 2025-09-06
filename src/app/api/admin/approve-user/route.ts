@@ -126,7 +126,8 @@ export async function POST(req: Request) {
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
       const resendApiKey = process.env.RESEND_API_KEY;
-      const rawFrom = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM || "Who's On Call <cgcmd@premuss.org>";
+      const rawFromEnv = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM || "Who's On Call <cgcmd@premuss.org>";
+      const rawFrom = sanitizeFromRaw(rawFromEnv);
       const fromAddress = buildFromHeader(rawFrom, "Who's On Call", process.env.NODE_ENV);
       const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted ✅';
       const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
@@ -145,15 +146,15 @@ export async function POST(req: Request) {
           }) as any;
           if (sendErr) {
             emailStatus = 'error';
-            try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_failed: ${sendErr.message}`.slice(0,1000), context: { stage: 'approval_email', provider: 'resend', mode: 'react' } }); } catch {}
+            try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_failed: ${sendErr.message}`.slice(0,1000), context: { stage: 'approval_email', provider: 'resend', mode: 'react', from: fromAddress, rawFrom } }); } catch {}
           } else {
             emailStatus = 'sent';
             // Optional: record success (low severity)
-            try { await supabase.from('signup_errors').insert({ email, error_text: 'approval_email_sent', context: { stage: 'approval_email', provider: 'resend', id: sendData?.id || null } }); } catch {}
+            try { await supabase.from('signup_errors').insert({ email, error_text: 'approval_email_sent', context: { stage: 'approval_email', provider: 'resend', id: sendData?.id || null, from: fromAddress } }); } catch {}
           }
         } catch (err: any) {
           emailStatus = 'error';
-          try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_exception: ${err?.message || String(err)}`.slice(0,1000), context: { stage: 'approval_email_exception', provider: 'resend', mode: 'react' } }); } catch {}
+          try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_exception: ${err?.message || String(err)}`.slice(0,1000), context: { stage: 'approval_email_exception', provider: 'resend', mode: 'react', from: fromAddress, rawFrom } }); } catch {}
         }
       } else if (!fromAddress) {
         emailStatus = 'skipped';
@@ -199,4 +200,18 @@ function buildFromHeader(raw: string | undefined, defaultName: string, env?: str
   // Dev fallback allowed by Resend without domain verification
   if (env !== 'production') return 'onboarding@resend.dev';
   return null;
+}
+
+function sanitizeFromRaw(raw?: string) {
+  if (!raw) return raw;
+  let s = raw.trim();
+  const qStart = s[0];
+  const qEnd = s[s.length - 1];
+  const openQuotes = new Set(['"', "'", '\u2018', '\u201C']);
+  const closeQuotes = new Set(['"', "'", '\u2019', '\u201D']);
+  if (openQuotes.has(qStart) && closeQuotes.has(qEnd)) {
+    s = s.slice(1, -1).trim();
+  }
+  s = s.replace(/\u2019/g, "'");
+  return s;
 }
