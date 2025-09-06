@@ -7,6 +7,7 @@ import { getBrowserClient } from '@/lib/supabase/client';
 import { usePageRefresh } from '@/components/PullToRefresh';
 import useUserRole from '@/app/hooks/useUserRole';
 import Link from 'next/link';
+import { resolveDirectorySpecialty } from '@/lib/specialtyMapping';
 const supabase = getBrowserClient();
 
 export default function OnCallViewer() {
@@ -185,12 +186,13 @@ export default function OnCallViewer() {
       let secondSource: string | null = null;
       if (record.show_second_phone) {
         const pref = (record.second_phone_pref as 'auto' | 'pa' | 'residency') ?? 'auto';
+        const baseSpec = resolveDirectorySpecialty(specialty);
         const lookupOrder =
           pref === 'pa'
-            ? [`${specialty} PA Phone`]
+            ? [`${baseSpec} PA Phone`]
             : pref === 'residency'
-              ? [`${specialty} Residency`]
-              : [`${specialty} PA Phone`, `${specialty} Residency`];
+              ? [`${baseSpec} Residency`]
+              : [`${baseSpec} PA Phone`, `${baseSpec} Residency`];
 
         const { data: secondPhoneList } = await supabase
           .from('directory')

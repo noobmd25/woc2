@@ -15,6 +15,7 @@ import React from 'react';
 // import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { resolveDirectorySpecialty } from '@/lib/specialtyMapping';
 // --- Provider search helpers: rank closest names ---
 const normalize = (s: string) =>
   s
@@ -592,38 +593,39 @@ const getVisibleMonthLabel = useCallback(() => {
   }, [handleSaveChanges, isModalOpen, canEdit]);
 
   useEffect(() => {
-  if (isModalOpen) {        
-    const residencyName = `${specialty} Residency`;
-    const paName = `${specialty} PA Phone`;
+    if (isModalOpen) {
+      const baseSpec = resolveDirectorySpecialty(specialty);
+      const residencyName = `${baseSpec} Residency`;
+      const paName = `${baseSpec} PA Phone`;
 
-    if (secondPref === 'residency') {
-      const resident = directory.find(d => d.provider_name === residencyName);
-      if (resident?.phone_number) {
-        setSecondPhone(resident.phone_number);
-        setSecondSource(residencyName);
+      if (secondPref === 'residency') {
+        const resident = directory.find(d => d.provider_name === residencyName);
+        if (resident?.phone_number) {
+          setSecondPhone(resident.phone_number);
+          setSecondSource(residencyName);
+        } else {
+          setSecondPhone('No residency phone registered for this service.');
+          setSecondSource(null);
+        }
+      } else if (secondPref === 'pa') {
+        const pa = directory.find(d => d.provider_name === paName);
+        if (pa?.phone_number) {
+          setSecondPhone(pa.phone_number);
+          setSecondSource(paName);
+        } else {
+          setSecondPhone('No PA phone registered for this service.');
+          setSecondSource(null);
+        }
       } else {
-        setSecondPhone('No residency phone registered for this service.');
+        setSecondPhone('');
         setSecondSource(null);
       }
-    } else if (secondPref === 'pa') {
-      const pa = directory.find(d => d.provider_name === paName);
-      if (pa?.phone_number) {
-        setSecondPhone(pa.phone_number);
-        setSecondSource(paName);
-      } else {
-        setSecondPhone('No PA phone registered for this service.');
-        setSecondSource(null);
-      }
-    } else {
-      setSecondPhone('');
-      setSecondSource(null);
-    }
 
-    if (providerInputRef.current) {
-      providerInputRef.current.focus();
+      if (providerInputRef.current) {
+        providerInputRef.current.focus();
+      }
     }
-  }
-}, [isModalOpen, secondPref, specialty, directory]);
+  }, [isModalOpen, secondPref, specialty, directory]);
 
   useEffect(() => {
     if (isModalOpen && isEditing && editingEntry) {
@@ -644,32 +646,33 @@ const getVisibleMonthLabel = useCallback(() => {
     }
   }, [isModalOpen, isEditing, editingEntry]);
 
-useEffect(() => {
-  const loadProvidersForSpecialty = async () => {
-    if (!isModalOpen) return;
-    const { data, error } = await supabase
-      .from('directory')
-      .select('provider_name')
-      .eq('specialty', specialty)
-      .not('provider_name', 'ilike', '%Residency%')
-      .not('provider_name', 'ilike', '%PA Phone%')
-      .order('provider_name', { ascending: true });
+  useEffect(() => {
+    const loadProvidersForSpecialty = async () => {
+      if (!isModalOpen) return;
+      const spec = resolveDirectorySpecialty(specialty);
+      const { data, error } = await supabase
+        .from('directory')
+        .select('provider_name')
+        .eq('specialty', spec)
+        .not('provider_name', 'ilike', '%Residency%')
+        .not('provider_name', 'ilike', '%PA Phone%')
+        .order('provider_name', { ascending: true });
 
-    if (error) {
-      console.error('Error loading providers for specialty:', error);
-      setAllProvidersForSpec([]);
-      return;
-    }
-    const names = (data ?? []).map(d => d.provider_name);
-    setAllProvidersForSpec(names);
+      if (error) {
+        console.error('Error loading providers for specialty:', error);
+        setAllProvidersForSpec([]);
+        return;
+      }
+      const names = (data ?? []).map(d => d.provider_name);
+      setAllProvidersForSpec(names);
 
-    // If the input is empty when opening, show the full list immediately
-    if (providerInputRef.current && !providerInputRef.current.value.trim()) {
-      setProviderSuggestions(names);
-    }
-  };
-  loadProvidersForSpecialty();
-}, [isModalOpen, specialty]);
+      // If the input is empty when opening, show the full list immediately
+      if (providerInputRef.current && !providerInputRef.current.value.trim()) {
+        setProviderSuggestions(names);
+      }
+    };
+    loadProvidersForSpecialty();
+  }, [isModalOpen, specialty]);
 
 if (role === null) {
   return (
