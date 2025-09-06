@@ -123,7 +123,7 @@ export async function POST(req: Request) {
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
       const resendApiKey = process.env.RESEND_API_KEY;
-      const fromAddress = process.env.APPROVAL_EMAIL_FROM || "Who's On Call <no-reply@whosoncall.app>";
+      const fromAddress = process.env.APPROVAL_EMAIL_FROM || "Who's On Call <support@premuss.org>";
       const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted ✅';
       const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
       if (resendApiKey) {
