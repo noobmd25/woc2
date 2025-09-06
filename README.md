@@ -81,6 +81,35 @@ SUPPORT_EMAIL=support@premuss.org
 
 If `RESEND_API_KEY` is missing in non-production environments the API will log a warning and skip sending.
 
+### Admin test email endpoints
+
+Two admin-only endpoints are available to verify the Resend pipeline:
+
+- POST `/api/admin/test-email`
+  - Sends a simple HTML/text email.
+  - Request body: `{ to: string, useOnboarding?: boolean, subject?: string }`
+  - When `useOnboarding` is `true` (default), sender is `onboarding@resend.dev` (allowed only to your Resend account email). Set `useOnboarding: false` to send from your verified domain in dev/prod.
+
+- POST `/api/admin/test-approval-email`
+  - Sends the real Approvals React template used in production.
+  - Request body: `{ to: string, name?: string }`
+  - Uses `APPROVAL_EMAIL_FROM` (or `RESEND_FROM`) as the sender. Defaults to `Who's On Call <no-reply@whosoncall.app>` if unset.
+
+Both endpoints:
+
+- Require an authenticated, approved `admin` user (checked via Supabase).
+- Run in the Node.js runtime and are `force-dynamic` (no caching).
+- Return JSON with `{ ok, id, to, from }` or `{ ok: false, error, details }` for easier debugging.
+
+Tip: In local dev, Resend’s onboarding sender can only deliver to your account email. Use a verified domain sender (e.g., `no-reply@whosoncall.app`) to send to external mailboxes like Gmail.
+
+### Sending from the Admin page
+
+- Navigate to `/admin` as an approved admin.
+- Use the "Email Pipeline Test" to send a simple test email.
+- Use the "Approval Email Test" to send the production approval template.
+- Results (success or JSON error) are shown inline under each button.
+
 ## 📲 PWA / iOS Installability
 
 PWA manifest: `public/manifest.json` (replaces older `site.webmanifest`).

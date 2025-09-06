@@ -18,6 +18,10 @@ type TabKey = 'access' | 'integrity' | 'errors' | 'audit' | 'announcements' | 'u
 function PageContent() {
   const supabase = getBrowserClient();
   const [role, setRole] = React.useState<string | undefined>(undefined);
+  const [sendingTest, setSendingTest] = React.useState(false);
+  const [testResult, setTestResult] = React.useState<string | null>(null);
+  const [sendingApproval, setSendingApproval] = React.useState(false);
+  const [approvalResult, setApprovalResult] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let mounted = true;
@@ -139,6 +143,52 @@ function PageContent() {
     }
   }, [activeTab, pathname, router, role, searchParams]);
 
+  const sendTestEmail = async () => {
+    setSendingTest(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/admin/test-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: 'karlunsco26@gmail.com', useOnboarding: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const details = data?.details ? ` | details: ${JSON.stringify(data.details)}` : '';
+        setTestResult(`Error: ${data?.error || 'Failed'}${details}`);
+        return;
+      }
+      setTestResult(`Sent test email (id: ${data.id || 'n/a'}) from ${data.from} to ${data.to}`);
+    } catch (e: any) {
+      setTestResult(`Error: ${e?.message || String(e)}`);
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
+  const sendTestApprovalEmail = async () => {
+    setSendingApproval(true);
+    setApprovalResult(null);
+    try {
+      const res = await fetch('/api/admin/test-approval-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: 'karlunsco26@gmail.com', name: 'Karl' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const details = data?.details ? ` | details: ${JSON.stringify(data.details)}` : '';
+        setApprovalResult(`Error: ${data?.error || 'Failed'}${details}`);
+        return;
+      }
+      setApprovalResult(`Sent approval email (id: ${data.id || 'n/a'}) from ${data.from} to ${data.to}`);
+    } catch (e: any) {
+      setApprovalResult(`Error: ${e?.message || String(e)}`);
+    } finally {
+      setSendingApproval(false);
+    }
+  };
+
   const tabs: { key: TabKey; label: string }[] = [];
   if (role === 'admin') {
     tabs.push({ key: 'access', label: 'Access Management' });
@@ -187,6 +237,44 @@ function PageContent() {
           <DashboardCard title="Active Banners" value={counts.activeBanners} onClick={() => setActiveTab('announcements')} />
           <DashboardCard title="Weekly Visits" value={counts.weeklyVisits} onClick={() => setActiveTab('usage')} />
         </div>
+
+        {role === 'admin' && (
+          <div className="my-4 p-4 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="font-medium text-amber-900 dark:text-amber-200">Email Pipeline Test</div>
+                <div className="text-sm text-amber-800/90 dark:text-amber-300/90">Sends a test from no-reply@whosoncall.app to karlunsco26@gmail.com</div>
+              </div>
+              <button
+                onClick={sendTestEmail}
+                disabled={sendingTest}
+                className="inline-flex items-center px-3 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm shadow"
+              >
+                {sendingTest ? 'Sending…' : 'Send Test Email'}
+              </button>
+            </div>
+            {testResult && <div className="mt-2 text-xs text-amber-900 dark:text-amber-200 break-all">{testResult}</div>}
+          </div>
+        )}
+
+        {role === 'admin' && (
+          <div className="my-4 p-4 rounded-md border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <div className="font-medium text-emerald-900 dark:text-emerald-200">Approval Email Test</div>
+                <div className="text-sm text-emerald-800/90 dark:text-emerald-300/90">Sends the approval template from no-reply@whosoncall.app to karlunsco26@gmail.com</div>
+              </div>
+              <button
+                onClick={sendTestApprovalEmail}
+                disabled={sendingApproval}
+                className="inline-flex items-center px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm shadow"
+              >
+                {sendingApproval ? 'Sending…' : 'Send Test Approval Email'}
+              </button>
+            </div>
+            {approvalResult && <div className="mt-2 text-xs text-emerald-900 dark:text-emerald-200 break-all">{approvalResult}</div>}
+          </div>
+        )}
 
         <section className="py-6">
           {role === 'admin' && activeTab === 'access' && (

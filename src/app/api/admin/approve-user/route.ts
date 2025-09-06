@@ -3,6 +3,9 @@ import { getServerSupabase } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 import { ApprovalEmail } from '@/components/emails/ApprovalEmail';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 /*
   POST /api/admin/approve-user
   Body: { requestId?: string, userId?: string }
