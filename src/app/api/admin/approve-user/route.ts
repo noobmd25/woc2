@@ -123,10 +123,11 @@ export async function POST(req: Request) {
       const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
       const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
       const resendApiKey = process.env.RESEND_API_KEY;
-      const fromAddress = process.env.APPROVAL_EMAIL_FROM || 'support@premuss.org';
+      const rawFrom = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM || "Who's On Call <cgcmd@premuss.org>";
+      const fromAddress = buildFromHeader(rawFrom, "Who's On Call", process.env.NODE_ENV);
       const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted ✅';
       const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
-      if (resendApiKey) {
+      if (resendApiKey && fromAddress) {
         try {
           const resend = new Resend(resendApiKey);
           const safeName = fullName || email.split('@')[0];
@@ -136,7 +137,8 @@ export async function POST(req: Request) {
             to: email,
             subject,
             react: ApprovalEmail({ name: safeName, loginUrl, baseUrl, supportEmail }),
-            text: buildPlainText({ name: safeName, loginUrl, supportEmail })
+            text: buildPlainText({ name: safeName, loginUrl, supportEmail }),
+            reply_to: supportEmail,
           }) as any;
           if (sendErr) {
             emailStatus = 'error';
@@ -150,6 +152,11 @@ export async function POST(req: Request) {
           emailStatus = 'error';
           try { await supabase.from('signup_errors').insert({ email, error_text: `approval_email_exception: ${err?.message || String(err)}`.slice(0,1000), context: { stage: 'approval_email_exception', provider: 'resend', mode: 'react' } }); } catch {}
         }
+      } else if (!fromAddress) {
+        emailStatus = 'skipped';
+        const msg = 'approval_email_skipped: invalid FROM (set APPROVAL_EMAIL_FROM to "Who\'s On Call <email@verified-domain>")';
+        if (process.env.NODE_ENV !== 'production') console.warn(msg);
+        try { await supabase.from('signup_errors').insert({ email, error_text: msg, context: { stage: 'approval_email', provider: 'resend' } }); } catch {}
       } else {
         emailStatus = 'skipped';
         if (process.env.NODE_ENV !== 'production') console.warn('RESEND_API_KEY missing; approval email skipped');
@@ -170,4 +177,23 @@ export async function POST(req: Request) {
 function buildPlainText({ name, loginUrl, supportEmail }: { name: string; loginUrl: string; supportEmail: string }) {
   const safeName = name || 'there';
   return `Hi ${safeName},\n\nYour access to Who's On Call has been approved. You can now log in: ${loginUrl}\n\nIf you have questions contact ${supportEmail}.\n\n— The Who's On Call Team`;
+}
+
+// Validate/build a proper "From" header for Resend
+function buildFromHeader(raw: string | undefined, defaultName: string, env?: string): string | null {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (raw) {
+    const trimmed = raw.trim();
+    if (trimmed.includes('<') && trimmed.includes('>')) {
+      const inner = trimmed.substring(trimmed.indexOf('<') + 1, trimmed.indexOf('>')).trim();
+      return emailRegex.test(inner) ? trimmed : null;
+    }
+    if (emailRegex.test(trimmed)) {
+      return `${defaultName} <${trimmed}>`;
+    }
+    return null;
+  }
+  // Dev fallback allowed by Resend without domain verification
+  if (env !== 'production') return 'onboarding@resend.dev';
+  return null;
 }
