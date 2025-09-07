@@ -360,12 +360,19 @@ export default function SchedulePage() {
   const [secondPref, setSecondPref] = useState<'none' | 'residency' | 'pa'>('none');
   const [secondPhone, setSecondPhone] = useState('');
   const [secondSource, setSecondSource] = useState<string | null>(null);
+  // Cover physician state
+  const [coverEnabled, setCoverEnabled] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [coverSuggestions, setCoverSuggestions] = useState<string[]>([]);
+  const [coverHighlightIndex, setCoverHighlightIndex] = useState<number>(-1);
 
   const [selectedAdditionalDays, setSelectedAdditionalDays] = useState<string[]>([]);
   const [editingEntry, setEditingEntry] = useState<{
     provider_name: string;
     show_second_phone: boolean;
     second_phone_pref: 'auto' | 'pa' | 'residency';
+    cover?: boolean;
+    covering_provider?: string | null;
   } | null>(null);
 
   // Add ref for FullCalendar
@@ -549,7 +556,7 @@ const getVisibleMonthLabel = useCallback(() => {
 
       let dupQuery = supabase
         .from('schedules')
-        .select('on_call_date, provider_name, specialty, healthcare_plan, show_second_phone, second_phone_pref')
+        .select('*')
         .in('on_call_date', datesToCheck)
         .eq('specialty', specialty);
 
@@ -584,7 +591,9 @@ const getVisibleMonthLabel = useCallback(() => {
           (
             row.provider_name !== entry.provider_name ||
             row.show_second_phone !== entry.show_second_phone ||
-            (row.second_phone_pref ?? 'auto') !== (entry.second_phone_pref ?? 'auto')
+            (row.second_phone_pref ?? 'auto') !== (entry.second_phone_pref ?? 'auto') ||
+            (!!row.cover) !== (!!(entry as any).cover) ||
+            ((row.covering_provider ?? null) !== ((entry as any).covering_provider ?? null))
           )
         );
         // If provider_name changed, queue deletion of old entry
@@ -726,6 +735,13 @@ const getVisibleMonthLabel = useCallback(() => {
               : 'none'
           : 'none';
       setSecondPref(pref);
+
+      // Prefill cover state
+      const cover = !!editingEntry.cover;
+      setCoverEnabled(cover);
+      if (cover && coverInputRef.current) {
+        coverInputRef.current.value = editingEntry.covering_provider ?? '';
+      }
     }
   }, [isModalOpen, isEditing, editingEntry]);
 
@@ -991,7 +1007,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                 try {
                   let q = supabase
                     .from('schedules')
-                    .select('provider_name, show_second_phone, second_phone_pref')
+                    .select('*')
                     .eq('on_call_date', dateStr)
                     .eq('specialty', specialty)
                     .limit(1);
@@ -1014,6 +1030,8 @@ if (role !== 'admin' && role !== 'scheduler') {
                       provider_name: data[0].provider_name,
                       show_second_phone: !!data[0].show_second_phone,
                       second_phone_pref: (data[0].second_phone_pref ?? 'auto') as 'auto' | 'pa' | 'residency',
+                      cover: !!data[0].cover,
+                      covering_provider: (data[0].covering_provider ?? null) as string | null,
                     });
                   } else {
                     const currentProvider = clickInfo.event.title.replace(/^Dr\. /, '').trim();
@@ -1021,6 +1039,8 @@ if (role !== 'admin' && role !== 'scheduler') {
                       provider_name: currentProvider,
                       show_second_phone: false,
                       second_phone_pref: 'auto',
+                      cover: false,
+                      covering_provider: null,
                     });
                   }
                 } catch (e) {
@@ -1145,6 +1165,10 @@ if (role !== 'admin' && role !== 'scheduler') {
               setSecondPref('none');
               setSecondPhone('');
               setSecondSource(null);
+              setCoverEnabled(false);
+              if (coverInputRef.current) coverInputRef.current.value = '';
+              setCoverSuggestions([]);
+              setCoverHighlightIndex(-1);
               setSelectedAdditionalDays([]);
               setEditingEntry(null);
               // Hide the multi-day calendar when modal is closed
@@ -1324,6 +1348,117 @@ if (role !== 'admin' && role !== 'scheduler') {
                 )}
               </div>
             )}
+            {/* Cover physician selector */}
+            <div className="mb-4">
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={coverEnabled}
+                  onChange={(e) => {
+                    setCoverEnabled(e.target.checked);
+                    if (!e.target.checked) {
+                      if (coverInputRef.current) coverInputRef.current.value = '';
+                      setCoverSuggestions([]);
+                      setCoverHighlightIndex(-1);
+                    }
+                  }}
+                />
+                Add cover physician
+              </label>
+              {coverEnabled && (
+                <div className="mt-2">
+                  <label className="block mb-2 text-sm text-gray-600 dark:text-gray-300">Covering Provider</label>
+                  <input
+                    type="text"
+                    ref={coverInputRef}
+                    className="w-full px-3 py-2 mb-1 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                    placeholder="Start typing..."
+                    onFocus={() => {
+                      const val = coverInputRef.current?.value.trim().toLowerCase() ?? '';
+                      const base = allProvidersForSpec.filter(n => n !== (providerInputRef.current?.value ?? ''));
+                      if (!val) {
+                        setCoverSuggestions(base);
+                        setCoverHighlightIndex(base.length ? 0 : -1);
+                      }
+                    }}
+                    onChange={(e) => {
+                      const query = e.target.value;
+                      const qn = normalize(query);
+                      const base = allProvidersForSpec.filter(n => n !== (providerInputRef.current?.value ?? ''));
+                      if (!qn) {
+                        setCoverSuggestions(base);
+                        setCoverHighlightIndex(base.length ? 0 : -1);
+                        return;
+                      }
+                      const ranked = base
+                        .map((name) => ({ name, score: scoreName(name, qn) }))
+                        .filter((x) => x.score > 0)
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 12)
+                        .map((x) => x.name);
+                      setCoverSuggestions(ranked.length ? ranked : ['This provider is not in the directory']);
+                      setCoverHighlightIndex(ranked.length ? 0 : -1);
+                    }}
+                    onKeyDown={(e) => {
+                      const count = coverSuggestions.length;
+                      if (!count) return;
+
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setCoverHighlightIndex((prev) => (prev < count - 1 ? prev + 1 : 0));
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setCoverHighlightIndex((prev) => (prev > 0 ? prev - 1 : count - 1));
+                      } else if (e.key === 'Enter' || e.key === 'Tab') {
+                        const sel =
+                          coverHighlightIndex >= 0 && coverHighlightIndex < count
+                            ? coverSuggestions[coverHighlightIndex]
+                            : coverSuggestions[0];
+                        if (sel && sel !== 'This provider is not in the directory') {
+                          e.preventDefault();
+                          if (coverInputRef.current) coverInputRef.current.value = sel;
+                          setCoverSuggestions([]);
+                          setCoverHighlightIndex(-1);
+                        }
+                      } else if (e.key === 'Escape') {
+                        setCoverSuggestions([]);
+                        setCoverHighlightIndex(-1);
+                      }
+                    }}
+                  />
+                  <div
+                    className="bg-white border dark:bg-gray-800 dark:border-gray-600 border-gray-300 rounded shadow-md max-h-40 overflow-y-auto"
+                    role="listbox"
+                  >
+                    {coverSuggestions.map((name, idx) => {
+                      const isActive = idx === coverHighlightIndex;
+                      return (
+                        <div
+                          key={idx}
+                          role="option"
+                          aria-selected={isActive}
+                          className={`px-3 py-1 cursor-pointer text-sm text-gray-800 dark:text-white ${
+                            isActive ? 'bg-gray-100 dark:bg-gray-600' : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                          }`}
+                          onMouseEnter={() => setCoverHighlightIndex(idx)}
+                          onMouseLeave={() => setCoverHighlightIndex(-1)}
+                          onClick={() => {
+                            if (name === 'This provider is not in the directory') return;
+                            if (coverInputRef.current) {
+                              coverInputRef.current.value = name;
+                            }
+                            setCoverSuggestions([]);
+                            setCoverHighlightIndex(-1);
+                          }}
+                        >
+                          {name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="flex items-center mb-4">
               <input
                 type="checkbox"
@@ -1446,6 +1581,9 @@ if (role !== 'admin' && role !== 'scheduler') {
                                   healthcare_plan: specialty === 'Internal Medicine' ? plan : null,
                                   show_second_phone: secondPref !== 'none',
                                   second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
+                                  ...(coverEnabled && coverInputRef.current?.value && coverInputRef.current.value !== modalProvider.provider_name
+                                    ? { cover: true, covering_provider: coverInputRef.current.value }
+                                    : { cover: false, covering_provider: null }),
                                 } as const;
                                 setPendingEntries(prev => [...prev, newEntry]);
                                 setEvents(prevEvents => {
@@ -1491,6 +1629,10 @@ if (role !== 'admin' && role !== 'scheduler') {
                   setSecondPref('none');
                   setSecondPhone('');
                   setSecondSource(null);
+                  setCoverEnabled(false);
+                  if (coverInputRef.current) coverInputRef.current.value = '';
+                  setCoverSuggestions([]);
+                  setCoverHighlightIndex(-1);
                   setSelectedAdditionalDays([]);
                   setEditingEntry(null);
                   // Hide the multi-day calendar when modal is closed
@@ -1526,6 +1668,24 @@ if (role !== 'admin' && role !== 'scheduler') {
                     return;
                   }
 
+                  // Validate cover provider if enabled
+                  if (coverEnabled) {
+                    const coverName = coverInputRef.current?.value?.trim() || '';
+                    if (!coverName) {
+                      alert('Please select a covering provider or uncheck the cover option.');
+                      return;
+                    }
+                    if (coverName === providerName) {
+                      alert('Covering provider cannot be the same as the primary provider.');
+                      return;
+                    }
+                    const coverMatch = directory.find(d => d.provider_name === coverName);
+                    if (!coverMatch) {
+                      alert('Covering provider is not in the directory.');
+                      return;
+                    }
+                  }
+
                   const {
                     data: { user },
                   } = await supabase.auth.getUser();
@@ -1551,6 +1711,8 @@ if (role !== 'admin' && role !== 'scheduler') {
                     show_second_phone: boolean;
                     second_phone_pref: 'auto' | 'pa' | 'residency';
                     user_id: string;
+                    cover?: boolean;
+                    covering_provider?: string | null;
                   };
                   const payload: ScheduleEntry[] = uniqueDates.map(date => ({
                     provider_name: providerName,
@@ -1560,6 +1722,9 @@ if (role !== 'admin' && role !== 'scheduler') {
                     show_second_phone: secondPref !== 'none',
                     second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
                     user_id: user.id, // Assumes 'user_id' column exists in your table
+                    ...(coverEnabled && coverInputRef.current?.value && coverInputRef.current.value !== providerName
+                      ? { cover: true, covering_provider: coverInputRef.current.value }
+                      : {}),
                   }));
 
                   // Instead of saving to supabase, collect in pendingEntries (deduped)

@@ -149,7 +149,8 @@ export default function OnCallViewer() {
 
       let query = supabase
         .from('schedules')
-        .select('provider_name, show_second_phone, healthcare_plan, second_phone_pref')
+        // select all to be resilient if new columns (cover, covering_provider) are not yet migrated
+        .select('*')
         .eq('on_call_date', dateString)
         .eq('specialty', specialty);
 
@@ -211,11 +212,26 @@ export default function OnCallViewer() {
         }
       }
 
+      // If cover is enabled, try to fetch the cover provider phone number
+      let coverPhone: string | null = null;
+      let coverProviderName: string | null = null;
+      if (record?.cover && record?.covering_provider) {
+        coverProviderName = record.covering_provider as string;
+        const { data: coverDir } = await supabase
+          .from('directory')
+          .select('phone_number')
+          .eq('provider_name', coverProviderName);
+        const coverDirRow = Array.isArray(coverDir) ? coverDir[0] : null;
+        coverPhone = coverDirRow?.phone_number ?? null;
+      }
+
       setProviderData({
         ...record,
         phone_number: directoryData?.phone_number || null,
         second_phone: secondPhone,
-        _second_phone_source: secondSource
+        _second_phone_source: secondSource,
+        cover_phone: coverPhone,
+        cover_provider_name: coverProviderName,
       });
     };
 
@@ -438,6 +454,40 @@ export default function OnCallViewer() {
             )}
           </div>
         </div>
+
+        {/* Cover physician section */}
+        {providerData?.cover && providerData?.cover_provider_name && (
+          <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Call cover physician</h4>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-base font-semibold">Dr. {providerData.cover_provider_name}</p>
+                {!providerData.cover_phone && (
+                  <p className="text-xs text-gray-500">No phone found in directory</p>
+                )}
+              </div>
+              {providerData.cover_phone && (
+                <div className="flex space-x-8">
+                  <a href={`tel:${cleanPhone(providerData.cover_phone)}`} title="Call" className="text-blue-500 hover:text-blue-700">
+                    <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
+                  </a>
+                  <a href={`sms:${cleanPhone(providerData.cover_phone)}`} title="Text" className="text-green-500 hover:text-green-700">
+                    <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
+                  </a>
+                  <a
+                    href={`https://wa.me/${toWhatsAppNumber(providerData.cover_phone)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="WhatsApp"
+                    className="text-green-600 hover:text-green-800"
+                  >
+                    <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {(role === 'admin' || role === 'scheduler') && debugInfo && (
           <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">

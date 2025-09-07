@@ -53,6 +53,8 @@ export interface Database {
           healthcare_plan: string | null;
           show_second_phone: boolean | null;
           second_phone_pref: 'auto' | 'pa' | 'residency' | null;
+          cover?: boolean | null;
+          covering_provider?: string | null;
         };
         Insert: Partial<Database['public']['Tables']['schedules']['Row']>;
         Update: Partial<Database['public']['Tables']['schedules']['Row']>;

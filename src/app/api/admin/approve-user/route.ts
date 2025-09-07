@@ -3,6 +3,7 @@ import { getServerSupabase } from '@/lib/supabase/server';
 import { Resend } from 'resend';
 import { ApprovalEmail } from '@/components/emails/ApprovalEmail';
 import { buildFromHeader, sanitizeFromRaw, buildApprovalPlainText } from '@/lib/email';
+import { rateLimit } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,7 @@ export async function POST(req: Request) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
       const res = new NextResponse('Unauthorized', { status: 401 });
+      res.headers.set('Cache-Control', 'no-store');
       commit(res); return res;
     }
 
@@ -37,13 +39,20 @@ export async function POST(req: Request) {
       .single();
     if (!actingProfile || actingProfile.role !== 'admin' || actingProfile.status !== 'approved') {
       const res = new NextResponse('Forbidden', { status: 403 });
+      res.headers.set('Cache-Control', 'no-store');
+      commit(res); return res;
+    }
+
+    // Optional: basic rate limit per admin
+    if (rateLimit(`admin-approve-user:${session.user.id}`)) {
+      const res = NextResponse.json({ ok: false, error: 'Too many approval actions. Please slow down.' }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
       commit(res); return res;
     }
 
     const body = await req.json().catch(() => ({}));
     const { requestId, userId } = body || {};
     if (!requestId && !userId) {
-      const res = NextResponse.json({ ok: false, error: 'Missing requestId or userId' }, { status: 400 });
+      const res = NextResponse.json({ ok: false, error: 'Missing requestId or userId' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
       commit(res); return res;
     }
 
@@ -60,7 +69,7 @@ export async function POST(req: Request) {
         .eq('id', requestId)
         .single();
       if (reqErr || !reqRow) {
-        const res = NextResponse.json({ ok: false, error: 'Role request not found' }, { status: 404 });
+        const res = NextResponse.json({ ok: false, error: 'Role request not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
         commit(res); return res;
       }
       targetUserId = reqRow.user_id;
@@ -69,7 +78,7 @@ export async function POST(req: Request) {
       fullName = (reqRow as any)?.metadata?.full_name || (reqRow as any)?.metadata?.fullName || null;
 
       if (!targetUserId) {
-        const res = NextResponse.json({ ok: false, error: 'Role request missing user_id' }, { status: 400 });
+        const res = NextResponse.json({ ok: false, error: 'Role request missing user_id' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
         commit(res); return res;
       }
 
@@ -81,7 +90,7 @@ export async function POST(req: Request) {
         p_reason: null
       });
       if (rpcErr) {
-        const res = NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500 });
+        const res = NextResponse.json({ ok: false, error: rpcErr.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
         commit(res); return res;
       }
     } else if (userId) {
@@ -93,7 +102,7 @@ export async function POST(req: Request) {
         .eq('id', userId)
         .single();
       if (profErr || !prof) {
-        const res = NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404 });
+        const res = NextResponse.json({ ok: false, error: 'Profile not found' }, { status: 404, headers: { 'Cache-Control': 'no-store' } });
         commit(res); return res;
       }
       email = prof.email;
@@ -106,7 +115,7 @@ export async function POST(req: Request) {
         .update({ status: 'approved', role })
         .eq('id', userId);
       if (updErr) {
-        const res = NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
+        const res = NextResponse.json({ ok: false, error: updErr.message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
         commit(res); return res;
       }
     }
@@ -130,7 +139,7 @@ export async function POST(req: Request) {
       const rawFromEnv = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM || "Who's On Call <cgcmd@premuss.org>";
       const rawFrom = sanitizeFromRaw(rawFromEnv);
       const fromAddress = buildFromHeader(rawFrom, "Who's On Call", process.env.NODE_ENV);
-      const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted ✅';
+      const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted \u2705';
       const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
       if (resendApiKey && fromAddress) {
         try {
@@ -169,11 +178,12 @@ export async function POST(req: Request) {
       }
     }
 
-    const res = NextResponse.json({ ok: true, userId: targetUserId, role, email, emailStatus });
+    const res = NextResponse.json({ ok: true, userId: targetUserId, role, email, emailStatus }, { headers: { 'Cache-Control': 'no-store' } });
     commit(res); return res;
   } catch (e: any) {
     const { commit } = await getServerSupabase();
     const res = new NextResponse(e?.message ?? 'Internal error', { status: 500 });
+    res.headers.set('Cache-Control', 'no-store');
     commit(res); return res;
   }
 }
