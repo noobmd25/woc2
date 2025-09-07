@@ -143,28 +143,111 @@ export default function SchedulePage() {
   // access enforced by server layout & client role redirect
   // Specialties state and modal for admin editing
   const [specialties, setSpecialties] = useState<string[]>([]);
-  const [specialtyEditList, setSpecialtyEditList] = useState<{ name: string; show_oncall: boolean }[]>([]);
+  const [specialtyEditList, setSpecialtyEditList] = useState<{ id: string; name: string; show_oncall: boolean }[]>([]);
   const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
+  const [newSpecName, setNewSpecName] = useState('');
+  const [editingSpecId, setEditingSpecId] = useState<string | null>(null);
+  const [specEditName, setSpecEditName] = useState('');
   // Load specialties from Supabase, both for display and editing
-  useEffect(() => {
-    const fetchSpecialties = async () => {
-      const { data, error } = await supabase
-        .from('specialties')
-        .select('name, show_oncall')
-        .order('name', { ascending: true });
+  const reloadSpecialties = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('specialties')
+      .select('id, name, show_oncall')
+      .order('name', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching specialties:', error);
-        setSpecialties([]);
-        setSpecialtyEditList([]);
-      } else {
-        const activeNames = data?.filter(s => s.show_oncall).map(s => s.name) ?? [];
-        setSpecialties(activeNames);
-        setSpecialtyEditList(data ?? []);
-      }
-    };
-    fetchSpecialties();
+    if (error) {
+      console.error('Error fetching specialties:', error);
+      setSpecialties([]);
+      setSpecialtyEditList([]);
+    } else {
+      const activeNames = data?.filter(s => s.show_oncall).map(s => s.name ?? '').filter(Boolean) as string[];
+      setSpecialties(activeNames);
+      setSpecialtyEditList((data ?? []).map(s => ({ id: s.id as string, name: (s.name ?? '') as string, show_oncall: !!s.show_oncall })));
+    }
   }, []);
+
+  // Handlers for Specialty Management Modal
+  const handleAddSpecialty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newSpecName.trim();
+    if (!name) return;
+    const dup = specialtyEditList.some(s => s.name.toLowerCase() === name.toLowerCase());
+    if (dup) {
+      toast.error('Specialty already exists.');
+      return;
+    }
+    const { error } = await supabase.from('specialties').insert({ name, show_oncall: true });
+    if (error) {
+      console.error('Failed to add specialty:', error);
+      toast.error('Failed to add specialty.');
+    } else {
+      toast.success('Specialty added.');
+      setNewSpecName('');
+      await reloadSpecialties();
+    }
+  };
+
+  const handleStartEditSpecialty = (id: string, currentName: string) => {
+    setEditingSpecId(id);
+    setSpecEditName(currentName);
+  };
+
+  const handleCancelEditSpecialty = () => {
+    setEditingSpecId(null);
+    setSpecEditName('');
+  };
+
+  const handleSaveSpecialty = async (id: string, oldName: string) => {
+    const newName = specEditName.trim();
+    if (!newName) {
+      toast.error('Name cannot be empty.');
+      return;
+    }
+    const dup = specialtyEditList.some(s => s.id !== id && s.name.toLowerCase() === newName.toLowerCase());
+    if (dup) {
+      toast.error('Another specialty with this name exists.');
+      return;
+    }
+    const { error } = await supabase.from('specialties').update({ name: newName }).eq('id', id);
+    if (error) {
+      console.error('Failed to save specialty:', error);
+      toast.error('Failed to save.');
+    } else {
+      toast.success('Specialty updated.');
+      setEditingSpecId(null);
+      setSpecEditName('');
+      if (oldName === specialty) {
+        setSpecialty(newName);
+      }
+      await reloadSpecialties();
+    }
+  };
+
+  const handleDeleteSpecialty = async (id: string, name: string) => {
+    const confirmed = window.confirm(`Delete specialty "${name}"? This cannot be undone.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from('specialties').delete().eq('id', id);
+    if (error) {
+      console.error('Failed to delete specialty:', error);
+      toast.error('Failed to delete.');
+    } else {
+      toast.success('Specialty deleted.');
+      // If the currently selected specialty was deleted, move selection to another available one
+      if (specialty === name) {
+        // Try to switch to another active specialty after reload
+        const { data } = await supabase
+          .from('specialties')
+          .select('name')
+          .eq('show_oncall', true)
+          .order('name', { ascending: true });
+        const nextName = (data ?? []).map(d => d.name).find(n => n && n !== name) as string | undefined;
+        if (nextName) setSpecialty(nextName);
+      }
+      await reloadSpecialties();
+    }
+  };
+
+  useEffect(() => { reloadSpecialties(); }, [reloadSpecialties]);
   const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
   const [providerColorMap, setProviderColorMap] = useState<Record<string, string>>({});
@@ -836,16 +919,36 @@ if (role !== 'admin' && role !== 'scheduler') {
                     }}
                   >
                     <button
-                      onClick={(e: React.MouseEvent) => {
+                      type="button"
+                      onMouseDown={(e: React.MouseEvent) => {
                         e.preventDefault();
                         e.stopPropagation();
                         const { startStr, title } = event.event;
                         const clearEvent = new CustomEvent('clearEvent', {
                           detail: { date: startStr, provider: title },
+                          bubbles: true,
+                          cancelable: true,
                         });
                         window.dispatchEvent(clearEvent);
                       }}
-                      className="absolute top-0 right-0 text-xs px-1"
+                      onTouchStart={(e: React.TouchEvent) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const { startStr, title } = event.event;
+                        const clearEvent = new CustomEvent('clearEvent', {
+                          detail: { date: startStr, provider: title },
+                          bubbles: true,
+                          cancelable: true,
+                        });
+                        window.dispatchEvent(clearEvent);
+                      }}
+                      onClick={(e: React.MouseEvent) => {
+                        // no-op: start handlers already dispatched; keep to block FullCalendar click
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      aria-label="Remove provider from this date"
+                      className="absolute top-0 right-0 text-xs px-1 pointer-events-auto"
                       style={{ color: textColor }}
                     >
                       ✕
@@ -1521,7 +1624,7 @@ if (role !== 'admin' && role !== 'scheduler') {
           id="specialty-modal"
         >
           <div
-            className="relative bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-full max-w-md max-h-[80vh] overflow-y-auto modal-pop-in"
+            className="relative bg-white dark:bg-gray-800 p-6 rounded shadow-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1531,34 +1634,97 @@ if (role !== 'admin' && role !== 'scheduler') {
             >
               ✕
             </button>
-            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Edit Visible Specialties</h2>
-            <ul className="space-y-2">
-              {specialtyEditList.map((s, i) => (
-                <li key={s.name} className="flex justify-between items-center">
-                  <span className="text-gray-700 dark:text-white">{s.name}</span>
-                  <button
-                    className={`px-2 py-1 text-sm rounded ${s.show_oncall ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-700'}`}
-                    onClick={async () => {
-                      const updated = [...specialtyEditList];
-                      updated[i] = { ...updated[i], show_oncall: !updated[i].show_oncall };
-                      setSpecialtyEditList(updated);
-                      const { error } = await supabase
-                        .from('specialties')
-                        .update({ show_oncall: updated[i].show_oncall })
-                        .eq('name', updated[i].name);
-                      if (error) {
-                        console.error('Failed to update show_oncall:', error);
-                      } else {
-                        const active = updated.filter(s => s.show_oncall).map(s => s.name);
-                        setSpecialties(active);
-                      }
-                    }}
-                  >
-                    {s.show_oncall ? 'Yes' : 'No'}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Manage Specialties</h2>
+
+            {/* Add Specialty */}
+            <form onSubmit={handleAddSpecialty} className="flex items-center gap-2 mb-4">
+              <input
+                value={newSpecName}
+                onChange={(e) => setNewSpecName(e.target.value)}
+                placeholder="New specialty name"
+                className="flex-1 px-3 py-2 border rounded dark:bg-gray-900 dark:border-gray-700"
+              />
+              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded">Add</button>
+            </form>
+
+            {/* List / Edit / Toggle visibility */}
+            <div className="border rounded p-3">
+              <h3 className="font-semibold mb-2">Specialties</h3>
+              <ul className="space-y-2 max-h-80 overflow-auto">
+                {specialtyEditList.length === 0 && (
+                  <li className="text-sm text-gray-500">No specialties yet.</li>
+                )}
+                {specialtyEditList.map((spec, i) => (
+                  <li key={spec.id} className="flex items-center gap-2">
+                    {editingSpecId === spec.id ? (
+                      <>
+                        <input
+                          value={specEditName}
+                          onChange={(e) => setSpecEditName(e.target.value)}
+                          className="flex-1 px-3 py-1 border rounded dark:bg-gray-900 dark:border-gray-700"
+                          placeholder="Specialty name"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveSpecialty(spec.id, spec.name)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleCancelEditSpecialty}
+                          className="px-3 py-1 border rounded"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex-1">{spec.name}</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const updated = [...specialtyEditList];
+                            updated[i] = { ...updated[i], show_oncall: !updated[i].show_oncall };
+                            setSpecialtyEditList(updated);
+                            const { error } = await supabase
+                              .from('specialties')
+                              .update({ show_oncall: updated[i].show_oncall })
+                              .eq('id', spec.id);
+                            if (error) {
+                              console.error('Failed to update show_oncall:', error);
+                            } else {
+                              const active = updated.filter(s => s.show_oncall).map(s => s.name);
+                              setSpecialties(active);
+                            }
+                          }}
+                          className={`px-2 py-1 text-sm rounded ${spec.show_oncall ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-700'}`}
+                          aria-pressed={spec.show_oncall}
+                          aria-label={`Visible on On-Call: ${spec.show_oncall ? 'Yes' : 'No'}`}
+                        >
+                          {spec.show_oncall ? 'Visible' : 'Hidden'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditSpecialty(spec.id, spec.name)}
+                          className="px-3 py-1 border rounded"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSpecialty(spec.id, spec.name)}
+                          className="px-3 py-1 border rounded text-red-600"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       )}
