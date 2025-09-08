@@ -17,21 +17,43 @@ export default function UpdatePasswordPage() {
   const mismatch = pwd.length > 0 && pwd2.length > 0 && pwd !== pwd2;
   const router = useRouter();
 
-  // Wait for Supabase to establish the recovery session from the email link.
+  // Establish a recovery session from the email link tokens.
   useEffect(() => {
-    const hash = window.location.hash;
-    const accessToken = new URLSearchParams(hash.replace('#', '?')).get('access_token');
+    let mounted = true;
+    (async () => {
+      try {
+        const url = new URL(window.location.href);
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+        const queryParams = new URLSearchParams(url.search.replace(/^\?/, ''));
 
-    if (accessToken) {
-      supabase.auth.setSession({ access_token: accessToken, refresh_token: '' });
-    }
+        const access_token = hashParams.get('access_token') || queryParams.get('access_token');
+        const refresh_token = hashParams.get('refresh_token') || queryParams.get('refresh_token');
+        const code = queryParams.get('code') || hashParams.get('code');
 
-    const t = setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setReady(!!session);
-    }, 200);
-    const { data: sub } = supabase.auth.onAuthStateChange(() => setReady(true));
-    return () => { clearTimeout(t); sub.subscription.unsubscribe(); };
+        if (code && (!access_token || !refresh_token)) {
+          // Handle PKCE/code flow just in case
+          try { await supabase.auth.exchangeCodeForSession(code); } catch {}
+        } else if (access_token && refresh_token) {
+          try { await supabase.auth.setSession({ access_token, refresh_token }); } catch {}
+        }
+
+        // Clean tokens from the URL
+        try {
+          const cleanUrl = `${url.origin}${url.pathname}`;
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch {}
+
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) setReady(!!session);
+      } catch {
+        if (mounted) setReady(false);
+      }
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, _session) => {
+      setReady(true);
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
 
   const submit = async (e: React.FormEvent) => {

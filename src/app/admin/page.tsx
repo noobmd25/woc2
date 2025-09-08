@@ -219,11 +219,17 @@ function PageContent() {
     <>
       <Header />
       <div className="p-4 sm:p-6 lg:p-8">
-        <nav className="border-b border-gray-200 dark:border-gray-700">
-          <ul className="flex -mb-px space-x-6 text-sm font-medium text-gray-600 dark:text-gray-300">
+        <nav
+          className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-4 sm:mx-0 px-4"
+          role="tablist"
+          aria-label="Admin sections"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <ul className="flex -mb-px space-x-6 text-sm font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap snap-x snap-mandatory">
             {tabs.map((tab) => (
-              <li key={tab.key}>
+              <li key={tab.key} className="shrink-0 snap-start">
                 <button
+                  role="tab"
                   className={`inline-block p-4 border-b-2 ${
                     activeTab === tab.key
                       ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
@@ -241,7 +247,7 @@ function PageContent() {
 
         <div className="mt-3 text-xs text-gray-400">Active tab: {activeTab}</div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 py-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 py-4 sm:py-6">
           {role === 'admin' && (
             <DashboardCard title="Pending Access" value={counts.pendingAccess} onClick={() => setActiveTab('access')} />
           )}
@@ -353,10 +359,10 @@ function DashboardCard({ title, value, onClick }: { title: string; value: number
   return (
     <button
       onClick={onClick}
-      className="block w-full text-left rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm hover:shadow-md transition-shadow"
+      className="block w-full text-left rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 sm:p-3 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
     >
-      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{title}</div>
-      <div className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{value}</div>
+      <div className="text-[11px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 truncate">{title}</div>
+      <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">{value}</div>
     </button>
   );
 }

@@ -78,12 +78,26 @@ export default function AccessRequests() {
 
   const [searchQ, setSearchQ] = React.useState<string>('');
   const [debouncedSearchQ, setDebouncedSearchQ] = React.useState<string>('');
-  const [sortBy, setSortBy] = React.useState<'full_name' | 'email' | 'role'>('full_name');
+  const [sortBy, setSortBy] = React.useState<'full_name' | 'email' | 'role' | 'created_at'>('full_name');
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc');
 
   // Cursor pagination state (server returns nextCursor). Keep a cursor history to enable Prev navigation.
   const [cursors, setCursors] = React.useState<(string | null)[]>([null]); // index 0 = page 1
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+
+  // Helper: toggle sorting for column
+  const handleSort = React.useCallback((col: 'full_name' | 'email' | 'role' | 'created_at') => {
+    setSortBy((prevCol) => {
+      if (prevCol === col) {
+        // toggle direction
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        return prevCol;
+      }
+      // default directions per column (created_at defaults to desc)
+      setSortDir(col === 'created_at' ? 'desc' : 'asc');
+      return col;
+    });
+  }, []);
 
   // --- New: simple toast notifications ---
   type Toast = { id: string; message: string; kind?: 'info' | 'error' };
@@ -674,17 +688,60 @@ export default function AccessRequests() {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="text-left text-gray-500">
-                <th className="py-2 px-4 cursor-pointer" onClick={() => { setSortBy('full_name'); setSortDir(sortBy === 'full_name' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
-                  Name {sortBy === 'full_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'full_name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('full_name')}
+                    aria-label={`Sort by Name ${sortBy === 'full_name' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                  >
+                    Name {sortBy === 'full_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
                 </th>
-                <th className="py-2 px-4 cursor-pointer" onClick={() => { setSortBy('email'); setSortDir(sortBy === 'email' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
-                  Email {sortBy === 'email' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('email')}
+                    aria-label={`Sort by Email ${sortBy === 'email' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                  >
+                    Email {sortBy === 'email' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
                 </th>
-                <th className="py-2 px-4 cursor-pointer" onClick={() => { setSortBy('role'); setSortDir(sortBy === 'role' && sortDir === 'asc' ? 'desc' : 'asc'); }}>
-                  Role {sortBy === 'role' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'role' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('role')}
+                    aria-label={`Sort by Role ${sortBy === 'role' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                  >
+                    Role {sortBy === 'role' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
                 </th>
                 <th className="py-2 px-4">Status</th>
-                <th className="py-2 px-4">Created</th>
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'created_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('created_at')}
+                    aria-label={`Sort by Created ${sortBy === 'created_at' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'descending'}`}
+                    title="Sort by Created"
+                  >
+                    Created {sortBy === 'created_at' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
+                </th>
                 <th className="py-2 px-4">Actions</th>
               </tr>
             </thead>
@@ -745,6 +802,38 @@ export default function AccessRequests() {
                         >
                           {userActingId === u.id ? 'Working…' : 'Revoke'}
                         </button>
+                        {u.email && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await ensureAdminOrThrow();
+                                if (!confirm(`Send password reset email to ${u.email}?`)) return;
+                                setUserActingId(u.id);
+                                const res = await fetch('/api/admin/force-password-reset', {
+                                  method: 'POST',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ email: u.email }),
+                                });
+                                if (!res.ok) {
+                                  const data = await res.json().catch(() => ({}));
+                                  throw new Error(data?.error || `Reset failed (${res.status})`);
+                                }
+                                addToast(`Password reset email sent to ${u.email}`, 'info');
+                              } catch (e: any) {
+                                addToast(e?.message || 'Failed to send reset email', 'error');
+                              } finally {
+                                setUserActingId(null);
+                              }
+                            }}
+                            disabled={userActingId === u.id}
+                            className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-60"
+                            title="Send password reset email"
+                            aria-label={`Send password reset email to ${u.email}`}
+                          >
+                            Force Reset
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
