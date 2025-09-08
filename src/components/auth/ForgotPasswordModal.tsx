@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getBrowserClient } from '@/lib/supabase/client';
 
 const supabase = getBrowserClient();
@@ -9,6 +9,15 @@ export default function ForgotPasswordModal({ onClose }: { onClose: () => void }
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string>('');
+
+  // Close with Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,9 +31,16 @@ export default function ForgotPasswordModal({ onClose }: { onClose: () => void }
   };
 
   return (
-  <div className="fixed inset-0 grid place-items-center bg-black/40 z-50">
-    <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-4 shadow-lg
-                    dark:bg-gray-900 dark:border-gray-700">
+  <div
+    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm modal-overlay-in"
+    onClick={onClose}
+    role="dialog"
+    aria-modal="true"
+  >
+    <div
+      className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:bg-gray-900 dark:border-gray-700 modal-pop-in"
+      onClick={(e) => e.stopPropagation()}
+    >
       <h2 className="text-lg font-semibold mb-1 text-gray-900 dark:text-gray-100">
         Reset your password
       </h2>

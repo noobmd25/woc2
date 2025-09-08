@@ -386,7 +386,7 @@ export default function OnCallViewer() {
           )}
           <div id="schedule-container" className="mt-6 pointer-events-auto">
             {providerData ? (
-              <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center">
+              <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center border border-gray-200 dark:border-gray-700">
                 <h3 className="text-2xl font-bold">Dr. {providerData.provider_name}</h3>
                 {providerData.healthcare_plan && (
                   <p className="text-sm text-gray-600 dark:text-gray-300">

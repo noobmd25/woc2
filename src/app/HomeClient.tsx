@@ -38,6 +38,18 @@ export default function HomeClient() {
     }
   }, [search]);
 
+  // Close any open modal with Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showForgot) { setShowForgot(false); return; }
+      if (showLogin) { setShowLogin(false); return; }
+      if (showRequestModal) { setShowRequestModal(false); return; }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showForgot, showLogin, showRequestModal]);
+
   const _refreshSession = useCallback(async () => {
     try {
       await supabase.auth.getUser();
@@ -161,8 +173,13 @@ export default function HomeClient() {
         <button onClick={() => setShowRequestModal(true)} className="mt-6 inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition">Sign Up</button>
 
         {showLogin && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }} onClick={() => setShowLogin(false)}>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm modal-overlay-in"
+            onClick={() => setShowLogin(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-sm modal-pop-in" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-2xl font-semibold mb-4 text-black dark:text-white">Login</h2>
               <form className="space-y-4" onSubmit={handleLoginSubmit}>
                 <input type="email" name="email" placeholder="Email" autoComplete="email" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" />
@@ -180,8 +197,13 @@ export default function HomeClient() {
         )}
 
         {showRequestModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }} onClick={() => setShowRequestModal(false)}>
-            <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-md">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm modal-overlay-in"
+            onClick={() => setShowRequestModal(false)}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-gray-800 rounded-lg p-8 shadow-lg w-full max-w-md modal-pop-in">
               <h2 className="text-2xl font-semibold mb-4 text-black dark:text-white">Create Account</h2>
               <form className="space-y-4" onSubmit={handleSignupSubmit}>
                 <input name="full_name" placeholder="Full Name (e.g., John Doe)" autoComplete="name" className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" onBlur={() => setShowPasswordFields(true)} />

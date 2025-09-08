@@ -50,6 +50,7 @@ export default function DirectoryPage() {
   const [phoneActionsOpen, setPhoneActionsOpen] = useState(false);
   const [phoneTarget, setPhoneTarget] = useState<{ name: string; phone: string } | null>(null);
   const [closingSheet, setClosingSheet] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const cleanPhone = (s: string) => s.replace(/[^\d+]/g, "");
 
@@ -68,6 +69,7 @@ export default function DirectoryPage() {
     setPhoneTarget({ name: provider.provider_name, phone: provider.phone_number });
     setClosingSheet(false); // ensure we reset exit animation state when opening
     setPhoneActionsOpen(true);
+    setCopied(false);
   };
 
   // Gracefully close the phone action sheet with exit animation
@@ -83,6 +85,48 @@ export default function DirectoryPage() {
     }, 260);
     return () => clearTimeout(timeout);
   }, [phoneActionsOpen, closingSheet]);
+
+  // Close any open modal/sheet with Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      // Add Provider
+      if (modalOpen) {
+        e.preventDefault();
+        setModalOpen(false);
+      }
+      // Edit Provider
+      if (editOpen) {
+        e.preventDefault();
+        setEditOpen(false);
+        setEditingProvider(null);
+      }
+      // Manage Directory
+      if (manageSpecsOpen) {
+        e.preventDefault();
+        setManageSpecsOpen(false);
+      }
+      // Phone sheet
+      if (phoneActionsOpen) {
+        e.preventDefault();
+        closePhoneSheet();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalOpen, editOpen, manageSpecsOpen, phoneActionsOpen, closePhoneSheet]);
+
+  // Prevent background scroll when any modal or sheet is open
+  useEffect(() => {
+    const anyOpen = modalOpen || editOpen || manageSpecsOpen || phoneActionsOpen;
+    const original = document.body.style.overflow;
+    if (anyOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [modalOpen, editOpen, manageSpecsOpen, phoneActionsOpen]);
 
   const role = useUserRole();
 
@@ -341,6 +385,10 @@ export default function DirectoryPage() {
     return 0;
   });
 
+  const ariaSortFor = (key: 'provider_name' | 'specialty' | 'phone_number'): 'none' | 'ascending' | 'descending' => {
+    return sortKey !== key ? 'none' : (sortAsc ? 'ascending' : 'descending');
+  };
+
   return (
     <>
       <main className="relative max-w-4xl mx-auto px-4 py-6">
@@ -352,11 +400,13 @@ export default function DirectoryPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="flex-1 px-4 py-2 border rounded shadow-sm"
+            aria-label="Search providers"
           />
           <select
             value={specialtyFilter}
             onChange={e => setSpecialtyFilter(e.target.value)}
             className="px-4 py-2 border rounded shadow-sm"
+            aria-label="Filter by specialty"
           >
             <option value="">All Specialties</option>
             {specialties.map(spec => (
@@ -366,7 +416,8 @@ export default function DirectoryPage() {
           {role === 'admin' && (
             <button
               onClick={() => setModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 sm:px-6 py-2 rounded-lg shadow-lg transition"
+              aria-label="Add provider"
             >
               ➕ Add Provider
             </button>
@@ -374,23 +425,31 @@ export default function DirectoryPage() {
           {role === 'admin' && (
             <button
               onClick={() => setManageSpecsOpen(true)}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 sm:px-6 py-2 rounded-lg shadow-lg transition"
+              aria-label="Manage directory"
             >
               ⚙️ Manage Directory
             </button>
           )}
         </div>
 
-        <table className="w-full border-collapse">
+        <table className="w-full border-collapse table-fixed sm:table-auto">
+          {/* Responsive column widths: on mobile give Name ~56%, Phone ~44% */}
+          <colgroup>
+            <col className="w-[56%] sm:w-auto" />
+            <col className="hidden sm:table-column" />
+            <col className="w-[44%] sm:w-auto" />
+          </colgroup>
           <thead>
             <tr className="border-b">
-              <th className="text-left p-2">
+              <th className="text-left p-2" aria-sort={ariaSortFor('provider_name')} scope="col">
                 <button
                   onClick={() => {
                     setSortKey('provider_name');
                     setSortAsc(sortKey === 'provider_name' ? !sortAsc : true);
                   }}
                   className="hover:underline flex items-center gap-1"
+                  aria-label={`Sort by Name (${ariaSortFor('provider_name')})`}
                 >
                   Name
                   {sortKey === 'provider_name' && (
@@ -400,13 +459,14 @@ export default function DirectoryPage() {
                   )}
                 </button>
               </th>
-              <th className="text-left p-2">
+              <th className="hidden sm:table-cell text-left p-2" aria-sort={ariaSortFor('specialty')} scope="col">
                 <button
                   onClick={() => {
                     setSortKey('specialty');
                     setSortAsc(sortKey === 'specialty' ? !sortAsc : true);
                   }}
                   className="hover:underline flex items-center gap-1"
+                  aria-label={`Sort by Specialty (${ariaSortFor('specialty')})`}
                 >
                   Specialty
                   {sortKey === 'specialty' && (
@@ -416,13 +476,14 @@ export default function DirectoryPage() {
                   )}
                 </button>
               </th>
-              <th className="text-left p-2">
+              <th className="text-right sm:text-left p-2" aria-sort={ariaSortFor('phone_number')} scope="col">
                 <button
                   onClick={() => {
                     setSortKey('phone_number');
                     setSortAsc(sortKey === 'phone_number' ? !sortAsc : true);
                   }}
                   className="hover:underline flex items-center gap-1"
+                  aria-label={`Sort by Phone (${ariaSortFor('phone_number')})`}
                 >
                   Phone
                   {sortKey === 'phone_number' && (
@@ -437,9 +498,12 @@ export default function DirectoryPage() {
           <tbody>
             {sorted.map((provider) => (
               <tr key={provider.id} className="border-b hover:bg-gray-100 dark:hover:bg-gray-800 text-black dark:text-white">
-                <td className="p-2">
-                  <div className="group inline-flex items-center gap-2">
-                    <span>{provider.provider_name}</span>
+                <td className="p-2 align-top">
+                  <div className="group inline-flex items-start gap-2">
+                    <div>
+                      <div className="font-medium">{provider.provider_name}</div>
+                      <div className="sm:hidden text-xs text-gray-500 mt-0.5">{provider.specialty}</div>
+                    </div>
                     {role === 'admin' && (
                       <button
                         type="button"
@@ -453,12 +517,13 @@ export default function DirectoryPage() {
                     )}
                   </div>
                 </td>
-                <td className="p-2">{provider.specialty}</td>
-                <td className="p-2">
+                <td className="hidden sm:table-cell p-2 align-top">{provider.specialty}</td>
+                <td className="p-2 text-right sm:text-left align-top">
                   <button
                     type="button"
                     onClick={() => openPhoneActions(provider)}
-                    className="text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-2 text-blue-600 hover:underline whitespace-nowrap"
+                    style={{ WebkitHyphens: 'none', hyphens: 'none', wordBreak: 'keep-all' }}
                     title="Contact options"
                     aria-label={`Contact ${provider.provider_name}`}
                   >
@@ -487,10 +552,10 @@ export default function DirectoryPage() {
           aria-label="Add Provider"
         >
           <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl z-[1001] modal-pop-in"
+            className="bg-white dark:bg-gray-900 p-4 sm:p-6 rounded-lg w-full max-w-md shadow-xl z-[1001] modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold mb-4">Add New Provider</h2>
+            <h2 className="text-xl font-bold mb-3 sm:mb-4">Add New Provider</h2>
             <form onSubmit={handleAddProvider} className="space-y-4">
               {formError && <p className="text-sm text-red-600" role="alert">{formError}</p>}
               <input
@@ -499,7 +564,7 @@ export default function DirectoryPage() {
                 value={newName}
                 onChange={e => setNewName(e.target.value)}
                 required
-                className="w-full px-4 py-2 border rounded"
+                className="w-full px-3 sm:px-4 py-2 border rounded"
               />
               <div>
                 <input
@@ -508,7 +573,7 @@ export default function DirectoryPage() {
                   value={newSpecialty}
                   onChange={e => setNewSpecialty(e.target.value)}
                   required
-                  className="w-full px-4 py-2 border rounded"
+                  className="w-full px-3 sm:px-4 py-2 border rounded"
                 />
                 <datalist id="specialty-options">
                   {specialties.map(spec => (
@@ -521,13 +586,13 @@ export default function DirectoryPage() {
                 placeholder="Phone Number"
                 value={newPhone}
                 onChange={e => setNewPhone(e.target.value)}
-                className="w-full px-4 py-2 border rounded"
+                className="w-full px-3 sm:px-4 py-2 border rounded"
               />
-              <div className="flex justify-end gap-4">
-                <button type="button" onClick={() => { if(!saving){ setModalOpen(false); setFormError(null);} }} className="px-4 py-2 bg-gray-300 rounded">
+              <div className="flex justify-end gap-2 sm:gap-3">
+                <button type="button" onClick={() => { if(!saving){ setModalOpen(false); setFormError(null);} }} className="px-3 sm:px-4 py-2 bg-gray-300 rounded">
                   Cancel
                 </button>
-                <button disabled={saving} type="submit" className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60">
+                <button disabled={saving} type="submit" className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60">
                   {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
@@ -545,10 +610,10 @@ export default function DirectoryPage() {
           aria-label="Edit Provider"
         >
           <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-md shadow-xl modal-pop-in"
+            className="bg-white dark:bg-gray-900 p-4 sm:p-6 rounded-lg w-full max-w-md shadow-xl modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl font-bold mb-4">Edit Provider</h2>
+            <h2 className="text-xl font-bold mb-3 sm:mb-4">Edit Provider</h2>
             <form onSubmit={handleUpdateProvider} className="space-y-4">
               {formError && <p className="text-sm text-red-600" role="alert">{formError}</p>}
               <input
@@ -557,7 +622,7 @@ export default function DirectoryPage() {
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
                 required
-                className="w-full px-4 py-2 border rounded"
+                className="w-full px-3 sm:px-4 py-2 border rounded"
               />
               <div>
                 <input
@@ -566,7 +631,7 @@ export default function DirectoryPage() {
                   value={editSpecialty}
                   onChange={e => setEditSpecialty(e.target.value)}
                   required
-                  className="w-full px-4 py-2 border rounded"
+                  className="w-full px-3 sm:px-4 py-2 border rounded"
                 />
                 <datalist id="edit-specialty-options">
                   {specialties.map(spec => (
@@ -579,21 +644,21 @@ export default function DirectoryPage() {
                 placeholder="Phone Number"
                 value={editPhone}
                 onChange={e => setEditPhone(e.target.value)}
-                className="w-full px-4 py-2 border rounded"
+                className="w-full px-3 sm:px-4 py-2 border rounded"
               />
-              <div className="flex justify-between gap-4">
+              <div className="flex justify-between gap-2 sm:gap-4">
                 <button
                   type="button"
                   onClick={() => { if(!saving){ setEditOpen(false); setEditingProvider(null); setFormError(null);} }}
-                  className="px-4 py-2 bg-gray-300 rounded"
+                  className="px-3 sm:px-4 py-2 bg-gray-300 rounded"
                 >
                   Cancel
                 </button>
-                <div className="ml-auto flex gap-3">
+                <div className="ml-auto flex gap-2 sm:gap-3">
                   <button
                     type="submit"
                     disabled={saving}
-                    className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
+                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
                   >
                     {saving ? 'Saving...' : 'Save Changes'}
                   </button>
@@ -613,33 +678,37 @@ export default function DirectoryPage() {
           aria-label="Manage Directory"
         >
           <div
-            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-2xl shadow-xl modal-pop-in"
+            className="bg-white dark:bg-gray-900 p-4 sm:p-6 rounded-lg w-full max-w-2xl shadow-xl modal-pop-in"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <h2 className="text-xl font-bold">Manage Directory</h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {/* Add Provider button for admin only */}
                 {role === 'admin' && (
                   <button
                     onClick={() => { setModalOpen(true); setManageSpecsOpen(false); }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-2 rounded-lg shadow-lg transition"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 sm:px-4 py-2 rounded-lg shadow-lg transition"
+                    aria-label="Add provider"
                   >
                     ➕ Add Provider
                   </button>
                 )}
-                <button onClick={() => setManageSpecsOpen(false)} className="px-3 py-1 rounded border">Close</button>
+                <button onClick={() => setManageSpecsOpen(false)} className="px-3 py-2 rounded border" aria-label="Close manage directory">
+                  Close
+                </button>
               </div>
             </div>
             {/* Admin: Add Specialty */}
-            <form onSubmit={handleAddSpecialty} className="flex items-center gap-2 mb-3">
+            <form onSubmit={handleAddSpecialty} className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
               <input
                 value={newSpecName}
                 onChange={(e) => setNewSpecName(e.target.value)}
                 placeholder="New specialty name"
                 className="flex-1 px-3 py-2 border rounded"
+                aria-label="New specialty name"
               />
-              <button type="submit" className="px-4 py-2 bg-emerald-600 text-white rounded">
+              <button type="submit" className="px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded">
                 Add Specialty
               </button>
             </form>
@@ -659,11 +728,13 @@ export default function DirectoryPage() {
                           onChange={(e) => setSpecEditName(e.target.value)}
                           className="flex-1 px-3 py-1 border rounded"
                           placeholder="Specialty name"
+                          aria-label="Specialty name"
                         />
                         <button
                           type="button"
                           onClick={() => handleSaveSpecialty(spec)}
                           className="px-3 py-1 bg-blue-600 text-white rounded"
+                          aria-label="Save specialty"
                         >
                           Save
                         </button>
@@ -671,6 +742,7 @@ export default function DirectoryPage() {
                           type="button"
                           onClick={handleCancelEditSpecialty}
                           className="px-3 py-1 border rounded"
+                          aria-label="Cancel editing specialty"
                         >
                           Cancel
                         </button>
@@ -682,6 +754,7 @@ export default function DirectoryPage() {
                           type="button"
                           onClick={() => handleStartEditSpecialty(spec)}
                           className="px-3 py-1 border rounded"
+                          aria-label={`Edit ${spec.name ?? 'specialty'}`}
                         >
                           Edit
                         </button>
@@ -689,6 +762,7 @@ export default function DirectoryPage() {
                           type="button"
                           onClick={() => handleDeleteSpecialty(spec)}
                           className="px-3 py-1 border rounded text-red-600"
+                          aria-label={`Delete ${spec.name ?? 'specialty'}`}
                         >
                           Delete
                         </button>
@@ -711,23 +785,27 @@ export default function DirectoryPage() {
                         onChange={e => setDirEditName(e.target.value)}
                         className="flex-1 px-3 py-1 border rounded"
                         placeholder="Provider Name"
+                        aria-label="Provider name"
                       />
                       <input
                         value={dirEditSpecialty}
                         onChange={e => setDirEditSpecialty(e.target.value)}
                         className="flex-1 px-3 py-1 border rounded"
                         placeholder="Specialty"
+                        aria-label="Provider specialty"
                       />
                       <input
                         value={dirEditPhone}
                         onChange={e => setDirEditPhone(e.target.value)}
                         className="flex-1 px-3 py-1 border rounded"
                         placeholder="Phone Number"
+                        aria-label="Provider phone number"
                       />
                       <button
                         type="button"
                         onClick={() => handleDirectorySave(provider.id)}
                         className="px-3 py-1 bg-blue-600 text-white rounded"
+                        aria-label="Save provider"
                       >
                         Save
                       </button>
@@ -735,6 +813,7 @@ export default function DirectoryPage() {
                         type="button"
                         onClick={handleDirectoryCancel}
                         className="px-3 py-1 border rounded"
+                        aria-label="Cancel editing provider"
                       >
                         Cancel
                       </button>
@@ -748,6 +827,7 @@ export default function DirectoryPage() {
                         type="button"
                         onClick={() => handleDirectoryEdit(provider)}
                         className="px-3 py-1 border rounded"
+                        aria-label={`Edit ${provider.provider_name}`}
                       >
                         Edit
                       </button>
@@ -755,6 +835,7 @@ export default function DirectoryPage() {
                         type="button"
                         onClick={() => handleDirectoryDelete(provider.id)}
                         className="px-3 py-1 border rounded text-red-600"
+                        aria-label={`Delete ${provider.provider_name}`}
                       >
                         Delete
                       </button>
@@ -778,36 +859,69 @@ export default function DirectoryPage() {
             className={`bg-white dark:bg-gray-900 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl ${closingSheet ? 'sheet-slide-down' : 'sheet-slide-up'}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 pt-5 pb-3 border-b dark:border-gray-700">
+            <div className="px-4 sm:px-6 pt-5 pb-3 border-b dark:border-gray-700">
               <h3 className="text-lg font-semibold">{phoneTarget.name}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-300">{phoneTarget.phone}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{phoneTarget.phone || 'No phone on record'}</p>
             </div>
-            <div className="flex flex-col divide-y dark:divide-gray-700">
-              <a
-                href={`sms:${cleanPhone(phoneTarget.phone)}`}
-                className="px-6 py-4 text-center text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Send Text Message
-              </a>
-              <a
-                href={`tel:${cleanPhone(phoneTarget.phone)}`}
-                className="px-6 py-4 text-center text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                Call
-              </a>
-              <a
-                href={`https://wa.me/${toWhatsAppNumber(phoneTarget.phone)}?text=${encodeURIComponent('Hello')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="px-6 py-4 text-center text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                WhatsApp
-              </a>
-            </div>
+            {(() => {
+              const hasNumber = !!cleanPhone(phoneTarget.phone);
+              const smsHref = `sms:${cleanPhone(phoneTarget.phone)}`;
+              const telHref = `tel:${cleanPhone(phoneTarget.phone)}`;
+              const waUrl = `https://wa.me/${toWhatsAppNumber(phoneTarget.phone)}?text=${encodeURIComponent('Hello')}`;
+              const handleSms = () => { if (!hasNumber) return; window.location.href = smsHref; };
+              const handleCall = () => { if (!hasNumber) return; window.location.href = telHref; };
+              const handleWhatsApp = () => { if (!hasNumber) return; const w = window.open(waUrl, '_blank', 'noopener'); if (w) { /* no-op */ } };
+              const handleCopy = async () => { if (!hasNumber) return; try { await navigator.clipboard.writeText(phoneTarget.phone); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch {} };
+              return (
+                <div className="flex flex-col divide-y dark:divide-gray-700">
+                  <button
+                    type="button"
+                    onClick={handleSms}
+                    disabled={!hasNumber}
+                    aria-disabled={!hasNumber}
+                    className={`px-4 sm:px-6 py-4 text-center ${hasNumber ? 'text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800' : 'opacity-50 cursor-not-allowed'}`}
+                    aria-label="Send text message"
+                  >
+                    Send Text Message
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCall}
+                    disabled={!hasNumber}
+                    aria-disabled={!hasNumber}
+                    className={`px-4 sm:px-6 py-4 text-center ${hasNumber ? 'text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800' : 'opacity-50 cursor-not-allowed'}`}
+                    aria-label="Call"
+                  >
+                    Call
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleWhatsApp}
+                    disabled={!hasNumber}
+                    aria-disabled={!hasNumber}
+                    className={`px-4 sm:px-6 py-4 text-center ${hasNumber ? 'text-red-600 hover:bg-gray-50 dark:hover:bg-gray-800' : 'opacity-50 cursor-not-allowed'}`}
+                    aria-label="Open WhatsApp"
+                  >
+                    WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    disabled={!hasNumber}
+                    aria-disabled={!hasNumber}
+                    className={`px-4 sm:px-6 py-4 text-center ${hasNumber ? 'text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800' : 'opacity-50 cursor-not-allowed'}`}
+                    aria-label="Copy phone number"
+                  >
+                    {copied ? 'Copied!' : 'Copy Number'}
+                  </button>
+                </div>
+              );
+            })()}
             <button
               type="button"
               onClick={closePhoneSheet}
-              className="w-full px-6 py-4 text-center hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="w-full px-4 sm:px-6 py-4 text-center hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Close contact options"
             >
               Cancel
             </button>

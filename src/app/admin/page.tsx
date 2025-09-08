@@ -22,6 +22,8 @@ function PageContent() {
   const [testResult, setTestResult] = React.useState<string | null>(null);
   const [sendingApproval, setSendingApproval] = React.useState(false);
   const [approvalResult, setApprovalResult] = React.useState<string | null>(null);
+  // New: testing modal visibility
+  const [testingOpen, setTestingOpen] = React.useState(false);
 
   React.useEffect(() => {
     let mounted = true;
@@ -189,6 +191,18 @@ function PageContent() {
     }
   };
 
+  // Close Testing modal with Escape
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && testingOpen) {
+        e.preventDefault();
+        setTestingOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [testingOpen]);
+
   const tabs: { key: TabKey; label: string }[] = [];
   if (role === 'admin') {
     tabs.push({ key: 'access', label: 'Access Management' });
@@ -238,41 +252,17 @@ function PageContent() {
           <DashboardCard title="Weekly Visits" value={counts.weeklyVisits} onClick={() => setActiveTab('usage')} />
         </div>
 
+        {/* Replaced inline test sections with a single Testing button and modal */}
         {role === 'admin' && (
-          <div className="my-4 p-4 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <div className="font-medium text-amber-900 dark:text-amber-200">Email Pipeline Test</div>
-                <div className="text-sm text-amber-800/90 dark:text-amber-300/90">Sends a test from no-reply@whosoncall.app to karlunsco26@gmail.com</div>
-              </div>
-              <button
-                onClick={sendTestEmail}
-                disabled={sendingTest}
-                className="inline-flex items-center px-3 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm shadow"
-              >
-                {sendingTest ? 'Sending…' : 'Send Test Email'}
-              </button>
-            </div>
-            {testResult && <div className="mt-2 text-xs text-amber-900 dark:text-amber-200 break-all">{testResult}</div>}
-          </div>
-        )}
-
-        {role === 'admin' && (
-          <div className="my-4 p-4 rounded-md border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div>
-                <div className="font-medium text-emerald-900 dark:text-emerald-200">Approval Email Test</div>
-                <div className="text-sm text-emerald-800/90 dark:text-emerald-300/90">Sends the approval template from no-reply@whosoncall.app to karlunsco26@gmail.com</div>
-              </div>
-              <button
-                onClick={sendTestApprovalEmail}
-                disabled={sendingApproval}
-                className="inline-flex items-center px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm shadow"
-              >
-                {sendingApproval ? 'Sending…' : 'Send Test Approval Email'}
-              </button>
-            </div>
-            {approvalResult && <div className="mt-2 text-xs text-emerald-900 dark:text-emerald-200 break-all">{approvalResult}</div>}
+          <div className="my-4 flex justify-end">
+            <button
+              onClick={() => setTestingOpen(true)}
+              className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm shadow"
+              aria-haspopup="dialog"
+              aria-expanded={testingOpen}
+            >
+              🧪 Testing
+            </button>
           </div>
         )}
 
@@ -289,6 +279,63 @@ function PageContent() {
           {activeTab === 'usage' && <UsageStub />}
         </section>
       </div>
+
+      {/* Testing Modal */}
+      {role === 'admin' && testingOpen && (
+        <div
+          className="fixed inset-0 z-[1200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
+          onClick={() => setTestingOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Testing"
+        >
+          <div
+            className="bg-white dark:bg-gray-900 p-6 rounded-lg w-full max-w-2xl shadow-xl modal-pop-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Testing</h2>
+              <button onClick={() => setTestingOpen(false)} className="px-3 py-1 rounded border">Close</button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-4 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="font-medium text-amber-900 dark:text-amber-200">Email Pipeline Test</div>
+                    <div className="text-sm text-amber-800/90 dark:text-amber-300/90">Sends a test from no-reply@whosoncall.app to karlunsco26@gmail.com</div>
+                  </div>
+                  <button
+                    onClick={sendTestEmail}
+                    disabled={sendingTest}
+                    className="inline-flex items-center px-3 py-2 rounded-md bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm shadow"
+                  >
+                    {sendingTest ? 'Sending…' : 'Send Test Email'}
+                  </button>
+                </div>
+                {testResult && <div className="mt-2 text-xs text-amber-900 dark:text-amber-200 break-all">{testResult}</div>}
+              </div>
+
+              <div className="p-4 rounded-md border border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <div className="font-medium text-emerald-900 dark:text-emerald-200">Approval Email Test</div>
+                    <div className="text-sm text-emerald-800/90 dark:text-emerald-300/90">Sends the approval template from no-reply@whosoncall.app to karlunsco26@gmail.com</div>
+                  </div>
+                  <button
+                    onClick={sendTestApprovalEmail}
+                    disabled={sendingApproval}
+                    className="inline-flex items-center px-3 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm shadow"
+                  >
+                    {sendingApproval ? 'Sending…' : 'Send Test Approval Email'}
+                  </button>
+                </div>
+                {approvalResult && <div className="mt-2 text-xs text-emerald-900 dark:text-emerald-200 break-all">{approvalResult}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
