@@ -1638,8 +1638,6 @@ if (role !== 'admin' && role !== 'scheduler') {
                   // Hide the multi-day calendar when modal is closed
                   const miniCalendar = document.getElementById('multi-day-calendar');
                   if (miniCalendar) miniCalendar.classList.add('hidden');
-                  const multiDayToggle = document.getElementById('multi-day-toggle') as HTMLInputElement;
-                  if (multiDayToggle) multiDayToggle.checked = false;
                 }}
               >
                 Cancel
@@ -1710,7 +1708,6 @@ if (role !== 'admin' && role !== 'scheduler') {
                     on_call_date: string;
                     show_second_phone: boolean;
                     second_phone_pref: 'auto' | 'pa' | 'residency';
-                    user_id: string;
                     cover?: boolean;
                     covering_provider?: string | null;
                   };
@@ -1721,7 +1718,6 @@ if (role !== 'admin' && role !== 'scheduler') {
                     on_call_date: date,
                     show_second_phone: secondPref !== 'none',
                     second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
-                    user_id: user.id, // Assumes 'user_id' column exists in your table
                     ...(coverEnabled && coverInputRef.current?.value && coverInputRef.current.value !== providerName
                       ? { cover: true, covering_provider: coverInputRef.current.value }
                       : {}),
@@ -1732,7 +1728,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                     const combined = [...prev, ...payload];
                     const seen = new Set<string>();
                     return combined.filter(pe => {
-                      const key = `${pe.provider_name}-${pe.on_call_date}-${pe.specialty}`;
+                      const key = `${pe.provider_name}-${pe.on_call_date}-${pe.specialty}-${pe.healthcare_plan ?? ''}`;
                       if (seen.has(key)) return false;
                       seen.add(key);
                       return true;
@@ -1770,7 +1766,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                   const multiDayToggle = document.getElementById('multi-day-toggle') as HTMLInputElement;
                   if (multiDayToggle) multiDayToggle.checked = false;
                 }}
-              >
+>
                 {isEditing ? 'Update' : 'Save'}
               </button>
             </div>
