@@ -13,7 +13,9 @@ export async function getServerSupabase() {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
     // Fallback to anon key for local development if service key not provided
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_KEY || "", 
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_KEY ||
+      "",
     {
       cookies: {
         get(name: string) {
@@ -27,7 +29,7 @@ export async function getServerSupabase() {
         //   cookieStore.set({ name, value: "", ...options });
         // },
       },
-    }
+    },
   );
 
   // Step 3: Verify authentication/session if needed

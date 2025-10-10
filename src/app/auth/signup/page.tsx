@@ -26,11 +26,37 @@ export default function SignUpPage() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-2 p-4">
-      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="border p-2 w-full" />
-      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="border p-2 w-full" />
-      <input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" className="border p-2 w-full" />
-      <input value={department} onChange={e=>setDepartment(e.target.value)} placeholder="Department" className="border p-2 w-full" />
-      <button className="bg-blue-600 text-white px-4 py-2 rounded" type="submit">Sign Up</button>
+      <input
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email"
+        className="border p-2 w-full"
+      />
+      <input
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Password"
+        className="border p-2 w-full"
+      />
+      <input
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        placeholder="Full name"
+        className="border p-2 w-full"
+      />
+      <input
+        value={department}
+        onChange={(e) => setDepartment(e.target.value)}
+        placeholder="Department"
+        className="border p-2 w-full"
+      />
+      <button
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+        type="submit"
+      >
+        Sign Up
+      </button>
     </form>
   );
 }

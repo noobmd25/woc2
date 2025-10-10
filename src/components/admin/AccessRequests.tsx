@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { getBrowserClient } from '@/lib/supabase/client';
+import * as React from "react";
+import { getBrowserClient } from "@/lib/supabase/client";
 const supabase = getBrowserClient();
 
 type RoleRequest = {
@@ -9,10 +9,10 @@ type RoleRequest = {
   user_id: string | null;
   email: string;
   provider_type: string | null;
-  requested_role: 'viewer' | 'scheduler' | 'admin';
+  requested_role: "viewer" | "scheduler" | "admin";
   justification: string | null;
   metadata: any | null;
-  status: 'pending' | 'approved' | 'denied' | 'withdrawn';
+  status: "pending" | "approved" | "denied" | "withdrawn";
   decided_by: string | null;
   decided_at: string | null;
   decision_reason: string | null;
@@ -28,7 +28,9 @@ export default function AccessRequests() {
   const [actingId, setActingId] = React.useState<string | null>(null);
   const [backfilling, setBackfilling] = React.useState<boolean>(false);
   const [missingCount, setMissingCount] = React.useState<number>(0);
-  const [profilesById, setProfilesById] = React.useState<Record<string, { full_name: string | null }>>({});
+  const [profilesById, setProfilesById] = React.useState<
+    Record<string, { full_name: string | null }>
+  >({});
 
   const pendingRequestsCount = React.useMemo(() => (rows ?? []).length, [rows]);
 
@@ -40,26 +42,30 @@ export default function AccessRequests() {
         const sessRes = await supabase.auth.getSession();
         if (!mounted) return;
         if (!sessRes?.data?.session) {
-          setError('No active session in browser. Please sign in.');
-          addToast('No active session — please sign in', 'error');
+          setError("No active session in browser. Please sign in.");
+          addToast("No active session — please sign in", "error");
         }
       } catch {
         // silent
       }
     })();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [editRole, setEditRole] = React.useState<'viewer' | 'scheduler' | 'admin'>('viewer');
+  const [editRole, setEditRole] = React.useState<
+    "viewer" | "scheduler" | "admin"
+  >("viewer");
 
   // --- New: current users management state ---
   type ProfileRow = {
     id: string;
     email: string | null;
     full_name: string | null;
-    role: 'viewer' | 'scheduler' | 'admin' | null;
-    status: 'pending' | 'approved' | 'denied' | 'revoked' | null;
+    role: "viewer" | "scheduler" | "admin" | null;
+    status: "pending" | "approved" | "denied" | "revoked" | null;
     created_at?: string | null;
     updated_at?: string | null;
   };
@@ -68,60 +74,76 @@ export default function AccessRequests() {
   const [usersLoading, setUsersLoading] = React.useState<boolean>(true);
   const [userActingId, setUserActingId] = React.useState<string | null>(null);
   const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
-  const [editingUserRole, setEditingUserRole] = React.useState<'viewer' | 'scheduler' | 'admin'>('viewer');
+  const [editingUserRole, setEditingUserRole] = React.useState<
+    "viewer" | "scheduler" | "admin"
+  >("viewer");
 
   // --- New: pagination / search / sorting state ---
   const [page, setPage] = React.useState<number>(1);
   const [pageSize, setPageSize] = React.useState<number>(20);
   const [totalUsers, setTotalUsers] = React.useState<number | null>(null);
-  const totalPages = totalUsers ? Math.max(1, Math.ceil(totalUsers / pageSize)) : 1;
+  const totalPages = totalUsers
+    ? Math.max(1, Math.ceil(totalUsers / pageSize))
+    : 1;
 
-  const [searchQ, setSearchQ] = React.useState<string>('');
-  const [debouncedSearchQ, setDebouncedSearchQ] = React.useState<string>('');
-  const [sortBy, setSortBy] = React.useState<'full_name' | 'email' | 'role' | 'created_at'>('full_name');
-  const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc');
+  const [searchQ, setSearchQ] = React.useState<string>("");
+  const [debouncedSearchQ, setDebouncedSearchQ] = React.useState<string>("");
+  const [sortBy, setSortBy] = React.useState<
+    "full_name" | "email" | "role" | "created_at"
+  >("full_name");
+  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("asc");
 
   // Cursor pagination state (server returns nextCursor). Keep a cursor history to enable Prev navigation.
   const [cursors, setCursors] = React.useState<(string | null)[]>([null]); // index 0 = page 1
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
 
   // Helper: toggle sorting for column
-  const handleSort = React.useCallback((col: 'full_name' | 'email' | 'role' | 'created_at') => {
-    setSortBy((prevCol) => {
-      if (prevCol === col) {
-        // toggle direction
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-        return prevCol;
-      }
-      // default directions per column (created_at defaults to desc)
-      setSortDir(col === 'created_at' ? 'desc' : 'asc');
-      return col;
-    });
-  }, []);
+  const handleSort = React.useCallback(
+    (col: "full_name" | "email" | "role" | "created_at") => {
+      setSortBy((prevCol) => {
+        if (prevCol === col) {
+          // toggle direction
+          setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+          return prevCol;
+        }
+        // default directions per column (created_at defaults to desc)
+        setSortDir(col === "created_at" ? "desc" : "asc");
+        return col;
+      });
+    },
+    [],
+  );
 
   // --- New: simple toast notifications ---
-  type Toast = { id: string; message: string; kind?: 'info' | 'error' };
+  type Toast = { id: string; message: string; kind?: "info" | "error" };
   const [toasts, setToasts] = React.useState<Toast[]>([]);
-  const addToast = React.useCallback((message: string, kind: Toast['kind'] = 'info', ttl = 6000) => {
-    const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
-    const t = { id, message, kind } as Toast;
-    setToasts((s) => [t, ...s]);
-    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), ttl);
-  }, []);
+  const addToast = React.useCallback(
+    (message: string, kind: Toast["kind"] = "info", ttl = 6000) => {
+      const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
+      const t = { id, message, kind } as Toast;
+      setToasts((s) => [t, ...s]);
+      setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), ttl);
+    },
+    [],
+  );
 
   // ensure current user is an approved admin (client-side guard)
   const ensureAdminOrThrow = React.useCallback(async () => {
     try {
       const { data: userRes } = await supabase.auth.getUser();
       const userId = userRes?.user?.id;
-      if (!userId) throw new Error('Not authenticated');
+      if (!userId) throw new Error("Not authenticated");
       const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, status')
-        .eq('id', userId)
+        .from("profiles")
+        .select("role, status")
+        .eq("id", userId)
         .single();
-      if (!profile || profile.role !== 'admin' || profile.status !== 'approved') {
-        throw new Error('Forbidden — admin only');
+      if (
+        !profile ||
+        profile.role !== "admin" ||
+        profile.status !== "approved"
+      ) {
+        throw new Error("Forbidden — admin only");
       }
       return { userId, profile };
     } catch (e: any) {
@@ -132,8 +154,8 @@ export default function AccessRequests() {
   const computeMissingCount = React.useCallback(async () => {
     // Try server-side counter first (security definer). If it doesn't exist, fall back to client calc.
     try {
-      const { data, error } = await supabase.rpc('count_missing_role_requests');
-      if (!error && typeof data === 'number') {
+      const { data, error } = await supabase.rpc("count_missing_role_requests");
+      if (!error && typeof data === "number") {
         setMissingCount(data);
         return;
       }
@@ -141,20 +163,19 @@ export default function AccessRequests() {
     } catch (_) {}
 
     // Fallback: client-side count using two queries
-    const [{ data: pendProfiles, error: profErr }, { data: pendReqs, error: reqErr }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id')
-        .eq('status', 'pending'),
-      supabase
-        .from('role_requests')
-        .select('user_id')
-        .eq('status', 'pending'),
+    const [
+      { data: pendProfiles, error: profErr },
+      { data: pendReqs, error: reqErr },
+    ] = await Promise.all([
+      supabase.from("profiles").select("id").eq("status", "pending"),
+      supabase.from("role_requests").select("user_id").eq("status", "pending"),
     ]);
 
     if (!profErr && !reqErr) {
       const pendingSet = new Set((pendReqs ?? []).map((r: any) => r.user_id));
-      const missing = (pendProfiles ?? []).filter((p: any) => !pendingSet.has(p.id));
+      const missing = (pendProfiles ?? []).filter(
+        (p: any) => !pendingSet.has(p.id),
+      );
       setMissingCount(missing.length);
     }
   }, []);
@@ -165,10 +186,10 @@ export default function AccessRequests() {
 
     // 1) Load pending role requests (source of truth for approvals)
     const { data, error } = await supabase
-      .from('role_requests')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true });
+      .from("role_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
 
     if (error) {
       setError(error.message);
@@ -177,16 +198,21 @@ export default function AccessRequests() {
       setRows((data ?? []) as RoleRequest[]);
       // Fetch profile names for the listed requests (best-effort; ignore errors)
       const list = (data ?? []) as RoleRequest[];
-      const ids = Array.from(new Set(list.map(r => r.user_id).filter((v): v is string => Boolean(v))));
+      const ids = Array.from(
+        new Set(
+          list.map((r) => r.user_id).filter((v): v is string => Boolean(v)),
+        ),
+      );
       if (ids.length > 0) {
         const { data: profs } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', ids);
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ids);
         if (profs && Array.isArray(profs)) {
           const map: Record<string, { full_name: string | null }> = {};
           for (const p of profs) {
-            if (p && p.id) map[p.id] = { full_name: (p as any).full_name ?? null };
+            if (p && p.id)
+              map[p.id] = { full_name: (p as any).full_name ?? null };
           }
           setProfilesById(map);
         } else {
@@ -205,7 +231,13 @@ export default function AccessRequests() {
     // Also refresh the users list so admin sees current state after loading requests
     setPage(1);
     setCursors([null]);
-    await loadUsers({ page: 1, search: debouncedSearchQ, sortBy, sortDir, cursor: null });
+    await loadUsers({
+      page: 1,
+      search: debouncedSearchQ,
+      sortBy,
+      sortDir,
+      cursor: null,
+    });
   }, [computeMissingCount]);
 
   React.useEffect(() => {
@@ -214,49 +246,64 @@ export default function AccessRequests() {
 
   // --- New: load current users/profiles ---
   const loadUsers = React.useCallback(
-    async ({ page: p = 1, search = '', sortBy: sBy = sortBy, sortDir: sDir = sortDir, cursor = null } : { page?: number; search?: string; sortBy?: typeof sortBy; sortDir?: typeof sortDir; cursor?: string | null } = {}) => {
+    async ({
+      page: p = 1,
+      search = "",
+      sortBy: sBy = sortBy,
+      sortDir: sDir = sortDir,
+      cursor = null,
+    }: {
+      page?: number;
+      search?: string;
+      sortBy?: typeof sortBy;
+      sortDir?: typeof sortDir;
+      cursor?: string | null;
+    } = {}) => {
       setUsersLoading(true);
       try {
         try {
           await ensureAdminOrThrow();
         } catch (authErr: any) {
-          const msg = authErr?.message ?? 'Not authorized';
+          const msg = authErr?.message ?? "Not authorized";
           setUsers([]);
           setTotalUsers(null);
           setError(msg);
-          addToast(msg, 'error');
+          addToast(msg, "error");
           setUsersLoading(false);
           return;
         }
 
         const params = new URLSearchParams();
-        params.set('limit', String(pageSize));
-        params.set('sortBy', sBy);
-        params.set('sortDir', sDir);
-        if (search) params.set('search', search);
+        params.set("limit", String(pageSize));
+        params.set("sortBy", sBy);
+        params.set("sortDir", sDir);
+        if (search) params.set("search", search);
 
         if (cursor) {
-          params.set('cursor', cursor);
+          params.set("cursor", cursor);
         } else {
-          params.set('page', String(p));
+          params.set("page", String(p));
         }
 
-        const res = await fetch(`/api/users?${params.toString()}`, { cache: 'no-store', credentials: 'include' });
+        const res = await fetch(`/api/users?${params.toString()}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
         if (!res.ok) {
           const txt = await res.text();
           if (res.status === 401) {
             setUsers([]);
             setTotalUsers(null);
-            setError('Unauthorized — please sign in');
-            addToast('Unauthorized — please sign in', 'error');
+            setError("Unauthorized — please sign in");
+            addToast("Unauthorized — please sign in", "error");
             setUsersLoading(false);
             return;
           }
           if (res.status === 403) {
             setUsers([]);
             setTotalUsers(null);
-            setError('Forbidden — admin only');
-            addToast('Forbidden — admin only', 'error');
+            setError("Forbidden — admin only");
+            addToast("Forbidden — admin only", "error");
             setUsersLoading(false);
             return;
           }
@@ -265,7 +312,7 @@ export default function AccessRequests() {
         const json = await res.json();
         setUsers((json.rows ?? []) as ProfileRow[]);
         setNextCursor(json.nextCursor ?? null);
-        setTotalUsers(typeof json.count === 'number' ? json.count : null);
+        setTotalUsers(typeof json.count === "number" ? json.count : null);
 
         if (cursor) {
           setCursors((cur) => {
@@ -277,20 +324,26 @@ export default function AccessRequests() {
       } catch (e: any) {
         setUsers([]);
         setTotalUsers(null);
-        addToast('Failed to load users: ' + (e?.message ?? ''), 'error');
-        setError(e?.message ?? 'Failed to load users');
+        addToast("Failed to load users: " + (e?.message ?? ""), "error");
+        setError(e?.message ?? "Failed to load users");
       } finally {
         setUsersLoading(false);
       }
     },
-    [pageSize, sortBy, sortDir, ensureAdminOrThrow, addToast]
+    [pageSize, sortBy, sortDir, ensureAdminOrThrow, addToast],
   );
 
   React.useEffect(() => {
     // when search or sort changes, reset page and cursor history
     setPage(1);
     setCursors([null]);
-    loadUsers({ page: 1, search: debouncedSearchQ, sortBy, sortDir, cursor: null });
+    loadUsers({
+      page: 1,
+      search: debouncedSearchQ,
+      sortBy,
+      sortDir,
+      cursor: null,
+    });
   }, [debouncedSearchQ, sortBy, sortDir, loadUsers]);
 
   React.useEffect(() => {
@@ -301,7 +354,7 @@ export default function AccessRequests() {
   // --- New: update a user's role in profiles table ---
   const beginEditUser = (u: ProfileRow) => {
     setEditingUserId(u.id);
-    setEditingUserRole((u.role as any) ?? 'viewer');
+    setEditingUserRole((u.role as any) ?? "viewer");
   };
 
   const cancelEditUser = () => setEditingUserId(null);
@@ -313,42 +366,47 @@ export default function AccessRequests() {
       setUserActingId(u.id);
       setError(null);
       const { error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ role: editingUserRole })
-        .eq('id', u.id);
+        .eq("id", u.id);
       if (error) throw error;
       await loadUsers({ page, search: debouncedSearchQ, sortBy, sortDir });
       setEditingUserId(null);
-      addToast('Role updated', 'info');
+      addToast("Role updated", "info");
     } catch (e: any) {
-      const msg = e?.message ?? 'Failed to update user role';
+      const msg = e?.message ?? "Failed to update user role";
       setError(msg);
-      addToast(msg, 'error');
+      addToast(msg, "error");
     } finally {
       setUserActingId(null);
     }
   };
 
   const revokeAccess = async (u: ProfileRow) => {
-    if (!confirm(`Revoke access for ${u.email ?? u.full_name ?? u.id}? This will mark the profile as revoked.`)) return;
+    if (
+      !confirm(
+        `Revoke access for ${u.email ?? u.full_name ?? u.id}? This will mark the profile as revoked.`,
+      )
+    )
+      return;
     try {
       // client-side guard
       await ensureAdminOrThrow();
       setUserActingId(u.id);
       setError(null);
       const { error } = await supabase
-        .from('profiles')
-        .update({ status: 'revoked', role: null })
-        .eq('id', u.id);
+        .from("profiles")
+        .update({ status: "revoked", role: null })
+        .eq("id", u.id);
       if (error) throw error;
 
       // Optionally: notify user or perform other cleanup here.
       await loadUsers({ page, sortBy, sortDir });
-      addToast('Access revoked', 'info');
+      addToast("Access revoked", "info");
     } catch (e: any) {
-      const msg = e?.message ?? 'Failed to revoke access';
+      const msg = e?.message ?? "Failed to revoke access";
       setError(msg);
-      addToast(msg, 'error');
+      addToast(msg, "error");
     } finally {
       setUserActingId(null);
     }
@@ -370,15 +428,15 @@ export default function AccessRequests() {
       setActingId(req.id);
       setError(null);
       const { error } = await supabase
-        .from('role_requests')
+        .from("role_requests")
         .update({ requested_role: editRole })
-        .eq('id', req.id);
+        .eq("id", req.id);
       if (error) throw error;
       await load();
       setEditingId(null);
     } catch (e: any) {
-      setError(e.message ?? 'Failed to update role');
-      addToast(e?.message ?? 'Failed to update role', 'error');
+      setError(e.message ?? "Failed to update role");
+      addToast(e?.message ?? "Failed to update role", "error");
     } finally {
       setActingId(null);
     }
@@ -391,26 +449,32 @@ export default function AccessRequests() {
       setActingId(req.id);
 
       // New: call server API to perform approval + email
-      const res = await fetch('/api/admin/approve-user', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: req.id })
+      const res = await fetch("/api/admin/approve-user", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: req.id }),
       });
       if (!res.ok) {
         const txt = await res.text();
         throw new Error(txt || `Approve failed (${res.status})`);
       }
       let emailUsed: string | null = null;
-      try { const data = await res.json(); emailUsed = data?.email ?? null; } catch {}
+      try {
+        const data = await res.json();
+        emailUsed = data?.email ?? null;
+      } catch {}
 
       // Removed: password reset email (user already set password at signup)
 
-      addToast(`Approved${emailUsed ? ' – approval email queued' : ''}.`, 'info');
+      addToast(
+        `Approved${emailUsed ? " – approval email queued" : ""}.`,
+        "info",
+      );
       await load();
     } catch (e: any) {
-      setError(e.message ?? 'Approve failed');
-      addToast(e?.message ?? 'Approve failed', 'error');
+      setError(e.message ?? "Approve failed");
+      addToast(e?.message ?? "Approve failed", "error");
     } finally {
       setActingId(null);
     }
@@ -423,10 +487,10 @@ export default function AccessRequests() {
       setActingId(req.id);
       const { data: userRes } = await supabase.auth.getUser();
       const decider = userRes?.user?.id;
-      if (!decider) throw new Error('No authenticated user');
+      if (!decider) throw new Error("No authenticated user");
 
-      const reason = prompt('Reason for denial (optional):') ?? '';
-      const { error } = await supabase.rpc('deny_role_request', {
+      const reason = prompt("Reason for denial (optional):") ?? "";
+      const { error } = await supabase.rpc("deny_role_request", {
         p_request_id: req.id,
         p_decider: decider,
         p_reason: reason,
@@ -435,8 +499,8 @@ export default function AccessRequests() {
 
       await load();
     } catch (e: any) {
-      setError(e.message ?? 'Deny failed');
-      addToast(e?.message ?? 'Deny failed', 'error');
+      setError(e.message ?? "Deny failed");
+      addToast(e?.message ?? "Deny failed", "error");
     } finally {
       setActingId(null);
     }
@@ -450,13 +514,13 @@ export default function AccessRequests() {
       setError(null);
 
       // Prefer server-side RPC (security definer) to bypass RLS
-      const { error } = await supabase.rpc('backfill_missing_role_requests');
+      const { error } = await supabase.rpc("backfill_missing_role_requests");
       if (error) {
         // Surface a clear action item if the function isn't installed
         setError(
-          error.message?.includes('function backfill_missing_role_requests')
-            ? 'Server function backfill_missing_role_requests() is missing. Please run the provided SQL to create it.'
-            : `Backfill failed: ${error.message}`
+          error.message?.includes("function backfill_missing_role_requests")
+            ? "Server function backfill_missing_role_requests() is missing. Please run the provided SQL to create it."
+            : `Backfill failed: ${error.message}`,
         );
         return;
       }
@@ -464,19 +528,21 @@ export default function AccessRequests() {
       // Refresh list and missing count
       await load();
     } catch (e: any) {
-      setError(e.message ?? 'Backfill failed');
-      addToast(e?.message ?? 'Backfill failed', 'error');
+      setError(e.message ?? "Backfill failed");
+      addToast(e?.message ?? "Backfill failed", "error");
     } finally {
       setBackfilling(false);
     }
   };
 
-  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  const isLocalhost =
+    typeof window !== "undefined" && window.location.hostname === "localhost";
   return (
     <div className="space-y-4" id="access">
       <h2 className="text-xl font-semibold">Access Requests & Approvals</h2>
       <p className="text-sm text-gray-600 dark:text-gray-300">
-        Approve or deny pending role requests. Approvals update the user’s profile and send an approval email.
+        Approve or deny pending role requests. Approvals update the user’s
+        profile and send an approval email.
       </p>
 
       {isLocalhost && (
@@ -487,38 +553,72 @@ export default function AccessRequests() {
               onClick={async () => {
                 try {
                   await supabase.auth.getSession();
-                  addToast('Session fetch (see dev tools state)', 'info');
-                } catch { addToast('Session fetch failed', 'error'); }
+                  addToast("Session fetch (see dev tools state)", "info");
+                } catch {
+                  addToast("Session fetch failed", "error");
+                }
               }}
               className="px-2 py-1 rounded border"
-            >Check Session</button>
+            >
+              Check Session
+            </button>
             <button
               onClick={async () => {
                 try {
-                  const res = await fetch('/api/debug-session', { cache: 'no-store', credentials: 'include' });
-                  addToast(`/api/debug-session ${res.ok ? 'OK' : res.status}`, res.ok ? 'info' : 'error');
-                } catch { addToast('debug-session failed', 'error'); }
+                  const res = await fetch("/api/debug-session", {
+                    cache: "no-store",
+                    credentials: "include",
+                  });
+                  addToast(
+                    `/api/debug-session ${res.ok ? "OK" : res.status}`,
+                    res.ok ? "info" : "error",
+                  );
+                } catch {
+                  addToast("debug-session failed", "error");
+                }
               }}
               className="px-2 py-1 rounded border"
-            >Server Session</button>
+            >
+              Server Session
+            </button>
             <button
               onClick={async () => {
                 try {
-                  const dc = typeof document !== 'undefined' ? document.cookie : '';
+                  const dc =
+                    typeof document !== "undefined" ? document.cookie : "";
                   const match = dc.match(/(?:^|; )([^=]+)=([^;]+)/g);
-                  const sbCookie = (match || []).map(str => str.trim()).find(str => str.startsWith('sb-')); // renamed s->str to avoid unused var
-                  if (!sbCookie) { addToast('No sb- cookie found', 'error'); return; }
-                  const parts = sbCookie.split('=');
+                  const sbCookie = (match || [])
+                    .map((str) => str.trim())
+                    .find((str) => str.startsWith("sb-")); // renamed s->str to avoid unused var
+                  if (!sbCookie) {
+                    addToast("No sb- cookie found", "error");
+                    return;
+                  }
+                  const parts = sbCookie.split("=");
                   const name = parts[0];
-                  const value = decodeURIComponent(parts.slice(1).join('='));
-                  const r = await fetch('/api/cookie-sync', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, value }) });
-                  addToast(`cookie-sync ${r.ok ? 'OK' : r.status}`, r.ok ? 'info' : 'error');
-                } catch { addToast('cookie-sync failed', 'error'); }
+                  const value = decodeURIComponent(parts.slice(1).join("="));
+                  const r = await fetch("/api/cookie-sync", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, value }),
+                  });
+                  addToast(
+                    `cookie-sync ${r.ok ? "OK" : r.status}`,
+                    r.ok ? "info" : "error",
+                  );
+                } catch {
+                  addToast("cookie-sync failed", "error");
+                }
               }}
               className="px-2 py-1 rounded border"
-            >Sync Cookie</button>
+            >
+              Sync Cookie
+            </button>
           </div>
-          <div className="mt-2 text-xs text-gray-500">Visible only on localhost.</div>
+          <div className="mt-2 text-xs text-gray-500">
+            Visible only on localhost.
+          </div>
         </div>
       )}
 
@@ -539,7 +639,8 @@ export default function AccessRequests() {
           <div className="flex items-center gap-2">
             {missingCount > 0 && (
               <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                {missingCount} pending profile{missingCount === 1 ? '' : 's'} missing request
+                {missingCount} pending profile{missingCount === 1 ? "" : "s"}{" "}
+                missing request
               </span>
             )}
             <button
@@ -554,7 +655,7 @@ export default function AccessRequests() {
               className="px-3 py-2 rounded border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm disabled:opacity-60"
               title="Run server backfill to create role_requests for pending profiles"
             >
-              {backfilling ? 'Backfilling…' : 'Backfill missing requests'}
+              {backfilling ? "Backfilling…" : "Backfill missing requests"}
             </button>
           </div>
         </div>
@@ -573,10 +674,17 @@ export default function AccessRequests() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td className="py-4 px-4" colSpan={7}>Loading…</td></tr>
+                <tr>
+                  <td className="py-4 px-4" colSpan={7}>
+                    Loading…
+                  </td>
+                </tr>
               ) : rows && rows.length > 0 ? (
                 rows.map((r) => (
-                  <tr key={r.id} className="border-t border-gray-200 dark:border-gray-700">
+                  <tr
+                    key={r.id}
+                    className="border-t border-gray-200 dark:border-gray-700"
+                  >
                     <td className="py-2 px-4">
                       {editingId === r.id ? (
                         <div className="flex items-center gap-2">
@@ -584,7 +692,14 @@ export default function AccessRequests() {
                           <select
                             className="p-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
                             value={editRole}
-                            onChange={(e) => setEditRole(e.target.value as 'viewer' | 'scheduler' | 'admin')}
+                            onChange={(e) =>
+                              setEditRole(
+                                e.target.value as
+                                  | "viewer"
+                                  | "scheduler"
+                                  | "admin",
+                              )
+                            }
                           >
                             <option value="viewer">viewer</option>
                             <option value="scheduler">scheduler</option>
@@ -608,8 +723,13 @@ export default function AccessRequests() {
                         <div className="relative group">
                           <div>
                             {(() => {
-                              const metaName = (r as any)?.metadata?.full_name || (r as any)?.metadata?.fullName || (r as any)?.full_name;
-                              const profName = r.user_id ? profilesById[r.user_id]?.full_name : undefined;
+                              const metaName =
+                                (r as any)?.metadata?.full_name ||
+                                (r as any)?.metadata?.fullName ||
+                                (r as any)?.full_name;
+                              const profName = r.user_id
+                                ? profilesById[r.user_id]?.full_name
+                                : undefined;
                               return metaName || profName || r.email;
                             })()}
                           </div>
@@ -624,12 +744,17 @@ export default function AccessRequests() {
                       )}
                     </td>
                     <td className="py-2 px-4">{r.email}</td>
-                    <td className="py-2 px-4">{r.provider_type ?? '-'}</td>
+                    <td className="py-2 px-4">{r.provider_type ?? "-"}</td>
                     <td className="py-2 px-4 capitalize">{r.requested_role}</td>
-                    <td className="py-2 px-4 max-w-[22rem] truncate" title={r.justification ?? ''}>
-                      {r.justification ?? '-'}
+                    <td
+                      className="py-2 px-4 max-w-[22rem] truncate"
+                      title={r.justification ?? ""}
+                    >
+                      {r.justification ?? "-"}
                     </td>
-                    <td className="py-2 px-4">{new Date(r.created_at).toLocaleString()}</td>
+                    <td className="py-2 px-4">
+                      {new Date(r.created_at).toLocaleString()}
+                    </td>
                     <td className="py-2 px-4">
                       <div className="flex gap-2">
                         <button
@@ -637,7 +762,7 @@ export default function AccessRequests() {
                           disabled={actingId === r.id}
                           className="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
                         >
-                          {actingId === r.id ? 'Working…' : 'Approve'}
+                          {actingId === r.id ? "Working…" : "Approve"}
                         </button>
                         <button
                           onClick={() => deny(r)}
@@ -651,7 +776,11 @@ export default function AccessRequests() {
                   </tr>
                 ))
               ) : (
-                <tr><td className="py-6 px-4 text-gray-500" colSpan={7}>No pending requests.</td></tr>
+                <tr>
+                  <td className="py-6 px-4 text-gray-500" colSpan={7}>
+                    No pending requests.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -671,13 +800,24 @@ export default function AccessRequests() {
               className="flex-1 p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
             />
             <button
-              onClick={() => { setSearchQ(''); setDebouncedSearchQ(''); setPage(1); }}
+              onClick={() => {
+                setSearchQ("");
+                setDebouncedSearchQ("");
+                setPage(1);
+              }}
               className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
             >
               Clear
             </button>
             <button
-              onClick={() => loadUsers({ page: 1, search: debouncedSearchQ, sortBy, sortDir })}
+              onClick={() =>
+                loadUsers({
+                  page: 1,
+                  search: debouncedSearchQ,
+                  sortBy,
+                  sortDir,
+                })
+              }
               className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
             >
               Refresh
@@ -690,56 +830,92 @@ export default function AccessRequests() {
               <tr className="text-left text-gray-500">
                 <th
                   className="py-2 px-4"
-                  aria-sort={sortBy === 'full_name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortBy === "full_name"
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
                 >
                   <button
                     type="button"
                     className="cursor-pointer select-none"
-                    onClick={() => handleSort('full_name')}
-                    aria-label={`Sort by Name ${sortBy === 'full_name' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                    onClick={() => handleSort("full_name")}
+                    aria-label={`Sort by Name ${sortBy === "full_name" ? (sortDir === "asc" ? "descending" : "ascending") : "ascending"}`}
                   >
-                    Name {sortBy === 'full_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    Name{" "}
+                    {sortBy === "full_name"
+                      ? sortDir === "asc"
+                        ? "▲"
+                        : "▼"
+                      : ""}
                   </button>
                 </th>
                 <th
                   className="py-2 px-4"
-                  aria-sort={sortBy === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortBy === "email"
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
                 >
                   <button
                     type="button"
                     className="cursor-pointer select-none"
-                    onClick={() => handleSort('email')}
-                    aria-label={`Sort by Email ${sortBy === 'email' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                    onClick={() => handleSort("email")}
+                    aria-label={`Sort by Email ${sortBy === "email" ? (sortDir === "asc" ? "descending" : "ascending") : "ascending"}`}
                   >
-                    Email {sortBy === 'email' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    Email{" "}
+                    {sortBy === "email" ? (sortDir === "asc" ? "▲" : "▼") : ""}
                   </button>
                 </th>
                 <th
                   className="py-2 px-4"
-                  aria-sort={sortBy === 'role' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortBy === "role"
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
                 >
                   <button
                     type="button"
                     className="cursor-pointer select-none"
-                    onClick={() => handleSort('role')}
-                    aria-label={`Sort by Role ${sortBy === 'role' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                    onClick={() => handleSort("role")}
+                    aria-label={`Sort by Role ${sortBy === "role" ? (sortDir === "asc" ? "descending" : "ascending") : "ascending"}`}
                   >
-                    Role {sortBy === 'role' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    Role{" "}
+                    {sortBy === "role" ? (sortDir === "asc" ? "▲" : "▼") : ""}
                   </button>
                 </th>
                 <th className="py-2 px-4">Status</th>
                 <th
                   className="py-2 px-4"
-                  aria-sort={sortBy === 'created_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={
+                    sortBy === "created_at"
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
                 >
                   <button
                     type="button"
                     className="cursor-pointer select-none"
-                    onClick={() => handleSort('created_at')}
-                    aria-label={`Sort by Created ${sortBy === 'created_at' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'descending'}`}
+                    onClick={() => handleSort("created_at")}
+                    aria-label={`Sort by Created ${sortBy === "created_at" ? (sortDir === "asc" ? "descending" : "ascending") : "descending"}`}
                     title="Sort by Created"
                   >
-                    Created {sortBy === 'created_at' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                    Created{" "}
+                    {sortBy === "created_at"
+                      ? sortDir === "asc"
+                        ? "▲"
+                        : "▼"
+                      : ""}
                   </button>
                 </th>
                 <th className="py-2 px-4">Actions</th>
@@ -747,19 +923,30 @@ export default function AccessRequests() {
             </thead>
             <tbody>
               {usersLoading ? (
-                <tr><td className="py-4 px-4" colSpan={6}>Loading users…</td></tr>
+                <tr>
+                  <td className="py-4 px-4" colSpan={6}>
+                    Loading users…
+                  </td>
+                </tr>
               ) : users && users.length > 0 ? (
                 users.map((u) => (
-                  <tr key={u.id} className="border-t border-gray-200 dark:border-gray-700">
-                    <td className="py-2 px-4">{u.full_name ?? u.email ?? u.id}</td>
-                    <td className="py-2 px-4">{u.email ?? '-'}</td>
+                  <tr
+                    key={u.id}
+                    className="border-t border-gray-200 dark:border-gray-700"
+                  >
+                    <td className="py-2 px-4">
+                      {u.full_name ?? u.email ?? u.id}
+                    </td>
+                    <td className="py-2 px-4">{u.email ?? "-"}</td>
                     <td className="py-2 px-4">
                       {editingUserId === u.id ? (
                         <div className="flex items-center gap-2">
                           <select
                             className="p-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
                             value={editingUserRole}
-                            onChange={(e) => setEditingUserRole(e.target.value as any)}
+                            onChange={(e) =>
+                              setEditingUserRole(e.target.value as any)
+                            }
                           >
                             <option value="viewer">viewer</option>
                             <option value="scheduler">scheduler</option>
@@ -781,7 +968,7 @@ export default function AccessRequests() {
                         </div>
                       ) : (
                         <div className="relative group">
-                          <span className="capitalize">{u.role ?? '-'}</span>
+                          <span className="capitalize">{u.role ?? "-"}</span>
                           <button
                             onClick={() => beginEditUser(u)}
                             className="ml-3 opacity-70 hover:opacity-100 text-xs text-gray-500"
@@ -791,8 +978,12 @@ export default function AccessRequests() {
                         </div>
                       )}
                     </td>
-                    <td className="py-2 px-4 capitalize">{u.status ?? '-'}</td>
-                    <td className="py-2 px-4">{u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
+                    <td className="py-2 px-4 capitalize">{u.status ?? "-"}</td>
+                    <td className="py-2 px-4">
+                      {u.created_at
+                        ? new Date(u.created_at).toLocaleString()
+                        : "-"}
+                    </td>
                     <td className="py-2 px-4">
                       <div className="flex gap-2">
                         <button
@@ -800,28 +991,49 @@ export default function AccessRequests() {
                           disabled={userActingId === u.id}
                           className="px-3 py-1.5 rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
                         >
-                          {userActingId === u.id ? 'Working…' : 'Revoke'}
+                          {userActingId === u.id ? "Working…" : "Revoke"}
                         </button>
                         {u.email && (
                           <button
                             onClick={async () => {
                               try {
                                 await ensureAdminOrThrow();
-                                if (!confirm(`Send password reset email to ${u.email}?`)) return;
+                                if (
+                                  !confirm(
+                                    `Send password reset email to ${u.email}?`,
+                                  )
+                                )
+                                  return;
                                 setUserActingId(u.id);
-                                const res = await fetch('/api/admin/force-password-reset', {
-                                  method: 'POST',
-                                  credentials: 'include',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ email: u.email }),
-                                });
+                                const res = await fetch(
+                                  "/api/admin/force-password-reset",
+                                  {
+                                    method: "POST",
+                                    credentials: "include",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({ email: u.email }),
+                                  },
+                                );
                                 if (!res.ok) {
-                                  const data = await res.json().catch(() => ({}));
-                                  throw new Error(data?.error || `Reset failed (${res.status})`);
+                                  const data = await res
+                                    .json()
+                                    .catch(() => ({}));
+                                  throw new Error(
+                                    data?.error ||
+                                      `Reset failed (${res.status})`,
+                                  );
                                 }
-                                addToast(`Password reset email sent to ${u.email}`, 'info');
+                                addToast(
+                                  `Password reset email sent to ${u.email}`,
+                                  "info",
+                                );
                               } catch (e: any) {
-                                addToast(e?.message || 'Failed to send reset email', 'error');
+                                addToast(
+                                  e?.message || "Failed to send reset email",
+                                  "error",
+                                );
                               } finally {
                                 setUserActingId(null);
                               }
@@ -839,7 +1051,11 @@ export default function AccessRequests() {
                   </tr>
                 ))
               ) : (
-                <tr><td className="py-6 px-4 text-gray-500" colSpan={6}>No users found.</td></tr>
+                <tr>
+                  <td className="py-6 px-4 text-gray-500" colSpan={6}>
+                    No users found.
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
@@ -849,7 +1065,10 @@ export default function AccessRequests() {
         <div className="p-3 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-3">
           <div>
             {totalUsers !== null ? (
-              <span>{totalUsers.toLocaleString()} users — page {page} of {totalPages}</span>
+              <span>
+                {totalUsers.toLocaleString()} users — page {page} of{" "}
+                {totalPages}
+              </span>
             ) : (
               <span>Page {page}</span>
             )}
@@ -860,7 +1079,11 @@ export default function AccessRequests() {
             <label className="text-xs">Per page:</label>
             <select
               value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); setCursors([null]); }}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+                setCursors([null]);
+              }}
               className="p-1 border rounded"
             >
               <option value={10}>10</option>
@@ -893,7 +1116,9 @@ export default function AccessRequests() {
               }}
               disabled={page <= 1}
               className="px-2 py-1 rounded border border-gray-300 disabled:opacity-50"
-            >Prev</button>
+            >
+              Prev
+            </button>
 
             <button
               onClick={async () => {
@@ -908,9 +1133,13 @@ export default function AccessRequests() {
                   setPage((p) => p + 1);
                 }
               }}
-              disabled={totalUsers !== null && page >= totalPages && !nextCursor}
+              disabled={
+                totalUsers !== null && page >= totalPages && !nextCursor
+              }
               className="px-2 py-1 rounded border border-gray-300 disabled:opacity-50"
-            >Next</button>
+            >
+              Next
+            </button>
           </div>
         </div>
       </div>
@@ -918,12 +1147,14 @@ export default function AccessRequests() {
       {/* Toasts */}
       <div className="fixed right-4 bottom-4 flex flex-col gap-2 z-50">
         {toasts.map((t) => (
-          <div key={t.id} className={`max-w-sm rounded px-3 py-2 shadow ${t.kind === 'error' ? 'bg-red-50 border border-red-300 text-red-800' : 'bg-gray-50 border border-gray-200 text-gray-800'}`}>
+          <div
+            key={t.id}
+            className={`max-w-sm rounded px-3 py-2 shadow ${t.kind === "error" ? "bg-red-50 border border-red-300 text-red-800" : "bg-gray-50 border border-gray-200 text-gray-800"}`}
+          >
             {t.message}
           </div>
         ))}
       </div>
- 
-     </div>
-   );
- }
+    </div>
+  );
+}
