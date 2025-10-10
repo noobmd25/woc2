@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
+const supabase = getBrowserClient();
 
 type RoleRequest = {
   id: string;
@@ -20,16 +21,6 @@ type RoleRequest = {
   updated_at: string;
 };
 
-type PendingProfile = {
-  id: string;
-  email: string | null;
-  provider_type: string | null;
-  role: 'viewer' | 'scheduler' | 'admin' | null;
-  status: 'pending' | 'approved' | 'denied' | 'revoked' | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
 export default function AccessRequests() {
   const [rows, setRows] = React.useState<RoleRequest[] | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
@@ -39,8 +30,104 @@ export default function AccessRequests() {
   const [missingCount, setMissingCount] = React.useState<number>(0);
   const [profilesById, setProfilesById] = React.useState<Record<string, { full_name: string | null }>>({});
 
+  const pendingRequestsCount = React.useMemo(() => (rows ?? []).length, [rows]);
+
+  // Debug: log client session/profile on mount to help diagnose missing auth
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const sessRes = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (!sessRes?.data?.session) {
+          setError('No active session in browser. Please sign in.');
+          addToast('No active session — please sign in', 'error');
+        }
+      } catch {
+        // silent
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editRole, setEditRole] = React.useState<'viewer' | 'scheduler' | 'admin'>('viewer');
+
+  // --- New: current users management state ---
+  type ProfileRow = {
+    id: string;
+    email: string | null;
+    full_name: string | null;
+    role: 'viewer' | 'scheduler' | 'admin' | null;
+    status: 'pending' | 'approved' | 'denied' | 'revoked' | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  };
+
+  const [users, setUsers] = React.useState<ProfileRow[] | null>(null);
+  const [usersLoading, setUsersLoading] = React.useState<boolean>(true);
+  const [userActingId, setUserActingId] = React.useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
+  const [editingUserRole, setEditingUserRole] = React.useState<'viewer' | 'scheduler' | 'admin'>('viewer');
+
+  // --- New: pagination / search / sorting state ---
+  const [page, setPage] = React.useState<number>(1);
+  const [pageSize, setPageSize] = React.useState<number>(20);
+  const [totalUsers, setTotalUsers] = React.useState<number | null>(null);
+  const totalPages = totalUsers ? Math.max(1, Math.ceil(totalUsers / pageSize)) : 1;
+
+  const [searchQ, setSearchQ] = React.useState<string>('');
+  const [debouncedSearchQ, setDebouncedSearchQ] = React.useState<string>('');
+  const [sortBy, setSortBy] = React.useState<'full_name' | 'email' | 'role' | 'created_at'>('full_name');
+  const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc');
+
+  // Cursor pagination state (server returns nextCursor). Keep a cursor history to enable Prev navigation.
+  const [cursors, setCursors] = React.useState<(string | null)[]>([null]); // index 0 = page 1
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+
+  // Helper: toggle sorting for column
+  const handleSort = React.useCallback((col: 'full_name' | 'email' | 'role' | 'created_at') => {
+    setSortBy((prevCol) => {
+      if (prevCol === col) {
+        // toggle direction
+        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+        return prevCol;
+      }
+      // default directions per column (created_at defaults to desc)
+      setSortDir(col === 'created_at' ? 'desc' : 'asc');
+      return col;
+    });
+  }, []);
+
+  // --- New: simple toast notifications ---
+  type Toast = { id: string; message: string; kind?: 'info' | 'error' };
+  const [toasts, setToasts] = React.useState<Toast[]>([]);
+  const addToast = React.useCallback((message: string, kind: Toast['kind'] = 'info', ttl = 6000) => {
+    const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
+    const t = { id, message, kind } as Toast;
+    setToasts((s) => [t, ...s]);
+    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), ttl);
+  }, []);
+
+  // ensure current user is an approved admin (client-side guard)
+  const ensureAdminOrThrow = React.useCallback(async () => {
+    try {
+      const { data: userRes } = await supabase.auth.getUser();
+      const userId = userRes?.user?.id;
+      if (!userId) throw new Error('Not authenticated');
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, status')
+        .eq('id', userId)
+        .single();
+      if (!profile || profile.role !== 'admin' || profile.status !== 'approved') {
+        throw new Error('Forbidden — admin only');
+      }
+      return { userId, profile };
+    } catch (e: any) {
+      throw new Error(e?.message ?? String(e));
+    }
+  }, []);
 
   const computeMissingCount = React.useCallback(async () => {
     // Try server-side counter first (security definer). If it doesn't exist, fall back to client calc.
@@ -102,7 +189,6 @@ export default function AccessRequests() {
             if (p && p.id) map[p.id] = { full_name: (p as any).full_name ?? null };
           }
           setProfilesById(map);
-          console.log('[AccessRequests] name map', map);
         } else {
           setProfilesById({});
         }
@@ -115,11 +201,158 @@ export default function AccessRequests() {
     await computeMissingCount();
 
     setLoading(false);
+
+    // Also refresh the users list so admin sees current state after loading requests
+    setPage(1);
+    setCursors([null]);
+    await loadUsers({ page: 1, search: debouncedSearchQ, sortBy, sortDir, cursor: null });
   }, [computeMissingCount]);
 
   React.useEffect(() => {
     load();
   }, [load]);
+
+  // --- New: load current users/profiles ---
+  const loadUsers = React.useCallback(
+    async ({ page: p = 1, search = '', sortBy: sBy = sortBy, sortDir: sDir = sortDir, cursor = null } : { page?: number; search?: string; sortBy?: typeof sortBy; sortDir?: typeof sortDir; cursor?: string | null } = {}) => {
+      setUsersLoading(true);
+      try {
+        try {
+          await ensureAdminOrThrow();
+        } catch (authErr: any) {
+          const msg = authErr?.message ?? 'Not authorized';
+          setUsers([]);
+          setTotalUsers(null);
+          setError(msg);
+          addToast(msg, 'error');
+          setUsersLoading(false);
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.set('limit', String(pageSize));
+        params.set('sortBy', sBy);
+        params.set('sortDir', sDir);
+        if (search) params.set('search', search);
+
+        if (cursor) {
+          params.set('cursor', cursor);
+        } else {
+          params.set('page', String(p));
+        }
+
+        const res = await fetch(`/api/users?${params.toString()}`, { cache: 'no-store', credentials: 'include' });
+        if (!res.ok) {
+          const txt = await res.text();
+          if (res.status === 401) {
+            setUsers([]);
+            setTotalUsers(null);
+            setError('Unauthorized — please sign in');
+            addToast('Unauthorized — please sign in', 'error');
+            setUsersLoading(false);
+            return;
+          }
+          if (res.status === 403) {
+            setUsers([]);
+            setTotalUsers(null);
+            setError('Forbidden — admin only');
+            addToast('Forbidden — admin only', 'error');
+            setUsersLoading(false);
+            return;
+          }
+          throw new Error(txt || `Server returned ${res.status}`);
+        }
+        const json = await res.json();
+        setUsers((json.rows ?? []) as ProfileRow[]);
+        setNextCursor(json.nextCursor ?? null);
+        setTotalUsers(typeof json.count === 'number' ? json.count : null);
+
+        if (cursor) {
+          setCursors((cur) => {
+            const copy = cur.slice(0, p - 1);
+            copy[p - 1] = cursor;
+            return copy;
+          });
+        }
+      } catch (e: any) {
+        setUsers([]);
+        setTotalUsers(null);
+        addToast('Failed to load users: ' + (e?.message ?? ''), 'error');
+        setError(e?.message ?? 'Failed to load users');
+      } finally {
+        setUsersLoading(false);
+      }
+    },
+    [pageSize, sortBy, sortDir, ensureAdminOrThrow, addToast]
+  );
+
+  React.useEffect(() => {
+    // when search or sort changes, reset page and cursor history
+    setPage(1);
+    setCursors([null]);
+    loadUsers({ page: 1, search: debouncedSearchQ, sortBy, sortDir, cursor: null });
+  }, [debouncedSearchQ, sortBy, sortDir, loadUsers]);
+
+  React.useEffect(() => {
+    const cur = cursors[page - 1] ?? null;
+    loadUsers({ page, search: debouncedSearchQ, sortBy, sortDir, cursor: cur });
+  }, [page]);
+
+  // --- New: update a user's role in profiles table ---
+  const beginEditUser = (u: ProfileRow) => {
+    setEditingUserId(u.id);
+    setEditingUserRole((u.role as any) ?? 'viewer');
+  };
+
+  const cancelEditUser = () => setEditingUserId(null);
+
+  const saveUserRole = async (u: ProfileRow) => {
+    try {
+      // client-side guard
+      await ensureAdminOrThrow();
+      setUserActingId(u.id);
+      setError(null);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ role: editingUserRole })
+        .eq('id', u.id);
+      if (error) throw error;
+      await loadUsers({ page, search: debouncedSearchQ, sortBy, sortDir });
+      setEditingUserId(null);
+      addToast('Role updated', 'info');
+    } catch (e: any) {
+      const msg = e?.message ?? 'Failed to update user role';
+      setError(msg);
+      addToast(msg, 'error');
+    } finally {
+      setUserActingId(null);
+    }
+  };
+
+  const revokeAccess = async (u: ProfileRow) => {
+    if (!confirm(`Revoke access for ${u.email ?? u.full_name ?? u.id}? This will mark the profile as revoked.`)) return;
+    try {
+      // client-side guard
+      await ensureAdminOrThrow();
+      setUserActingId(u.id);
+      setError(null);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: 'revoked', role: null })
+        .eq('id', u.id);
+      if (error) throw error;
+
+      // Optionally: notify user or perform other cleanup here.
+      await loadUsers({ page, sortBy, sortDir });
+      addToast('Access revoked', 'info');
+    } catch (e: any) {
+      const msg = e?.message ?? 'Failed to revoke access';
+      setError(msg);
+      addToast(msg, 'error');
+    } finally {
+      setUserActingId(null);
+    }
+  };
 
   const beginEdit = (req: RoleRequest) => {
     setEditingId(req.id);
@@ -132,6 +365,8 @@ export default function AccessRequests() {
 
   const saveEdit = async (req: RoleRequest) => {
     try {
+      // client-side guard
+      await ensureAdminOrThrow();
       setActingId(req.id);
       setError(null);
       const { error } = await supabase
@@ -143,6 +378,7 @@ export default function AccessRequests() {
       setEditingId(null);
     } catch (e: any) {
       setError(e.message ?? 'Failed to update role');
+      addToast(e?.message ?? 'Failed to update role', 'error');
     } finally {
       setActingId(null);
     }
@@ -150,39 +386,31 @@ export default function AccessRequests() {
 
   const approve = async (req: RoleRequest) => {
     try {
+      // client-side guard
+      await ensureAdminOrThrow();
       setActingId(req.id);
-      const { data: userRes } = await supabase.auth.getUser();
-      const decider = userRes?.user?.id;
-      if (!decider) throw new Error('No authenticated user');
 
-      console.log('[approve] sending', {
-        p_request_id: req.id,
-        p_decider: decider,
-        p_role: (req.requested_role as any) ?? 'viewer',
-        p_reason: null,
+      // New: call server API to perform approval + email
+      const res = await fetch('/api/admin/approve-user', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: req.id })
       });
-
-      const { error } = await supabase.rpc('approve_role_request', {
-        p_request_id: req.id,
-        p_decider: decider,
-        p_role: (req.requested_role as any) ?? 'viewer',
-        p_reason: null,
-      });
-      if (error) throw error;
-
-      if (req.email) {
-        const origin =
-          (typeof window !== 'undefined' && window.location.origin) ||
-          process.env.NEXT_PUBLIC_SITE_URL ||
-          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-        await supabase.auth.resetPasswordForEmail(req.email, {
-          redirectTo: `${origin}/auth/update-password`,
-        });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `Approve failed (${res.status})`);
       }
+      let emailUsed: string | null = null;
+      try { const data = await res.json(); emailUsed = data?.email ?? null; } catch {}
 
+      // Removed: password reset email (user already set password at signup)
+
+      addToast(`Approved${emailUsed ? ' – approval email queued' : ''}.`, 'info');
       await load();
     } catch (e: any) {
       setError(e.message ?? 'Approve failed');
+      addToast(e?.message ?? 'Approve failed', 'error');
     } finally {
       setActingId(null);
     }
@@ -190,6 +418,8 @@ export default function AccessRequests() {
 
   const deny = async (req: RoleRequest) => {
     try {
+      // client-side guard
+      await ensureAdminOrThrow();
       setActingId(req.id);
       const { data: userRes } = await supabase.auth.getUser();
       const decider = userRes?.user?.id;
@@ -206,6 +436,7 @@ export default function AccessRequests() {
       await load();
     } catch (e: any) {
       setError(e.message ?? 'Deny failed');
+      addToast(e?.message ?? 'Deny failed', 'error');
     } finally {
       setActingId(null);
     }
@@ -213,11 +444,13 @@ export default function AccessRequests() {
 
   const backfillMissing = async () => {
     try {
+      // client-side guard
+      await ensureAdminOrThrow();
       setBackfilling(true);
       setError(null);
 
       // Prefer server-side RPC (security definer) to bypass RLS
-      const { data, error } = await supabase.rpc('backfill_missing_role_requests');
+      const { error } = await supabase.rpc('backfill_missing_role_requests');
       if (error) {
         // Surface a clear action item if the function isn't installed
         setError(
@@ -232,17 +465,62 @@ export default function AccessRequests() {
       await load();
     } catch (e: any) {
       setError(e.message ?? 'Backfill failed');
+      addToast(e?.message ?? 'Backfill failed', 'error');
     } finally {
       setBackfilling(false);
     }
   };
 
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
   return (
     <div className="space-y-4" id="access">
       <h2 className="text-xl font-semibold">Access Requests & Approvals</h2>
       <p className="text-sm text-gray-600 dark:text-gray-300">
-        Approve or deny pending role requests. Approvals update the user’s profile and email them a password setup link.
+        Approve or deny pending role requests. Approvals update the user’s profile and send an approval email.
       </p>
+
+      {isLocalhost && (
+        <div className="rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-3">
+          <div className="font-medium text-sm mb-2">Local Debug Tools</div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button
+              onClick={async () => {
+                try {
+                  await supabase.auth.getSession();
+                  addToast('Session fetch (see dev tools state)', 'info');
+                } catch { addToast('Session fetch failed', 'error'); }
+              }}
+              className="px-2 py-1 rounded border"
+            >Check Session</button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/debug-session', { cache: 'no-store', credentials: 'include' });
+                  addToast(`/api/debug-session ${res.ok ? 'OK' : res.status}`, res.ok ? 'info' : 'error');
+                } catch { addToast('debug-session failed', 'error'); }
+              }}
+              className="px-2 py-1 rounded border"
+            >Server Session</button>
+            <button
+              onClick={async () => {
+                try {
+                  const dc = typeof document !== 'undefined' ? document.cookie : '';
+                  const match = dc.match(/(?:^|; )([^=]+)=([^;]+)/g);
+                  const sbCookie = (match || []).map(str => str.trim()).find(str => str.startsWith('sb-')); // renamed s->str to avoid unused var
+                  if (!sbCookie) { addToast('No sb- cookie found', 'error'); return; }
+                  const parts = sbCookie.split('=');
+                  const name = parts[0];
+                  const value = decodeURIComponent(parts.slice(1).join('='));
+                  const r = await fetch('/api/cookie-sync', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, value }) });
+                  addToast(`cookie-sync ${r.ok ? 'OK' : r.status}`, r.ok ? 'info' : 'error');
+                } catch { addToast('cookie-sync failed', 'error'); }
+              }}
+              className="px-2 py-1 rounded border"
+            >Sync Cookie</button>
+          </div>
+          <div className="mt-2 text-xs text-gray-500">Visible only on localhost.</div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded border border-red-300 bg-red-50 text-red-700 px-3 py-2 text-sm">
@@ -252,7 +530,12 @@ export default function AccessRequests() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <div className="p-4 flex flex-wrap gap-3 items-center justify-between">
-          <div className="font-medium">Pending Requests</div>
+          <div className="flex items-center gap-3">
+            <div className="font-medium">Pending Requests</div>
+            <span className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-100">
+              {pendingRequestsCount.toLocaleString()} pending
+            </span>
+          </div>
           <div className="flex items-center gap-2">
             {missingCount > 0 && (
               <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
@@ -374,6 +657,273 @@ export default function AccessRequests() {
           </table>
         </div>
       </div>
-    </div>
-  );
-}
+
+      {/* --- New: Current Users management table --- */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div className="p-4 flex items-center justify-between gap-4">
+          <div className="font-medium">Current Users</div>
+          <div className="flex items-center gap-2 w-full max-w-2xl">
+            <input
+              type="search"
+              placeholder="Search email or name…"
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              className="flex-1 p-2 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
+            />
+            <button
+              onClick={() => { setSearchQ(''); setDebouncedSearchQ(''); setPage(1); }}
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+            >
+              Clear
+            </button>
+            <button
+              onClick={() => loadUsers({ page: 1, search: debouncedSearchQ, sortBy, sortDir })}
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500">
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'full_name' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('full_name')}
+                    aria-label={`Sort by Name ${sortBy === 'full_name' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                  >
+                    Name {sortBy === 'full_name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
+                </th>
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'email' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('email')}
+                    aria-label={`Sort by Email ${sortBy === 'email' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                  >
+                    Email {sortBy === 'email' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
+                </th>
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'role' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('role')}
+                    aria-label={`Sort by Role ${sortBy === 'role' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'ascending'}`}
+                  >
+                    Role {sortBy === 'role' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
+                </th>
+                <th className="py-2 px-4">Status</th>
+                <th
+                  className="py-2 px-4"
+                  aria-sort={sortBy === 'created_at' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                >
+                  <button
+                    type="button"
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('created_at')}
+                    aria-label={`Sort by Created ${sortBy === 'created_at' ? (sortDir === 'asc' ? 'descending' : 'ascending') : 'descending'}`}
+                    title="Sort by Created"
+                  >
+                    Created {sortBy === 'created_at' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                  </button>
+                </th>
+                <th className="py-2 px-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usersLoading ? (
+                <tr><td className="py-4 px-4" colSpan={6}>Loading users…</td></tr>
+              ) : users && users.length > 0 ? (
+                users.map((u) => (
+                  <tr key={u.id} className="border-t border-gray-200 dark:border-gray-700">
+                    <td className="py-2 px-4">{u.full_name ?? u.email ?? u.id}</td>
+                    <td className="py-2 px-4">{u.email ?? '-'}</td>
+                    <td className="py-2 px-4">
+                      {editingUserId === u.id ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            className="p-1 border rounded text-sm dark:bg-gray-700 dark:border-gray-600"
+                            value={editingUserRole}
+                            onChange={(e) => setEditingUserRole(e.target.value as any)}
+                          >
+                            <option value="viewer">viewer</option>
+                            <option value="scheduler">scheduler</option>
+                            <option value="admin">admin</option>
+                          </select>
+                          <button
+                            onClick={() => saveUserRole(u)}
+                            disabled={userActingId === u.id}
+                            className="px-2 py-1 rounded bg-emerald-600 text-white text-xs hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={cancelEditUser}
+                            className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative group">
+                          <span className="capitalize">{u.role ?? '-'}</span>
+                          <button
+                            onClick={() => beginEditUser(u)}
+                            className="ml-3 opacity-70 hover:opacity-100 text-xs text-gray-500"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2 px-4 capitalize">{u.status ?? '-'}</td>
+                    <td className="py-2 px-4">{u.created_at ? new Date(u.created_at).toLocaleString() : '-'}</td>
+                    <td className="py-2 px-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => revokeAccess(u)}
+                          disabled={userActingId === u.id}
+                          className="px-3 py-1.5 rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                        >
+                          {userActingId === u.id ? 'Working…' : 'Revoke'}
+                        </button>
+                        {u.email && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await ensureAdminOrThrow();
+                                if (!confirm(`Send password reset email to ${u.email}?`)) return;
+                                setUserActingId(u.id);
+                                const res = await fetch('/api/admin/force-password-reset', {
+                                  method: 'POST',
+                                  credentials: 'include',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ email: u.email }),
+                                });
+                                if (!res.ok) {
+                                  const data = await res.json().catch(() => ({}));
+                                  throw new Error(data?.error || `Reset failed (${res.status})`);
+                                }
+                                addToast(`Password reset email sent to ${u.email}`, 'info');
+                              } catch (e: any) {
+                                addToast(e?.message || 'Failed to send reset email', 'error');
+                              } finally {
+                                setUserActingId(null);
+                              }
+                            }}
+                            disabled={userActingId === u.id}
+                            className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-60"
+                            title="Send password reset email"
+                            aria-label={`Send password reset email to ${u.email}`}
+                          >
+                            Force Reset
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td className="py-6 px-4 text-gray-500" colSpan={6}>No users found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination controls */}
+        <div className="p-3 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-3">
+          <div>
+            {totalUsers !== null ? (
+              <span>{totalUsers.toLocaleString()} users — page {page} of {totalPages}</span>
+            ) : (
+              <span>Page {page}</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Per-page selector */}
+            <label className="text-xs">Per page:</label>
+            <select
+              value={pageSize}
+              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); setCursors([null]); }}
+              className="p-1 border rounded"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+
+            {/* Page number input (jump uses offset-mode) */}
+            <label className="text-xs ml-2">Go to page:</label>
+            <input
+              type="number"
+              min={1}
+              value={page}
+              onChange={(e) => {
+                const v = Math.max(1, Number(e.target.value || 1));
+                // Jump uses offset-mode (server will return count)
+                setPage(v);
+                // clear cursor history to force offset fetch for jump
+                setCursors([null]);
+              }}
+              className="w-16 p-1 border rounded text-sm"
+            />
+
+            {/* Prev/Next */}
+            <button
+              onClick={() => {
+                if (page <= 1) return;
+                setPage((p) => Math.max(1, p - 1));
+              }}
+              disabled={page <= 1}
+              className="px-2 py-1 rounded border border-gray-300 disabled:opacity-50"
+            >Prev</button>
+
+            <button
+              onClick={async () => {
+                if (nextCursor) {
+                  setCursors((c) => {
+                    const copy = c.slice();
+                    copy[page] = nextCursor; // store cursor for next page index
+                    return copy;
+                  });
+                  setPage((p) => p + 1);
+                } else {
+                  setPage((p) => p + 1);
+                }
+              }}
+              disabled={totalUsers !== null && page >= totalPages && !nextCursor}
+              className="px-2 py-1 rounded border border-gray-300 disabled:opacity-50"
+            >Next</button>
+          </div>
+        </div>
+      </div>
+
+      {/* Toasts */}
+      <div className="fixed right-4 bottom-4 flex flex-col gap-2 z-50">
+        {toasts.map((t) => (
+          <div key={t.id} className={`max-w-sm rounded px-3 py-2 shadow ${t.kind === 'error' ? 'bg-red-50 border border-red-300 text-red-800' : 'bg-gray-50 border border-gray-200 text-gray-800'}`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+ 
+     </div>
+   );
+ }

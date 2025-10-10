@@ -2,17 +2,20 @@
 
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { useState, useEffect, useRef, useCallback, JSX } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { getBrowserClient } from '@/lib/supabase/client';
 import LayoutShell from '@/components/LayoutShell';
 import { toast } from 'react-hot-toast';
+const supabase = getBrowserClient();
 import useUserRole from '@/app/hooks/useUserRole';
-import { EventClickArg, EventContentArg } from '@fullcalendar/core';
+import { EventContentArg } from '@fullcalendar/core';
 import React from 'react';
-import dayjs from 'dayjs';
+// Removed unused dayjs import
+// import dayjs from 'dayjs';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { resolveDirectorySpecialty } from '@/lib/specialtyMapping';
 // --- Provider search helpers: rank closest names ---
 const normalize = (s: string) =>
   s
@@ -121,16 +124,7 @@ const generateDistinctColors = (count: number) => {
   return colors;
 };
 
-const specialties = [
-  'Cardiology',
-  'Gastroenterology',
-  'General Surgery',
-  'Internal Medicine',
-  'Obstetrics & Gynecology',
-  'Orthopedics',
-  'Pediatric Surgery',
-  'Vascular Surgery',
-];
+
 
 const plans = [
   'Triple S Advantage/Unattached',
@@ -146,6 +140,114 @@ const plans = [
 ];
 
 export default function SchedulePage() {
+  // access enforced by server layout & client role redirect
+  // Specialties state and modal for admin editing
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specialtyEditList, setSpecialtyEditList] = useState<{ id: string; name: string; show_oncall: boolean }[]>([]);
+  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
+  const [newSpecName, setNewSpecName] = useState('');
+  const [editingSpecId, setEditingSpecId] = useState<string | null>(null);
+  const [specEditName, setSpecEditName] = useState('');
+  // Load specialties from Supabase, both for display and editing
+  const reloadSpecialties = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('specialties')
+      .select('id, name, show_oncall')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching specialties:', error);
+      setSpecialties([]);
+      setSpecialtyEditList([]);
+    } else {
+      const activeNames = data?.filter(s => s.show_oncall).map(s => s.name ?? '').filter(Boolean) as string[];
+      setSpecialties(activeNames);
+      setSpecialtyEditList((data ?? []).map(s => ({ id: s.id as string, name: (s.name ?? '') as string, show_oncall: !!s.show_oncall })));
+    }
+  }, []);
+
+  // Handlers for Specialty Management Modal
+  const handleAddSpecialty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newSpecName.trim();
+    if (!name) return;
+    const dup = specialtyEditList.some(s => s.name.toLowerCase() === name.toLowerCase());
+    if (dup) {
+      toast.error('Specialty already exists.');
+      return;
+    }
+    const { error } = await supabase.from('specialties').insert({ name, show_oncall: true });
+    if (error) {
+      console.error('Failed to add specialty:', error);
+      toast.error('Failed to add specialty.');
+    } else {
+      toast.success('Specialty added.');
+      setNewSpecName('');
+      await reloadSpecialties();
+    }
+  };
+
+  const handleStartEditSpecialty = (id: string, currentName: string) => {
+    setEditingSpecId(id);
+    setSpecEditName(currentName);
+  };
+
+  const handleCancelEditSpecialty = () => {
+    setEditingSpecId(null);
+    setSpecEditName('');
+  };
+
+  const handleSaveSpecialty = async (id: string, oldName: string) => {
+    const newName = specEditName.trim();
+    if (!newName) {
+      toast.error('Name cannot be empty.');
+      return;
+    }
+    const dup = specialtyEditList.some(s => s.id !== id && s.name.toLowerCase() === newName.toLowerCase());
+    if (dup) {
+      toast.error('Another specialty with this name exists.');
+      return;
+    }
+    const { error } = await supabase.from('specialties').update({ name: newName }).eq('id', id);
+    if (error) {
+      console.error('Failed to save specialty:', error);
+      toast.error('Failed to save.');
+    } else {
+      toast.success('Specialty updated.');
+      setEditingSpecId(null);
+      setSpecEditName('');
+      if (oldName === specialty) {
+        setSpecialty(newName);
+      }
+      await reloadSpecialties();
+    }
+  };
+
+  const handleDeleteSpecialty = async (id: string, name: string) => {
+    const confirmed = window.confirm(`Delete specialty "${name}"? This cannot be undone.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from('specialties').delete().eq('id', id);
+    if (error) {
+      console.error('Failed to delete specialty:', error);
+      toast.error('Failed to delete.');
+    } else {
+      toast.success('Specialty deleted.');
+      // If the currently selected specialty was deleted, move selection to another available one
+      if (specialty === name) {
+        // Try to switch to another active specialty after reload
+        const { data } = await supabase
+          .from('specialties')
+          .select('name')
+          .eq('show_oncall', true)
+          .order('name', { ascending: true });
+        const nextName = (data ?? []).map(d => d.name).find(n => n && n !== name) as string | undefined;
+        if (nextName) setSpecialty(nextName);
+      }
+      await reloadSpecialties();
+    }
+  };
+
+  useEffect(() => { reloadSpecialties(); }, [reloadSpecialties]);
   const router = useRouter();
   const [events, setEvents] = useState<any[]>([]);
   const [providerColorMap, setProviderColorMap] = useState<Record<string, string>>({});
@@ -173,6 +275,7 @@ export default function SchedulePage() {
   const [plan, setPlan] = useState('');
   const role = useUserRole(); // 'admin' | 'scheduler' | 'viewer' | null
   const canEdit = role === 'admin' || role === 'scheduler';
+  const isIMWithoutPlan = specialty === 'Internal Medicine' && !plan; // NEW: gating flag
   const [isEditing, setIsEditing] = useState(false);
   // Collect pending entries to save to DB only when "Save Changes" is pressed
   const [pendingEntries, setPendingEntries] = useState<any[]>([]);
@@ -244,7 +347,7 @@ export default function SchedulePage() {
     if (storedSpecialty) setSpecialty(storedSpecialty);
     if (storedPlan) setPlan(storedPlan);
   }, []);
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [_currentDate, setCurrentDate] = useState(new Date());
   const [selectedModalDate, setSelectedModalDate] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -257,12 +360,17 @@ export default function SchedulePage() {
   const [secondPref, setSecondPref] = useState<'none' | 'residency' | 'pa'>('none');
   const [secondPhone, setSecondPhone] = useState('');
   const [secondSource, setSecondSource] = useState<string | null>(null);
+  // Cover physician state
+  const [coverEnabled, setCoverEnabled] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedAdditionalDays, setSelectedAdditionalDays] = useState<string[]>([]);
   const [editingEntry, setEditingEntry] = useState<{
     provider_name: string;
     show_second_phone: boolean;
     second_phone_pref: 'auto' | 'pa' | 'residency';
+    cover?: boolean;
+    covering_provider?: string | null;
   } | null>(null);
 
   // Add ref for FullCalendar
@@ -446,7 +554,7 @@ const getVisibleMonthLabel = useCallback(() => {
 
       let dupQuery = supabase
         .from('schedules')
-        .select('on_call_date, provider_name, specialty, healthcare_plan, show_second_phone, second_phone_pref')
+        .select('*')
         .in('on_call_date', datesToCheck)
         .eq('specialty', specialty);
 
@@ -481,7 +589,9 @@ const getVisibleMonthLabel = useCallback(() => {
           (
             row.provider_name !== entry.provider_name ||
             row.show_second_phone !== entry.show_second_phone ||
-            (row.second_phone_pref ?? 'auto') !== (entry.second_phone_pref ?? 'auto')
+            (row.second_phone_pref ?? 'auto') !== (entry.second_phone_pref ?? 'auto') ||
+            (!!row.cover) !== (!!(entry as any).cover) ||
+            ((row.covering_provider ?? null) !== ((entry as any).covering_provider ?? null))
           )
         );
         // If provider_name changed, queue deletion of old entry
@@ -572,39 +682,75 @@ const getVisibleMonthLabel = useCallback(() => {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleSaveChanges, isModalOpen, canEdit]);
 
+  // Global Escape to close any open modal dialogs on this page
   useEffect(() => {
-  if (isModalOpen) {        
-    const residencyName = `${specialty} Residency`;
-    const paName = `${specialty} PA Phone`;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      let handled = false;
+      if (isModalOpen) {
+        setIsModalOpen(false);
+        handled = true;
+      }
+      if (showClearModal) {
+        setShowClearModal(false);
+        handled = true;
+      }
+      if (showSpecialtyModal) {
+        setShowSpecialtyModal(false);
+        handled = true;
+      }
+      if (handled) e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isModalOpen, showClearModal, showSpecialtyModal]);
 
-    if (secondPref === 'residency') {
-      const resident = directory.find(d => d.provider_name === residencyName);
-      if (resident?.phone_number) {
-        setSecondPhone(resident.phone_number);
-        setSecondSource(residencyName);
+  // Prevent background scroll when any modal/sheet on this page is open
+  useEffect(() => {
+    const anyOpen = isModalOpen || showClearModal || showSpecialtyModal;
+    const original = document.body.style.overflow;
+    if (anyOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [isModalOpen, showClearModal, showSpecialtyModal]);
+
+  useEffect(() => {
+    if (isModalOpen) {
+      const baseSpec = resolveDirectorySpecialty(specialty);
+      const residencyName = `${baseSpec} Residency`;
+      const paName = `${baseSpec} PA Phone`;
+
+      if (secondPref === 'residency') {
+        const resident = directory.find(d => d.provider_name === residencyName);
+        if (resident?.phone_number) {
+          setSecondPhone(resident.phone_number);
+          setSecondSource(residencyName);
+        } else {
+          setSecondPhone('No residency phone registered for this service.');
+          setSecondSource(null);
+        }
+      } else if (secondPref === 'pa') {
+        const pa = directory.find(d => d.provider_name === paName);
+        if (pa?.phone_number) {
+          setSecondPhone(pa.phone_number);
+          setSecondSource(paName);
+        } else {
+          setSecondPhone('No PA phone registered for this service.');
+          setSecondSource(null);
+        }
       } else {
-        setSecondPhone('No residency phone registered for this service.');
+        setSecondPhone('');
         setSecondSource(null);
       }
-    } else if (secondPref === 'pa') {
-      const pa = directory.find(d => d.provider_name === paName);
-      if (pa?.phone_number) {
-        setSecondPhone(pa.phone_number);
-        setSecondSource(paName);
-      } else {
-        setSecondPhone('No PA phone registered for this service.');
-        setSecondSource(null);
-      }
-    } else {
-      setSecondPhone('');
-      setSecondSource(null);
-    }
 
-    if (providerInputRef.current) {
-      providerInputRef.current.focus();
+      if (providerInputRef.current) {
+        providerInputRef.current.focus();
+      }
     }
-  }
-}, [isModalOpen, secondPref, specialty, directory]);
+  }, [isModalOpen, secondPref, specialty, directory]);
 
   useEffect(() => {
     if (isModalOpen && isEditing && editingEntry) {
@@ -622,35 +768,43 @@ const getVisibleMonthLabel = useCallback(() => {
               : 'none'
           : 'none';
       setSecondPref(pref);
+
+      // Prefill cover state
+      const cover = !!editingEntry.cover;
+      setCoverEnabled(cover);
+      if (cover && coverInputRef.current) {
+        coverInputRef.current.value = editingEntry.covering_provider ?? '';
+      }
     }
   }, [isModalOpen, isEditing, editingEntry]);
 
-useEffect(() => {
-  const loadProvidersForSpecialty = async () => {
-    if (!isModalOpen) return;
-    const { data, error } = await supabase
-      .from('directory')
-      .select('provider_name')
-      .eq('specialty', specialty)
-      .not('provider_name', 'ilike', '%Residency%')
-      .not('provider_name', 'ilike', '%PA Phone%')
-      .order('provider_name', { ascending: true });
+  useEffect(() => {
+    const loadProvidersForSpecialty = async () => {
+      if (!isModalOpen) return;
+      const spec = resolveDirectorySpecialty(specialty);
+      const { data, error } = await supabase
+        .from('directory')
+        .select('provider_name')
+        .eq('specialty', spec)
+        .not('provider_name', 'ilike', '%Residency%')
+        .not('provider_name', 'ilike', '%PA Phone%')
+        .order('provider_name', { ascending: true });
 
-    if (error) {
-      console.error('Error loading providers for specialty:', error);
-      setAllProvidersForSpec([]);
-      return;
-    }
-    const names = (data ?? []).map(d => d.provider_name);
-    setAllProvidersForSpec(names);
+      if (error) {
+        console.error('Error loading providers for specialty:', error);
+        setAllProvidersForSpec([]);
+        return;
+      }
+      const names = (data ?? []).map(d => d.provider_name);
+      setAllProvidersForSpec(names);
 
-    // If the input is empty when opening, show the full list immediately
-    if (providerInputRef.current && !providerInputRef.current.value.trim()) {
-      setProviderSuggestions(names);
-    }
-  };
-  loadProvidersForSpecialty();
-}, [isModalOpen, specialty]);
+      // If the input is empty when opening, show the full list immediately
+      if (providerInputRef.current && !providerInputRef.current.value.trim()) {
+        setProviderSuggestions(names);
+      }
+    };
+    loadProvidersForSpecialty();
+  }, [isModalOpen, specialty]);
 
 if (role === null) {
   return (
@@ -675,13 +829,36 @@ if (role !== 'admin' && role !== 'scheduler') {
           Scheduler
         </h1>
 
-        <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-4 mb-6">
+      {role === 'admin' && (
+        <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
+          <div className="flex gap-3 items-center">
+            <button onClick={() => setShowSpecialtyModal(true)} className="px-3 py-1 text-sm bg-indigo-600 text-white rounded">
+              Edit Specialties
+            </button>
+          </div>
+          {/* Medical Groups buttons only for admin */}
+          <div className="flex gap-3 items-center">
+            <Link
+              href="/schedule/mmm-medical-groups"
+              className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
+            >
+              MMM Medical Groups
+            </Link>
+            <Link
+              href="/schedule/vital-medical-groups"
+              className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
+            >
+              Vital Medical Groups
+            </Link>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-4 mb-6">
           <div>
             <label className="block text-gray-700 dark:text-gray-300 mb-1">Specialty</label>
             <select
               value={specialty}
               onChange={(e) => setSpecialty(e.target.value)}
-
               className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
             >
               {specialties.map(spec => (
@@ -714,6 +891,17 @@ if (role !== 'admin' && role !== 'scheduler') {
 
 
         <div className="bg-white dark:bg-gray-900 p-4 rounded-lg shadow-md" style={{ overflowX: 'auto' }}>
+          {/* Control panel: Add Refresh Calendar button */}
+          <div className="flex gap-3 mb-4">
+            <button
+              onClick={() => refreshCalendarVisibleRange()}
+              className={`bg-gray-700 hover:bg-gray-800 text-white text-sm px-3 py-2 rounded border border-gray-600 shadow-sm flex items-center gap-2 ${isIMWithoutPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isIMWithoutPlan}
+            >
+              🔄 <span>Refresh Calendar</span>
+            </button>
+          </div>
+          <div className="relative">{/* wrapper to allow overlay */}
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
@@ -780,16 +968,36 @@ if (role !== 'admin' && role !== 'scheduler') {
                     }}
                   >
                     <button
-                      onClick={(e: React.MouseEvent) => {
+                      type="button"
+                      onMouseDown={(e: React.MouseEvent) => {
                         e.preventDefault();
                         e.stopPropagation();
                         const { startStr, title } = event.event;
                         const clearEvent = new CustomEvent('clearEvent', {
                           detail: { date: startStr, provider: title },
+                          bubbles: true,
+                          cancelable: true,
                         });
                         window.dispatchEvent(clearEvent);
                       }}
-                      className="absolute top-0 right-0 text-xs px-1"
+                      onTouchStart={(e: React.TouchEvent) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const { startStr, title } = event.event;
+                        const clearEvent = new CustomEvent('clearEvent', {
+                          detail: { date: startStr, provider: title },
+                          bubbles: true,
+                          cancelable: true,
+                        });
+                        window.dispatchEvent(clearEvent);
+                      }}
+                      onClick={(e: React.MouseEvent) => {
+                        // no-op: start handlers already dispatched; keep to block FullCalendar click
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      aria-label="Remove provider from this date"
+                      className="absolute top-0 right-0 text-xs px-1 pointer-events-auto"
                       style={{ color: textColor }}
                     >
                       ✕
@@ -806,6 +1014,8 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             eventClick={(clickInfo) => {
               if (!canEdit) return;
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // NEW guard
+
               const api = calendarRef.current?.getApi();
               const view = api?.view;
               if (!view) return;
@@ -830,7 +1040,7 @@ if (role !== 'admin' && role !== 'scheduler') {
                 try {
                   let q = supabase
                     .from('schedules')
-                    .select('provider_name, show_second_phone, second_phone_pref')
+                    .select('*')
                     .eq('on_call_date', dateStr)
                     .eq('specialty', specialty)
                     .limit(1);
@@ -853,6 +1063,8 @@ if (role !== 'admin' && role !== 'scheduler') {
                       provider_name: data[0].provider_name,
                       show_second_phone: !!data[0].show_second_phone,
                       second_phone_pref: (data[0].second_phone_pref ?? 'auto') as 'auto' | 'pa' | 'residency',
+                      cover: !!data[0].cover,
+                      covering_provider: (data[0].covering_provider ?? null) as string | null,
                     });
                   } else {
                     const currentProvider = clickInfo.event.title.replace(/^Dr\. /, '').trim();
@@ -860,6 +1072,8 @@ if (role !== 'admin' && role !== 'scheduler') {
                       provider_name: currentProvider,
                       show_second_phone: false,
                       second_phone_pref: 'auto',
+                      cover: false,
+                      covering_provider: null,
                     });
                   }
                 } catch (e) {
@@ -871,6 +1085,7 @@ if (role !== 'admin' && role !== 'scheduler') {
             }}
             dateClick={(info: any) => {
               if (!canEdit) return;
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; } // NEW guard
               if (info.dayEl.classList.contains('fc-day-other')) {
                 info.jsEvent.preventDefault();
                 info.jsEvent.stopPropagation();
@@ -881,6 +1096,22 @@ if (role !== 'admin' && role !== 'scheduler') {
               setIsEditing(false);
             }}
           />
+          {isIMWithoutPlan && (
+            <div
+              onClick={() => toast.error('Please select healthcare plan group before adding providers on call')}
+              className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md cursor-not-allowed text-center px-6 py-8 pointer-events-auto"
+              style={{ backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}
+              role="presentation"
+            >
+              <p className="text-gray-800 dark:text-gray-100 font-semibold text-sm md:text-base mb-2">
+                Select a healthcare plan group before adding providers on call.
+              </p>
+              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                The Internal Medicine calendar is inactive until a plan is chosen.
+              </p>
+            </div>
+          )}
+          </div>
           {/* Global CSS to paint days outside current month black and unclickable */}
           <style jsx global>{`
             .fc-daygrid-day.fc-day-other {
@@ -893,10 +1124,18 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         {canEdit && (
           <div className="flex justify-between items-center mt-4">
-            <button onClick={() => setShowClearModal(true)} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+            <button onClick={() => {
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; }
+              setShowClearModal(true);
+            }} className={`px-4 py-2 rounded text-white ${isIMWithoutPlan ? 'bg-red-400 cursor-not-allowed opacity-60' : 'bg-red-600 hover:bg-red-700'}`}
+              disabled={isIMWithoutPlan}>
               {`Clear ${getVisibleMonthLabel()} — ${specialty === 'Internal Medicine' ? `IM · ${plan || 'Select plan'}` : specialty}`}
             </button>
-            <button onClick={() => handleSaveChanges('button')} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            <button onClick={() => {
+              if (isIMWithoutPlan) { toast.error('Select a healthcare plan first.'); return; }
+              handleSaveChanges('button');
+            }} className={`px-4 py-2 rounded text-white ${isIMWithoutPlan ? 'bg-green-400 cursor-not-allowed opacity-60' : 'bg-green-600 hover:bg-green-700'}`}
+              disabled={isIMWithoutPlan}>
               Save Changes
             </button>
           </div>
@@ -904,23 +1143,23 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         {/* Clear Month Confirmation Modal */}
         {canEdit && showClearModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity duration-300 ease-out">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded shadow-md max-w-sm w-full transform transition-transform duration-300 ease-out scale-95 animate-fadeIn">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out modal-overlay-in p-4">
+            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded shadow-md max-w-sm w-full transform transition-transform duration-300 ease-out scale-95 animate-fadeIn modal-pop-in">
               <h2 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white">Confirm Deletion</h2>
                 <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
                   Are you sure you want to clear all on-call entries for <strong>{specialty}</strong>
                   {specialty === 'Internal Medicine' && plan ? ` · ${plan}` : ''} for <strong>{getVisibleMonthLabel()}</strong>?
                 </p>
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end gap-2 sm:gap-3">
                 <button
                   onClick={() => setShowClearModal(false)}
-                  className="px-3 py-1.5 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-sm rounded"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-sm rounded"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleClearConfirmed}
-                  className="px-3 py-1.5 bg-red-600 text-white text-sm rounded"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-red-600 text-white text-sm rounded"
                 >
                   Confirm
                 </button>
@@ -947,529 +1186,344 @@ if (role !== 'admin' && role !== 'scheduler') {
 
         <div
           id="provider-modal"
-          className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out ${isModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity duration-300 ease-in-out modal-overlay-in p-4 ${isModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
           onClick={(e) => {
             if ((e.target as HTMLElement).id === 'provider-modal') {
               setIsModalOpen(false);
-              if (providerInputRef.current) {
-                providerInputRef.current.value = '';
-              }
-              setProviderSuggestions([]);
-              setHighlightIndex(-1);
-              setSecondPref('none');
-              setSecondPhone('');
-              setSecondSource(null);
-              setSelectedAdditionalDays([]);
               setEditingEntry(null);
-              // Hide the multi-day calendar when modal is closed
-              const miniCalendar = document.getElementById('multi-day-calendar');
-              if (miniCalendar) miniCalendar.classList.add('hidden');
+              setSecondPref('none');
+              setSelectedAdditionalDays([]);
+              setCoverEnabled(false);
             }
           }}
+          role="dialog"
+          aria-modal="true"
+          aria-label={isEditing ? 'Edit on-call entry' : 'Add on-call entry'}
         >
-          <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md transition-transform duration-300 ease-in-out transform ${isModalOpen ? 'translate-y-0 scale-100' : 'translate-y-4 scale-95'}`}>
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-              {isEditing ? 'Edit On-Call Entry' : 'Add On-Call Entry'}
-            </h2>
-            {/* Show editing date */}
-            {selectedModalDate && (() => {
-              const [y, m, d] = selectedModalDate.split('-').map(Number);
-              const localDate = new Date(y, m - 1, d);
-              return <p className="text-sm text-gray-600 mb-2">Selected Date: {localDate.toLocaleDateString()}</p>;
-            })()}
-            {isEditing && (
-              <span className="inline-block px-2 py-1 text-xs font-semibold text-yellow-800 bg-yellow-100 rounded dark:bg-yellow-200 dark:text-yellow-900 mb-2">
-                Editing Existing Entry
-              </span>
-            )}
-            <label className="block mb-2 text-sm text-gray-600 dark:text-gray-300">Provider Name</label>
-            <input
-              type="text"
-              id="provider-name"
-              ref={providerInputRef}
-              className="w-full px-3 py-2 mb-1 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              placeholder="Start typing..."
-              onFocus={() => {
-                const val = providerInputRef.current?.value.trim().toLowerCase() ?? '';
-                if (!val) {
-                  setProviderSuggestions(allProvidersForSpec);
-                  setHighlightIndex(allProvidersForSpec.length ? 0 : -1);
-                }
-              }}
-              onChange={(e) => {
-                const query = e.target.value;
-                const qn = normalize(query);
-                if (!qn) {
-                  setProviderSuggestions(allProvidersForSpec);
-                  setHighlightIndex(allProvidersForSpec.length ? 0 : -1);
-                  return;
-                }
-                const ranked = allProvidersForSpec
-                  .map((name) => ({ name, score: scoreName(name, qn) }))
-                  .filter((x) => x.score > 0)
-                  .sort((a, b) => b.score - a.score)
-                  .slice(0, 12)
-                  .map((x) => x.name);
-                setProviderSuggestions(ranked.length ? ranked : ['This provider is not in the directory']);
-                setHighlightIndex(ranked.length ? 0 : -1);
-              }}
-              onKeyDown={(e) => {
-                const count = providerSuggestions.length;
-                if (!count) return;
+          <div
+            className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-lg shadow-xl modal-pop-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 sm:px-6 pt-5 pb-3 border-b dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {isEditing ? 'Edit On-Call Entry' : 'Add On-Call Entry'}
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                {specialty}
+                {specialty === 'Internal Medicine' && plan ? ` · ${plan}` : ''}
+                {selectedModalDate ? ` — ${selectedModalDate}` : ''}
+              </p>
+            </div>
 
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  setHighlightIndex((prev) => (prev < count - 1 ? prev + 1 : 0));
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  setHighlightIndex((prev) => (prev > 0 ? prev - 1 : count - 1));
-                } else if (e.key === 'Enter') {
-                  const sel =
-                    highlightIndex >= 0 && highlightIndex < count
-                      ? providerSuggestions[highlightIndex]
-                      : providerSuggestions[0];
-                  if (sel && sel !== 'This provider is not in the directory') {
-                    e.preventDefault();
-                    if (providerInputRef.current) providerInputRef.current.value = sel;
-                    setProviderSuggestions([]);
-                    setHighlightIndex(-1);
-                  }
-                } else if (e.key === 'Tab') {
-                  const sel =
-                    highlightIndex >= 0 && highlightIndex < count
-                      ? providerSuggestions[highlightIndex]
-                      : providerSuggestions[0];
-                  if (sel && sel !== 'This provider is not in the directory') {
-                    e.preventDefault();
-                    if (providerInputRef.current) providerInputRef.current.value = sel;
-                    setProviderSuggestions([]);
-                    setHighlightIndex(-1);
-                    // Move focus to the first "Works with" radio
-                    const firstRadio = document.querySelector<HTMLInputElement>('input[name="second-pref"]');
-                    if (firstRadio) firstRadio.focus();
-                  }
-                } else if (e.key === 'Escape') {
-                  setProviderSuggestions([]);
-                  setHighlightIndex(-1);
-                }
-              }}
-            />
-            <div
-              className="bg-white border dark:bg-gray-800 dark:border-gray-600 border-gray-300 rounded shadow-md max-h-40 overflow-y-auto"
-              role="listbox"
-            >
-              {providerSuggestions.map((name, idx) => {
-                const isActive = idx === highlightIndex;
-                return (
-                  <div
-                    key={idx}
-                    role="option"
-                    aria-selected={isActive}
-                    className={`px-3 py-1 cursor-pointer text-sm text-gray-800 dark:text-white ${
-                      isActive ? 'bg-gray-100 dark:bg-gray-600' : 'hover:bg-gray-100 dark:hover:bg-gray-600'
-                    }`}
-                    onMouseEnter={() => setHighlightIndex(idx)}
-                    onMouseLeave={() => setHighlightIndex(-1)}
-                    onClick={() => {
-                      if (name === 'This provider is not in the directory') return;
-                      if (providerInputRef.current) {
-                        providerInputRef.current.value = name;
-                      }
-                      setProviderSuggestions([]);
+            <div className="px-4 sm:px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Provider</label>
+                <input
+                  ref={providerInputRef}
+                  type="text"
+                  placeholder="Start typing a provider name…"
+                  onChange={(e) => {
+                    const q = e.target.value;
+                    if (!q.trim()) {
+                      setProviderSuggestions(allProvidersForSpec);
                       setHighlightIndex(-1);
-                    }}
-                  >
-                    {name}
-                  </div>
-                );
-              })}
-            </div>  
-            <div className="mb-4">
-              <span className="block mb-1 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Works with:</span>
-              <div className="flex items-center gap-6">
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
-                    type="radio"
-                    name="second-pref"
-                    value="none"
-                    checked={secondPref === 'none'}
-                    onChange={() => setSecondPref('none')}
-                  />
-                  None
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
-                    type="radio"
-                    name="second-pref"
-                    value="residency"
-                    checked={secondPref === 'residency'}
-                    onChange={() => setSecondPref('residency')}
-                  />
-                  Resident
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                  <input
-                    type="radio"
-                    name="second-pref"
-                    value="pa"
-                    checked={secondPref === 'pa'}
-                    onChange={() => setSecondPref('pa')}
-                  />
-                  PA
-                </label>
-              </div>
-            </div>
-            {secondPref !== 'none' && (
-              <div className="mb-4" id="second-phone-container">
-                <label className="block mb-2 text-sm text-gray-600 dark:text-gray-300">Second Phone</label>
-                {secondPhone && secondPhone.startsWith('No ') ? (
-                  <p className="text-sm text-red-600 dark:text-red-400">{secondPhone}</p>
-                ) : (
-                  <input
-                    type="text"
-                    id="second-phone"
-                    value={secondPhone}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                    readOnly
-                  />
-                )}
-                {secondSource && (
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Source: {secondSource}</p>
-                )}
-              </div>
-            )}
-            <div className="flex items-center mb-4">
-              <input
-                type="checkbox"
-                id="multi-day-toggle"
-                className="mr-2"
-                onChange={(e) => {
-                  const miniCalendar = document.getElementById('multi-day-calendar');
-                  if (miniCalendar) {
-                    miniCalendar.classList.toggle('hidden', !e.target.checked);
-                  }
-                }}
-              />
-              <label htmlFor="multi-day-toggle" className="text-sm text-gray-700 dark:text-gray-300">Assign to Multiple Days</label>
-            </div>
-              <div className="mb-4 hidden" id="multi-day-calendar">
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Select additional days:</p>
-                {/* MiniCalendar - synchronized to current main calendar month */}
-                <MiniCalendar initialDate={currentDate} />
-                <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 dark:text-gray-400">
-                  {(() => {
-                    // Use parseLocalYMD to avoid UTC drift
-                    const base = selectedModalDate
-                      ? parseLocalYMD(selectedModalDate)
-                      : new Date(currentDate.getFullYear(), currentDate.getMonth(), 1, 12, 0, 0, 0);
-                    const year = base.getFullYear();
-                    const month = base.getMonth();
-                    const firstDayOfMonth = new Date(year, month, 1).getDay();
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    const calendarCells: JSX.Element[] = [];
-
-                    // Utility functions for day status
-                    const getProviderInputValue = () =>
-                      providerInputRef.current?.value?.trim() ?? '';
-                    // For each day, determine assignment status
-                    function getDayStatus(dateStr: string) {
-                      // Use direct string comparison for assigned events
-                      const assignedEvents = events.filter(e => e.date === dateStr);
-                      const provider = getProviderInputValue();
-                      const isAssigned = assignedEvents.length > 0;
-                      const isAssignedToCurrentProvider = assignedEvents.some(
-                        e => e.title === `Dr. ${provider}`
-                      );
-                      const isAssignedToOtherProvider = isAssigned && !isAssignedToCurrentProvider;
-                      const isSelected = selectedAdditionalDays.includes(dateStr);
-                      // Use direct string comparison for primary date
-                      const isPrimaryDate = selectedModalDate ? (dateStr === selectedModalDate) : false;
-                      return {
-                        isAssigned,
-                        isAssignedToCurrentProvider,
-                        isAssignedToOtherProvider,
-                        isSelected,
-                        isPrimaryDate,
-                      };
+                      return;
                     }
-
-                    // Type-safe function for day cell className (for possible future use)
-                    const dayStyles = (date: Date): string => {
-                      // Example: highlight today, weekends, etc.
-                      // For now, return empty string (customize as needed)
-                      return '';
-                    };
-
-                    for (let i = 0; i < firstDayOfMonth; i++) {
-                      calendarCells.push(<div key={`empty-${i}`} className="p-1" />);
-                    }
-
-                    for (let day = 1; day <= daysInMonth; day++) {
-                      // --- REWORKED MINI CALENDAR ---
-                      const localDate = new Date(year, month, day);
-                      const dateStr = localDate.toLocaleDateString('en-CA'); // Format: YYYY-MM-DD
-                      const status = getDayStatus(dateStr);
-                      // Compose className per requirements, using selected-mini-day for selected days
-                      let cellClasses = 'p-1 rounded text-sm text-center calendar-day mini-calendar-day ';
-                      if (status.isPrimaryDate) {
-                        cellClasses += 'bg-green-500 text-white font-semibold ';
-                      } else if (status.isAssignedToCurrentProvider) {
-                        cellClasses += 'bg-blue-500 text-white font-semibold ';
-                      } else if (status.isAssignedToOtherProvider) {
-                        cellClasses += 'bg-gray-400 text-white font-semibold pointer-events-none ';
-                      } else if (status.isSelected) {
-                        cellClasses += 'selected-mini-day font-semibold ';
-                      } else {
-                        cellClasses += 'hover:bg-blue-100 dark:hover:bg-blue-600 cursor-pointer ';
+                    const scored = allProvidersForSpec
+                      .map((name) => ({ name, score: scoreName(name, q) }))
+                      .filter((x) => x.score > 0)
+                      .sort((a, b) => b.score - a.score)
+                      .slice(0, 8)
+                      .map((x) => x.name);
+                    setProviderSuggestions(scored);
+                    setHighlightIndex(-1);
+                  }}
+                  onKeyDown={(e) => {
+                    if (providerSuggestions.length === 0) return;
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      setHighlightIndex((i) => (i + 1) % providerSuggestions.length);
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      setHighlightIndex((i) => (i - 1 + providerSuggestions.length) % providerSuggestions.length);
+                    } else if (e.key === 'Enter') {
+                      if (highlightIndex >= 0) {
+                        e.preventDefault();
+                        const pick = providerSuggestions[highlightIndex];
+                        if (providerInputRef.current) providerInputRef.current.value = pick;
+                        setProviderSuggestions([]);
+                        setHighlightIndex(-1);
                       }
-                      calendarCells.push(
-                        <div
-                          key={day}
-                          data-date={dateStr}
-                          className={cellClasses}
-                          style={
-                            status.isAssignedToOtherProvider
-                              ? { pointerEvents: 'none', opacity: 0.7 }
-                              : undefined
-                          }
-                          onClick={() => {
-                            // If assigned to other provider, do nothing (should be blocked by pointer-events)
-                            if (status.isAssignedToOtherProvider) return;
-                            // If assigned to current provider, toggle assignment (remove on second click)
-                            if (status.isAssignedToCurrentProvider) {
-                              setEvents(prev =>
-                                prev.filter(
-                                  e =>
-                                    !(
-                                      e.date === dateStr &&
-                                      e.title === `Dr. ${getProviderInputValue()}`
-                                    )
-                                )
-                              );
-                              setPendingDeletions(prev => [
-                                ...prev,
-                                {
-                                  date: dateStr,
-                                  provider: `Dr. ${getProviderInputValue()}`,
-                                },
-                              ]);
-                              setSelectedAdditionalDays(prev =>
-                                prev.filter(d => d !== dateStr)
-                              );
-                              return;
-                            }
-                            // If primary date, do nothing (cannot deselect)
-                            if (status.isPrimaryDate) return;
-                            // --- Begin: New logic for small calendar selection ---
-                            if (!canEdit) return;
-                            // We need to add a new pending entry for this date using current modal selections
-                            // Find modalProvider, modalSpecialty, modalHealthcarePlan, isResident from modal state
-                            // We'll try to infer these from the modal controls
-                            const providerName = getProviderInputValue();
-                            const modalProvider = directory.find(d => d.provider_name === providerName);
-                            const modalSpecialty = specialty;
-                            const modalHealthcarePlan = specialty === 'Internal Medicine' ? plan : null;
-                            // Use showResident as isResident
-                            const isSecond = secondPref !== 'none';
-                            // (removed debug logging)
-                            if (modalProvider && modalSpecialty && (modalHealthcarePlan !== undefined)) {
-                              const alreadySelected = pendingEntries.some(
-                                (entry) =>
-                                  entry.on_call_date === dateStr &&
-                                  entry.provider_name === modalProvider.provider_name
-                              );
-                              if (!alreadySelected) {
-                                const newEntry = {
-                                  on_call_date: dateStr,
-                                  provider_name: modalProvider.provider_name,
-                                  specialty: modalSpecialty,
-                                  healthcare_plan: modalHealthcarePlan,
-                                  show_second_phone: isSecond,
-                                  second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
-                                } as const;
-                                setPendingEntries(prev => [...prev, newEntry]);
-                                setEvents(prevEvents => {
-                                  const exists = prevEvents.some(e => e.title === `Dr. ${modalProvider.provider_name}` && e.date === dateStr);
-                                  if (exists) return prevEvents;
-                                  return [
-                                    ...prevEvents,
-                                    {
-                                      title: `Dr. ${modalProvider.provider_name}`,
-                                      date: dateStr,
-                                    }
-                                  ];
-                                });
-                              }
-                            }
-                            // --- End: New logic for small calendar selection ---
-                            // Toggle selection for additional days
-                            setSelectedAdditionalDays(prev =>
-                              prev.includes(dateStr)
-                                ? prev.filter(d => d !== dateStr)
-                                : [...prev, dateStr]
-                            );
-                          }}
-                        >
-                          {day}
-                        </div>
-                      );
                     }
-                    return calendarCells;
-                  })()}
-                </div>
-                {/* Mini calendar selected day highlight style */}
-                <style jsx>{`
-                  .selected-mini-day {
-                    background-color: #e8fcec !important;
-                    border-radius: 4px;
-                    color: black;
-                  }
-                `}</style>
+                  }}
+                  className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                />
+                {providerSuggestions.length > 0 && (
+                  <ul className="mt-2 max-h-48 overflow-auto border rounded-md bg-white dark:bg-gray-900 dark:border-gray-700 shadow-sm">
+                    {providerSuggestions.map((s, idx) => (
+                      <li
+                        key={s}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          if (providerInputRef.current) providerInputRef.current.value = s;
+                          setProviderSuggestions([]);
+                          setHighlightIndex(-1);
+                        }}
+                        className={`px-3 py-2 cursor-pointer ${idx === highlightIndex ? 'bg-gray-100 dark:bg-gray-800' : ''}`}
+                      >
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            <div className="flex justify-end space-x-2">
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Works with</label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-1 text-sm">
+                    <input
+                      type="radio"
+                      name="secondPref"
+                      checked={secondPref === 'none'}
+                      onChange={() => setSecondPref('none')}
+                    />
+                    None
+                  </label>
+                  <label className="inline-flex items-center gap-1 text-sm">
+                    <input
+                      type="radio"
+                      name="secondPref"
+                      checked={secondPref === 'residency'}
+                      onChange={() => setSecondPref('residency')}
+                    />
+                    Residency
+                  </label>
+                  <label className="inline-flex items-center gap-1 text-sm">
+                    <input
+                      type="radio"
+                      name="secondPref"
+                      checked={secondPref === 'pa'}
+                      onChange={() => setSecondPref('pa')}
+                    />
+                    PA Phone
+                  </label>
+                </div>
+                {secondPref !== 'none' && (
+                  <p className="text-xs text-gray-600 dark:text-gray-300 mt-2">
+                    {secondSource ? `${secondSource}: ` : ''}
+                    {secondPhone || 'No secondary phone available.'}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="cover-enabled"
+                  type="checkbox"
+                  checked={coverEnabled}
+                  onChange={(e) => setCoverEnabled(e.target.checked)}
+                />
+                <label htmlFor="cover-enabled" className="text-sm">Cover physician</label>
+              </div>
+              {coverEnabled && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Covering Provider</label>
+                  <input
+                    ref={coverInputRef}
+                    type="text"
+                    placeholder="Covering provider name"
+                    className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 sm:px-6 py-3 border-t dark:border-gray-700 flex justify-end gap-2">
               <button
-                className="px-3 py-1.5 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-sm rounded"
-                id="cancel-btn"
+                type="button"
                 onClick={() => {
                   setIsModalOpen(false);
-                  if (providerInputRef.current) {
-                    providerInputRef.current.value = '';
-                  }
-                  setProviderSuggestions([]);
-                  setHighlightIndex(-1);
-                  setSecondPref('none');
-                  setSecondPhone('');
-                  setSecondSource(null);
-                  setSelectedAdditionalDays([]);
                   setEditingEntry(null);
-                  // Hide the multi-day calendar when modal is closed
-                  const miniCalendar = document.getElementById('multi-day-calendar');
-                  if (miniCalendar) miniCalendar.classList.add('hidden');
-                  const multiDayToggle = document.getElementById('multi-day-toggle') as HTMLInputElement;
-                  if (multiDayToggle) multiDayToggle.checked = false;
+                  setSecondPref('none');
+                  setSelectedAdditionalDays([]);
+                  setCoverEnabled(false);
                 }}
+                className="px-3 sm:px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-white rounded"
               >
                 Cancel
               </button>
               <button
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded"
-                id="save-btn"
-                onClick={async () => {
-                  const inputEl = providerInputRef.current;
-                  const providerName = inputEl ? inputEl.value.trim() : '';
-                  if (!providerName) {
-                    alert('Please select a provider to store these dates.');
-                    return;
-                  }
+                type="button"
+                className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
+                onClick={() => {
+                  if (!selectedModalDate) { toast.error('No date selected.'); return; }
+                  const name = providerInputRef.current?.value.trim() || '';
+                  if (!name) { toast.error('Please select a provider.'); return; }
 
-                  // Confirmation step if editing and provider name changed
-                  // Validate provider name exists in directory
-                  const matchedProvider = directory.find(d => d.provider_name === providerName);
-                  if (isEditing && providerName !== matchedProvider?.provider_name) {
-                    const confirmed = window.confirm(`You are about to replace "${matchedProvider?.provider_name}" with "${providerName}" on this date. This will delete the existing entry and insert a new one. Proceed?`);
-                    if (!confirmed) return;
-                  }
-                  if (!matchedProvider) {
-                    alert('This provider is not in the directory.');
-                    return;
-                  }
-
-                  const {
-                    data: { user },
-                    error: userError
-                  } = await supabase.auth.getUser();
-
-                  if (!user) {
-                    alert("You must be logged in to make changes.");
-                    return;
-                  }
-
-                  // Use local YYYY-MM-DD strings directly for uniqueDates
-                  const uniqueDates = Array.from(new Set([...(selectedModalDate ? [selectedModalDate] : []), ...selectedAdditionalDays]));
-                  // Ensure at least the primary date is included
-                  if (uniqueDates.length === 0 && selectedModalDate) {
-                    uniqueDates.push(selectedModalDate);
-                  }
-
-                  // Add type annotation for schedule entry payload
-                  type ScheduleEntry = {
-                    provider_name: string;
-                    specialty: string;
-                    healthcare_plan: string | null;
-                    on_call_date: string;
-                    show_second_phone: boolean;
-                    second_phone_pref: 'auto' | 'pa' | 'residency';
-                    user_id: string;
-                  };
-                  const payload: ScheduleEntry[] = uniqueDates.map(date => ({
-                    provider_name: providerName,
+                  const entry = {
+                    on_call_date: selectedModalDate,
+                    provider_name: name,
                     specialty,
-                    healthcare_plan: specialty === 'Internal Medicine' ? plan : null,
-                    on_call_date: date,
+                    healthcare_plan: specialty === 'Internal Medicine' ? (plan || null) : null,
                     show_second_phone: secondPref !== 'none',
-                    second_phone_pref: secondPref === 'pa' ? 'pa' : (secondPref === 'residency' ? 'residency' : 'auto'),
-                    user_id: user.id, // Assumes 'user_id' column exists in your table
-                  }));
+                    second_phone_pref: (secondPref === 'none' ? 'auto' : secondPref) as 'auto' | 'pa' | 'residency',
+                    cover: coverEnabled,
+                    covering_provider: coverEnabled ? (coverInputRef.current?.value.trim() || null) : null,
+                  } as const;
 
-                  // Instead of saving to supabase, collect in pendingEntries (deduped)
-                  setPendingEntries(prev => {
-                    const combined = [...prev, ...payload];
-                    const seen = new Set<string>();
-                    return combined.filter(pe => {
-                      const key = `${pe.provider_name}-${pe.on_call_date}-${pe.specialty}`;
-                      if (seen.has(key)) return false;
-                      seen.add(key);
-                      return true;
-                    });
+                  // Update pending entries (replace any existing for the same date/spec/plan)
+                  setPendingEntries((prev) => {
+                    const others = prev.filter((e) => !(
+                      e.on_call_date === entry.on_call_date &&
+                      e.specialty === entry.specialty &&
+                      (e.healthcare_plan ?? '') === (entry.healthcare_plan ?? '')
+                    ));
+                    const extras = selectedAdditionalDays.map((d) => ({ ...entry, on_call_date: d }));
+                    return [...others, entry, ...extras];
                   });
-                  // Immediately update calendar with pending entries (deduped)
-                  setEvents(prevEvents => {
-                    const newEvents = payload.map(entry => ({
-                      title: `Dr. ${entry.provider_name}`,
-                      date: entry.on_call_date,
-                    }));
-                    const combined = [...prevEvents, ...newEvents];
-                    const seen = new Set<string>();
-                    return combined.filter(ev => {
-                      const key = `${ev.title}-${ev.date}`;
-                      if (seen.has(key)) return false;
-                      seen.add(key);
-                      return true;
-                    });
+
+                  // Update UI events optimistically
+                  setEvents((prev: { title: string; date: string }[]) => {
+                    const dates = new Set<string>([entry.on_call_date, ...selectedAdditionalDays]);
+                    const filtered = prev.filter((ev) => !dates.has(ev.date));
+                    const added = Array.from(dates).map((d) => ({ title: `Dr. ${entry.provider_name}`, date: d }));
+                    return [...filtered, ...added];
                   });
 
                   setIsModalOpen(false);
-                  if (providerInputRef.current) {
-                    providerInputRef.current.value = '';
-                  }
-                  setProviderSuggestions([]);
-                  setHighlightIndex(-1);
-                  setSecondPref('none');
-                  setSecondPhone('');
-                  setSecondSource(null);
-                  setSelectedAdditionalDays([]);
                   setEditingEntry(null);
-                  const miniCalendar = document.getElementById('multi-day-calendar');
-                  if (miniCalendar) miniCalendar.classList.add('hidden');
-                  const multiDayToggle = document.getElementById('multi-day-toggle') as HTMLInputElement;
-                  if (multiDayToggle) multiDayToggle.checked = false;
+                  setSecondPref('none');
+                  setSelectedAdditionalDays([]);
+                  setCoverEnabled(false);
                 }}
               >
-                {isEditing ? 'Update' : 'Save'}
+                Save
               </button>
             </div>
           </div>
         </div>
+
+        {/* Specialty Management Modal */}
+        {showSpecialtyModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm modal-overlay-in p-4"
+            onClick={() => setShowSpecialtyModal(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit Specialties"
+          >
+            <div
+              className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-lg shadow-xl modal-pop-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 sm:px-6 pt-5 pb-3 border-b dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Specialties</h3>
+                <button
+                  onClick={() => setShowSpecialtyModal(false)}
+                  className="px-3 py-2 rounded border dark:border-gray-700"
+                  aria-label="Close specialty editor"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="px-4 sm:px-6 py-4 space-y-4">
+                <form onSubmit={handleAddSpecialty} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <input
+                    value={newSpecName}
+                    onChange={(e) => setNewSpecName(e.target.value)}
+                    placeholder="New specialty name"
+                    className="flex-1 px-3 py-2 border rounded dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                    aria-label="New specialty name"
+                  />
+                  <button type="submit" className="px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded">
+                    Add Specialty
+                  </button>
+                </form>
+
+                <div className="border rounded p-3 dark:border-gray-700">
+                  <h4 className="font-semibold mb-2">All Specialties</h4>
+                  <ul className="space-y-2 max-h-80 overflow-auto">
+                    {specialtyEditList.length === 0 && (
+                      <li className="text-sm text-gray-500">No specialties.</li>
+                    )}
+                    {specialtyEditList.map((s) => (
+                      <li key={s.id} className="flex items-center gap-2">
+                        <input
+                          id={`show_${s.id}`}
+                          type="checkbox"
+                          className="mr-1"
+                          checked={!!s.show_oncall}
+                          onChange={async (e) => {
+                            const checked = e.currentTarget.checked;
+                            const { error } = await supabase
+                              .from('specialties')
+                              .update({ show_oncall: checked })
+                              .eq('id', s.id);
+                            if (error) {
+                              console.error('Failed to toggle visibility', error);
+                              toast.error('Failed to update visibility.');
+                            } else {
+                              await reloadSpecialties();
+                              toast.success('Updated visibility.');
+                            }
+                          }}
+                          aria-label={`Toggle visibility for ${s.name}`}
+                        />
+                        <label htmlFor={`show_${s.id}`} className="text-sm">Show on calendar</label>
+                        <div className="flex-1" />
+                        {editingSpecId === s.id ? (
+                          <>
+                            <input
+                              value={specEditName}
+                              onChange={(e) => setSpecEditName(e.target.value)}
+                              className="px-3 py-1 border rounded dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                              aria-label="Specialty name"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveSpecialty(s.id, s.name)}
+                              className="px-3 py-1 bg-blue-600 text-white rounded"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelEditSpecialty}
+                              className="px-3 py-1 border rounded dark:border-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-sm">{s.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleStartEditSpecialty(s.id, s.name)}
+                              className="px-3 py-1 border rounded dark:border-gray-700"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSpecialty(s.id, s.name)}
+                              className="px-3 py-1 border rounded text-red-600 dark:border-gray-700"
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </LayoutShell>
   );
-}
-
-// Dummy MiniCalendar component for demonstration. Replace with your actual MiniCalendar import.
-function MiniCalendar({ initialDate }: { initialDate: Date }) {
-  // Use the current month based on initialDate, not next month
-  const currentMonth = dayjs(initialDate);
-  // Use currentMonth as the reference for generating the mini calendar grid
-  // This is a placeholder. Replace with your actual MiniCalendar implementation or import.
-  return null;
 }

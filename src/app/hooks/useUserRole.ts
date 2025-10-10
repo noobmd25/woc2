@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getBrowserClient } from '@/lib/supabase/client';
 
 export type Role = 'admin' | 'scheduler' | 'viewer';
 
@@ -10,41 +10,28 @@ export type Role = 'admin' | 'scheduler' | 'viewer';
  */
 export default function useUserRole() {
   const [role, setRole] = useState<Role | null>(null);
+  const supabase = getBrowserClient();
 
   useEffect(() => {
-    let mounted = true;
-
     const fetchRole = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const uid = session?.user?.id;
-        if (!uid) {
-          if (mounted) setRole(null);
-          return;
-        }
-
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setRole(null); return; }
         const { data, error } = await supabase
           .from('profiles')
           .select('role')
-          .eq('id', uid)
+          .eq('id', user.id)
           .single();
-
-        if (error) {
-          if (mounted) setRole('viewer');
-          return;
-        }
-
-        const r = (data?.role as Role | undefined) ?? 'viewer';
-        if (mounted) setRole(r);
+        if (!error && data) setRole(data.role || null);
       } catch {
-        if (mounted) setRole('viewer');
+        setRole(null);
       }
     };
 
     fetchRole();
     const { data: sub } = supabase.auth.onAuthStateChange(() => fetchRole());
-    return () => { mounted = false; sub.subscription.unsubscribe(); };
-  }, []);
+    return () => { sub.subscription.unsubscribe(); };
+  }, [supabase]);
 
   return role;
 }

@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
+  // removed unused supabase client line
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -12,37 +12,25 @@ export default function SignUpPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          department,
-          provider_type: "physician", // or capture from UI if you want
-          requested_role: "viewer",    // always viewer by policy
-        },
-      },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, fullName, department }),
     });
-    if (error) return alert(error.message);
+    if (!res.ok) {
+      const data = await res.json();
+      return alert(data.error || "Signup failed");
+    }
     router.push("/auth/check-email");
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-md p-6 space-y-4">
-      <h1 className="text-xl font-semibold">Create account</h1>
-      <input className="w-full border p-2 rounded" placeholder="Full name"
-             value={fullName} onChange={e=>setFullName(e.target.value)} required />
-      <input className="w-full border p-2 rounded" placeholder="Department"
-             value={department} onChange={e=>setDepartment(e.target.value)} />
-      <input type="email" className="w-full border p-2 rounded" placeholder="Email"
-             value={email} onChange={e=>setEmail(e.target.value)} required />
-      <input type="password" className="w-full border p-2 rounded" placeholder="Password"
-             value={password} onChange={e=>setPassword(e.target.value)} required />
-      <button className="w-full p-2 rounded bg-blue-600 text-white">Sign up</button>
-      <p className="text-sm text-gray-600">
-        You’ll be set to <b>pending</b> until an admin approves your account.
-      </p>
+    <form onSubmit={onSubmit} className="space-y-2 p-4">
+      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="border p-2 w-full" />
+      <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password" className="border p-2 w-full" />
+      <input value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Full name" className="border p-2 w-full" />
+      <input value={department} onChange={e=>setDepartment(e.target.value)} placeholder="Department" className="border p-2 w-full" />
+      <button className="bg-blue-600 text-white px-4 py-2 rounded" type="submit">Sign Up</button>
     </form>
   );
 }

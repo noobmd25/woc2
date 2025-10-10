@@ -9,9 +9,11 @@ import { createServerClient } from "@supabase/ssr";
 export async function getServerSupabase() {
   const cookieStore = await cookies(); // <-- fix: await
 
+  // Use the service role key to avoid exposing elevated privileges to the client
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    // Fallback to anon key for local development if service key not provided
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_KEY || "", 
     {
       cookies: {
         get(name: string) {

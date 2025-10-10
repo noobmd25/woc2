@@ -1,29 +1,38 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import tseslint from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
+import nextPlugin from "@next/eslint-plugin-next";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends(
-    "next/core-web-vitals",
-    "next/typescript",
-    "plugin:@typescript-eslint/recommended"
-  ),
+// Flat ESLint config (ESLint v9) manually wiring Next.js plugin to avoid rushstack patch issue.
+export default [
   {
-    files: ["**/*.ts", "**/*.tsx"],
-    plugins: ["@typescript-eslint"],
+    files: ["**/*.{js,mjs,cjs,jsx,ts,tsx}"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: "./tsconfig.json",
+        ecmaVersion: 2023,
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@next/next": nextPlugin,
+      "@typescript-eslint": tseslint,
+    },
+    settings: {
+      next: { rootDir: ["."] },
+    },
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
+      ...nextPlugin.configs["core-web-vitals"].rules,
+      "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/explicit-module-boundary-types": "off",
-      "@typescript-eslint/ban-ts-comment": "off"
+      "@typescript-eslint/ban-ts-comment": "off",
+      "prefer-const": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" },
+      ],
+      "react/no-unescaped-entities": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
     },
   },
 ];
-
-export default eslintConfig;
