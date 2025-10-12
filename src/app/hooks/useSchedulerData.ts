@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getBrowserClient } from '@/lib/supabase/client';
+import { useEffect, useState } from "react";
+import { getBrowserClient } from "@/lib/supabase/client";
 
 const supabase = getBrowserClient();
 
@@ -16,10 +16,10 @@ export function useSchedulerData(selectedDate: Date) {
       toDate.setDate(toDate.getDate() + 1);
 
       const { data, error } = await supabase
-        .from('oncall_schedule')
-        .select('*')
-        .gte('date', fromDate.toISOString())
-        .lt('date', toDate.toISOString());
+        .from("oncall_schedule")
+        .select("*")
+        .gte("date", fromDate.toISOString())
+        .lt("date", toDate.toISOString());
 
       if (!error) setEntries(data);
       setLoading(false);
@@ -36,10 +36,10 @@ export function useSchedulerData(selectedDate: Date) {
     toDate.setDate(toDate.getDate() + 1);
 
     const { data, error } = await supabase
-      .from('oncall_schedule')
-      .select('*')
-      .gte('date', fromDate.toISOString())
-      .lt('date', toDate.toISOString());
+      .from("oncall_schedule")
+      .select("*")
+      .gte("date", fromDate.toISOString())
+      .lt("date", toDate.toISOString());
 
     if (!error) setEntries(data);
     setLoading(false);

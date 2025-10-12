@@ -16,30 +16,34 @@ const csp = [
   "form-action 'self'",
   // Optionally enforce only https for any http subresources
   // "upgrade-insecure-requests",
-].join('; ');
+].join("; ");
 
 const securityHeaders = [
-  { key: 'Content-Security-Policy', value: csp },
-  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'X-Content-Type-Options', value: 'nosniff' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  { key: "Content-Security-Policy", value: csp },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()",
+  },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
 ];
 
 const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: "/(.*)",
         headers: securityHeaders,
       },
     ];
   },
   async redirects() {
-    return [
-      { source: '/home', destination: '/', permanent: false },
-    ];
+    return [{ source: "/home", destination: "/", permanent: false }];
   },
 };
 

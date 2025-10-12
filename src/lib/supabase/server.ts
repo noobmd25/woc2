@@ -1,11 +1,12 @@
 // src/lib/supabase/server.ts
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import type { Database } from '@/types/database';
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import type { Database } from "@/types/database";
 
 export async function createClient() {
   const cookieStore = await cookies();
-  const cookieGetter = () => cookieStore.getAll().map(c => ({ name: c.name, value: String(c.value) }));
+  const cookieGetter = () =>
+    cookieStore.getAll().map((c) => ({ name: c.name, value: String(c.value) }));
 
   const client = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +18,7 @@ export async function createClient() {
           // intentionally no-op for simple server usage
         },
       },
-    }
+    },
   );
 
   return client;
@@ -26,7 +27,8 @@ export async function createClient() {
 // Compatibility helper for route handlers wanting commit semantics
 export async function getServerSupabase() {
   const cookieStore = await cookies();
-  const cookieGetter = () => cookieStore.getAll().map(c => ({ name: c.name, value: String(c.value) }));
+  const cookieGetter = () =>
+    cookieStore.getAll().map((c) => ({ name: c.name, value: String(c.value) }));
   let cookieSetQueue: { name: string; value: string; options: any }[] = [];
 
   const supabase = createServerClient<Database>(
@@ -39,7 +41,7 @@ export async function getServerSupabase() {
           cookieSetQueue = cookiesToSet as any;
         },
       },
-    }
+    },
   );
 
   function commit(res: any) {

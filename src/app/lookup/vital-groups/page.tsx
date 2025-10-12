@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { getBrowserClient } from '@/lib/supabase/client';
-import Header from '@/components/Header';
-import { usePageRefresh } from '@/components/PullToRefresh';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getBrowserClient } from "@/lib/supabase/client";
+import Header from "@/components/Header";
+import { usePageRefresh } from "@/components/PullToRefresh";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 type VitalGroup = {
   id: number;
@@ -15,18 +15,18 @@ type VitalGroup = {
 
 export default function VitalGroupsLookupPage() {
   const [groups, setGroups] = useState<VitalGroup[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
 
   const supabase = useMemo(() => {
-    if (typeof window === 'undefined') return null as any;
+    if (typeof window === "undefined") return null as any;
     return getBrowserClient();
   }, []);
 
   const fetchGroups = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase
-      .from('vital_medical_groups')
-      .select('*');
+      .from("vital_medical_groups")
+      .select("*");
     if (!error && data) setGroups(data);
   }, [supabase]);
 
@@ -39,14 +39,16 @@ export default function VitalGroupsLookupPage() {
   const filtered = groups.filter(
     (g) =>
       g.vital_group_name.toLowerCase().includes(search.toLowerCase()) ||
-      g.group_code.toLowerCase().includes(search.toLowerCase())
+      g.group_code.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
     <>
       <Header />
       <section className="mx-auto max-w-5xl px-4 py-6">
-        <h1 className="text-2xl font-semibold mb-6 tracking-tight">Vital Medical Group Lookup</h1>
+        <h1 className="text-2xl font-semibold mb-6 tracking-tight">
+          Vital Medical Group Lookup
+        </h1>
         <div className="mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
           <input
             type="text"
@@ -55,7 +57,9 @@ export default function VitalGroupsLookupPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="w-full sm:w-80 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800/70 text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 text-sm focus:border-blue-500 focus:ring-blue-500 outline-none shadow-sm"
           />
-          <p className="text-xs text-gray-500 dark:text-gray-400">{filtered.length} result{filtered.length === 1 ? '' : 's'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {filtered.length} result{filtered.length === 1 ? "" : "s"}
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -80,7 +84,9 @@ export default function VitalGroupsLookupPage() {
         </div>
 
         {filtered.length === 0 && (
-          <p className="text-sm text-gray-600 dark:text-gray-400">No groups found.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            No groups found.
+          </p>
         )}
       </section>
     </>

@@ -3,10 +3,15 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { rateLimit } from "@/lib/rateLimit";
 
-const PASSWORD_POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]).{12,}$/;
+const PASSWORD_POLICY =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]).{12,}$/;
 
 async function passwordBreached(pwd: string): Promise<boolean> {
-  const hash = crypto.createHash("sha1").update(pwd).digest("hex").toUpperCase();
+  const hash = crypto
+    .createHash("sha1")
+    .update(pwd)
+    .digest("hex")
+    .toUpperCase();
   const prefix = hash.slice(0, 5);
   const suffix = hash.slice(5);
   const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`);
@@ -24,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+    process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   );
 
   if (!PASSWORD_POLICY.test(password)) {
@@ -32,7 +37,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (await passwordBreached(password)) {
-    return NextResponse.json({ error: "Password found in breach corpus" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Password found in breach corpus" },
+      { status: 400 },
+    );
   }
 
   const { error } = await supabase.auth.signUp({
