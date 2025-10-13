@@ -1,7 +1,6 @@
-// src/components/supabase-provider.tsx
 "use client";
-import { useEffect } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { useEffect } from "react";
 
 /**
  * SupabaseProvider: mounts a hidden listener to keep the auth session fresh and

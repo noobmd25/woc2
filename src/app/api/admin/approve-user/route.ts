@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabase/server";
 import { Resend } from "resend";
+
 import { ApprovalEmail } from "@/components/emails/ApprovalEmail";
 import {
   buildApprovalPlainText,
@@ -8,6 +8,7 @@ import {
   sanitizeFromRaw,
 } from "@/lib/email";
 import { rateLimit } from "@/lib/rateLimit";
+import { getServerSupabase } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

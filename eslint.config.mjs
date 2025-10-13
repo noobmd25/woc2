@@ -1,9 +1,5 @@
 import { FlatCompat } from "@eslint/eslintrc";
 import js from "@eslint/js";
-import tseslint from "@typescript-eslint/eslint-plugin";
-import tsParser from "@typescript-eslint/parser";
-import prettierPlugin from "eslint-plugin-prettier";
-import prettierConfig from "eslint-config-prettier";
 
 const compat = new FlatCompat({
   // import.meta.dirname is available after Node.js v20.11.0
@@ -11,7 +7,7 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
 });
 
-// ESLint flat config with Next.js using FlatCompat
+// ESLint flat config with Next.js using official approach
 export default [
   // Global ignores - these apply to all configs
   {
@@ -21,6 +17,7 @@ export default [
       "eslint.config.mjs",
       "postcss.config.mjs",
       "next.config.ts",
+      "next-env.d.ts", // Next.js auto-generated TypeScript file
       "tailwind.config.js",
       "pnpm-lock.yaml",
       "package-lock.json",
@@ -31,27 +28,16 @@ export default [
       "public/**/*",
     ],
   },
-  // Next.js configuration
+  // Next.js configuration using official FlatCompat approach with Prettier
   ...compat.config({
-    extends: ["next/core-web-vitals", "prettier"],
+    extends: ["next/core-web-vitals", "next/typescript", "prettier"],
   }),
-  // TypeScript and Prettier configuration
+
+  // Additional custom rules to override Next.js defaults
   {
     files: ["**/*.{js,mjs,cjs,jsx,ts,tsx}"],
-    languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        project: "./tsconfig.json",
-        ecmaVersion: 2023,
-        sourceType: "module",
-      },
-    },
-    plugins: {
-      "@typescript-eslint": tseslint,
-      prettier: prettierPlugin,
-    },
     rules: {
-      // TypeScript rules
+      // TypeScript rules - relaxed for development
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/ban-ts-comment": "off",
@@ -64,14 +50,17 @@ export default [
         },
       ],
       "@typescript-eslint/no-empty-object-type": "off",
+      // React rules
+      "react/no-unescaped-entities": "off",
       // General rules
       "prefer-const": "warn",
-      "react/no-unescaped-entities": "off",
-      "sort-imports": ["warn", { ignoreDeclarationSort: true }], // organize imports
-      quotes: ["warn", "double"], // enforce double quotes
-      // Prettier integration
-      ...prettierConfig.rules,
-      "prettier/prettier": ["warn", { singleQuote: false }], // Prettier: double quotes
+      "sort-imports": [
+        "warn",
+        {
+          ignoreDeclarationSort: true,
+        },
+      ],
+      // quotes: ["warn", "double"], // Disabled to let Prettier handle quotes consistently
     },
   },
 ];

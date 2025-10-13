@@ -2,9 +2,10 @@
 // Keep styles simple and inline for maximum client compatibility.
 // This component purposefully avoids external dependencies.
 
-import * as React from "react";
-import Image from "next/image";
 import Head from "next/head";
+import Image from "next/image";
+import * as React from "react";
+
 export interface ApprovalEmailProps {
   name: string;
   loginUrl: string;

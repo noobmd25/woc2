@@ -1,9 +1,10 @@
 "use client";
 import Header from "@/components/Header";
-import { useCallback, useEffect, useState } from "react";
-import { getBrowserClient } from "@/lib/supabase/client";
 import { usePageRefresh } from "@/components/PullToRefresh";
+import { getBrowserClient } from "@/lib/supabase/client";
+import { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
+
 const supabase = getBrowserClient();
 
 type VitalGroup = {

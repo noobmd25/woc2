@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
-import SimpleHeader from "@/components/SimpleHeader";
 import Footer from "@/components/Footer";
+import SimpleHeader from "@/components/SimpleHeader";
+import type { ReactNode } from "react";
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (

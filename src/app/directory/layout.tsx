@@ -1,6 +1,6 @@
 import LayoutShell from "@/components/LayoutShell";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const runtime = "nodejs";
 

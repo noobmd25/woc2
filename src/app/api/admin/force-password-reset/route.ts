@@ -1,9 +1,10 @@
-import { NextResponse } from "next/server";
-import { getServerSupabase } from "@/lib/supabase/server";
-import { rateLimit } from "@/lib/rateLimit";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
 import { Resend } from "resend";
+
 import { buildFromHeader, sanitizeFromRaw } from "@/lib/email";
+import { rateLimit } from "@/lib/rateLimit";
+import { getServerSupabase } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

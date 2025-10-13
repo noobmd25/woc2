@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 import { getBrowserClient } from "@/lib/supabase/client";
+
 const supabase = getBrowserClient();
 
 type RoleRequest = {

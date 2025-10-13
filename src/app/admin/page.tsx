@@ -1,11 +1,12 @@
 "use client";
 
-import * as React from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/Header";
 import dynamic from "next/dynamic";
-import { getBrowserClient } from "@/lib/supabase/client";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import * as React from "react";
+
+import Header from "@/components/Header";
 import { usePageRefresh } from "@/components/PullToRefresh";
+import { getBrowserClient } from "@/lib/supabase/client";
 
 const AccessRequests = dynamic(
   () => import("@/components/admin/AccessRequests"),
