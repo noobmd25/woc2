@@ -1,9 +1,17 @@
-'use client';
+"use client";
 
-import React, { useRef, useState, useCallback, useContext, useEffect } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 // Context to allow pages to register a refresh handler
-interface RefreshCtxType { setPageRefresh: (fn: (() => Promise<any> | void) | null) => void }
+interface RefreshCtxType {
+  setPageRefresh: (fn: (() => Promise<any> | void) | null) => void;
+}
 const RefreshCtx = React.createContext<RefreshCtxType | null>(null);
 
 let lastGlobalRefresh = 0; // shared timestamp to provide a global cooldown
@@ -29,7 +37,7 @@ export default function PullToRefresh({
   thresholdPx = 60,
   globalCooldownMs = 8000,
   vibrate = true,
-  headerSelector = 'header',
+  headerSelector = "header",
 }: PullToRefreshProps) {
   const [pullY, setPullY] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,26 +45,34 @@ export default function PullToRefresh({
   const startY = useRef<number | null>(null);
   const pageRefreshRef = useRef<(() => Promise<any> | void) | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
-  const [headerColor, setHeaderColor] = useState<string>('#2563eb'); // default tailwind blue-600
+  const [headerColor, setHeaderColor] = useState<string>("#2563eb"); // default tailwind blue-600
 
   // derive active threshold: prefer measured header height
-  const activeThreshold = headerHeight && headerHeight > 0 ? headerHeight : thresholdPx;
+  const activeThreshold =
+    headerHeight && headerHeight > 0 ? headerHeight : thresholdPx;
 
-  const setPageRefresh = useCallback((fn: (() => Promise<any> | void) | null) => {
-    pageRefreshRef.current = fn ?? null;
-  }, []);
+  const setPageRefresh = useCallback(
+    (fn: (() => Promise<any> | void) | null) => {
+      pageRefreshRef.current = fn ?? null;
+    },
+    [],
+  );
 
   const doVibrate = (pattern: number | number[]) => {
     if (!vibrate) return;
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      try { (navigator as any).vibrate(pattern); } catch { /* ignore */ }
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try {
+        (navigator as any).vibrate(pattern);
+      } catch {
+        /* ignore */
+      }
     }
   };
 
   // Measure header height & color
   useEffect(() => {
     const measure = () => {
-      if (typeof document === 'undefined') return;
+      if (typeof document === "undefined") return;
       const el = document.querySelector<HTMLElement>(headerSelector);
       if (!el) return;
       const rect = el.getBoundingClientRect();
@@ -65,15 +81,18 @@ export default function PullToRefresh({
       if (bg) setHeaderColor(bg);
     };
     measure();
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
     const el = document.querySelector<HTMLElement>(headerSelector);
     if (ro && el) ro.observe(el);
 
     // also re-measure after small delay (fonts / layout shifts)
     const t = setTimeout(measure, 400);
-    window.addEventListener('resize', measure);
+    window.addEventListener("resize", measure);
     return () => {
-      window.removeEventListener('resize', measure);
+      window.removeEventListener("resize", measure);
       if (ro && el) ro.unobserve(el);
       clearTimeout(t);
     };
@@ -94,7 +113,7 @@ export default function PullToRefresh({
     if (delta > 0) {
       e.preventDefault();
       const capped = Math.min(delta, activeThreshold * 2);
-      setPullY(prev => {
+      setPullY((prev) => {
         if (prev < activeThreshold && capped >= activeThreshold) doVibrate(15);
         return capped;
       });
@@ -105,7 +124,8 @@ export default function PullToRefresh({
     setRefreshing(true);
     doVibrate([10, 40, 20]);
     try {
-      if (pageRefreshRef.current) await pageRefreshRef.current(); else window.location.reload();
+      if (pageRefreshRef.current) await pageRefreshRef.current();
+      else window.location.reload();
       lastGlobalRefresh = Date.now();
     } finally {
       setPullY(0);
@@ -115,16 +135,23 @@ export default function PullToRefresh({
   };
 
   const onTouchEnd = () => {
-    if (pullY >= activeThreshold && Date.now() - lastGlobalRefresh >= globalCooldownMs) {
+    if (
+      pullY >= activeThreshold &&
+      Date.now() - lastGlobalRefresh >= globalCooldownMs
+    ) {
       void triggerRefresh();
     } else {
-      if (pullY > 0 && Date.now() - lastGlobalRefresh < globalCooldownMs) doVibrate(8);
+      if (pullY > 0 && Date.now() - lastGlobalRefresh < globalCooldownMs)
+        doVibrate(8);
       setPullY(0);
     }
     startY.current = null;
   };
 
-  const cooldownMsLeft = Math.max(0, lastGlobalRefresh + globalCooldownMs - Date.now());
+  const cooldownMsLeft = Math.max(
+    0,
+    lastGlobalRefresh + globalCooldownMs - Date.now(),
+  );
   const showCooldown = cooldownMsLeft > 0 && cooldownActive;
 
   return (
@@ -135,18 +162,25 @@ export default function PullToRefresh({
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
         className="min-h-screen flex flex-col"
-        style={{ overscrollBehaviorY: 'contain' }}
+        style={{ overscrollBehaviorY: "contain" }}
       >
         <div
           style={{
             height: pullY,
-            transition: refreshing ? 'height .25s ease' : pullY === 0 ? 'height .18s ease' : 'none',
-            background: pullY > 0 ? headerColor : 'none',
-            borderTop: pullY > 0 ? `1px solid ${headerColor}` : 'none',
+            transition: refreshing
+              ? "height .25s ease"
+              : pullY === 0
+                ? "height .18s ease"
+                : "none",
+            background: pullY > 0 ? headerColor : "none",
+            borderTop: pullY > 0 ? `1px solid ${headerColor}` : "none",
           }}
           className="flex items-end justify-center text-[11px] text-gray-100 dark:text-gray-200 select-none relative"
         >
-          <div className="absolute inset-0" style={{ background: 'transparent' }} />
+          <div
+            className="absolute inset-0"
+            style={{ background: "transparent" }}
+          />
           <div className="h-full flex items-end pb-2">
             <div className="h-10 flex items-center gap-2 font-medium px-4">
               {refreshing ? (
@@ -155,7 +189,9 @@ export default function PullToRefresh({
                   <span>Refreshing…</span>
                 </>
               ) : showCooldown ? (
-                <span className="opacity-90">Wait {(cooldownMsLeft / 1000).toFixed(1)}s</span>
+                <span className="opacity-90">
+                  Wait {(cooldownMsLeft / 1000).toFixed(1)}s
+                </span>
               ) : pullY >= activeThreshold ? (
                 <span>Release to refresh</span>
               ) : pullY > 0 ? (
@@ -164,7 +200,12 @@ export default function PullToRefresh({
             </div>
           </div>
         </div>
-        <div style={{ transform: pullY ? `translateY(${pullY / 6}px)` : undefined }} className="flex-1 flex flex-col">
+        <div
+          style={{
+            transform: pullY ? `translateY(${pullY / 6}px)` : undefined,
+          }}
+          className="flex-1 flex flex-col"
+        >
           {children}
         </div>
       </div>

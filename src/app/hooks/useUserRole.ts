@@ -1,8 +1,8 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { getBrowserClient } from '@/lib/supabase/client';
+"use client";
+import { useEffect, useState } from "react";
+import { getBrowserClient } from "@/lib/supabase/client";
 
-export type Role = 'admin' | 'scheduler' | 'viewer';
+export type Role = "admin" | "scheduler" | "viewer";
 
 /**
  * useUserRole: returns the caller's role (or null while resolving)
@@ -15,12 +15,17 @@ export default function useUserRole() {
   useEffect(() => {
     const fetchRole = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { setRole(null); return; }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          setRole(null);
+          return;
+        }
         const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
           .single();
         if (!error && data) setRole(data.role || null);
       } catch {
@@ -30,7 +35,9 @@ export default function useUserRole() {
 
     fetchRole();
     const { data: sub } = supabase.auth.onAuthStateChange(() => fetchRole());
-    return () => { sub.subscription.unsubscribe(); };
+    return () => {
+      sub.subscription.unsubscribe();
+    };
   }, [supabase]);
 
   return role;

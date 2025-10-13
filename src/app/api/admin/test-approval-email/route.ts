@@ -1,75 +1,110 @@
-import { NextResponse } from 'next/server';
-import { getServerSupabase } from '@/lib/supabase/server';
-import { Resend } from 'resend';
-import { ApprovalEmail } from '@/components/emails/ApprovalEmail';
-import { buildFromHeader, sanitizeFromRaw, buildApprovalPlainText } from '@/lib/email';
-import { rateLimit } from '@/lib/rateLimit';
+import { NextResponse } from "next/server";
+import { getServerSupabase } from "@/lib/supabase/server";
+import { Resend } from "resend";
+import { ApprovalEmail } from "@/components/emails/ApprovalEmail";
+import {
+  buildApprovalPlainText,
+  buildFromHeader,
+  sanitizeFromRaw,
+} from "@/lib/email";
+import { rateLimit } from "@/lib/rateLimit";
 
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const { supabase, commit } = await getServerSupabase();
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (!session?.user) {
-      const res = new NextResponse('Unauthorized', { status: 401 });
-      res.headers.set('Cache-Control', 'no-store');
-      commit(res); return res;
+      const res = new NextResponse("Unauthorized", { status: 401 });
+      res.headers.set("Cache-Control", "no-store");
+      commit(res);
+      return res;
     }
 
     // Ensure acting user is approved admin
     const { data: actingProfile } = await supabase
-      .from('profiles')
-      .select('role, status')
-      .eq('id', session.user.id)
+      .from("profiles")
+      .select("role, status")
+      .eq("id", session.user.id)
       .single();
-    if (!actingProfile || actingProfile.role !== 'admin' || actingProfile.status !== 'approved') {
-      const res = new NextResponse('Forbidden', { status: 403 });
-      res.headers.set('Cache-Control', 'no-store');
-      commit(res); return res;
+    if (
+      !actingProfile ||
+      actingProfile.role !== "admin" ||
+      actingProfile.status !== "approved"
+    ) {
+      const res = new NextResponse("Forbidden", { status: 403 });
+      res.headers.set("Cache-Control", "no-store");
+      commit(res);
+      return res;
     }
 
     // Rate limit per admin user
     if (rateLimit(`admin-test-approval-email:${session.user.id}`)) {
-      const res = NextResponse.json({ ok: false, error: 'Too many requests. Please try again later.' }, { status: 429, headers: { 'Cache-Control': 'no-store' } });
-      commit(res); return res;
+      const res = NextResponse.json(
+        { ok: false, error: "Too many requests. Please try again later." },
+        { status: 429, headers: { "Cache-Control": "no-store" } },
+      );
+      commit(res);
+      return res;
     }
 
     const body = await req.json().catch(() => ({}));
-    const to: string = body?.to || 'karlunsco26@gmail.com';
+    const to: string = body?.to || "karlunsco26@gmail.com";
     const name: string | undefined = body?.name;
 
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {
-      const res = NextResponse.json({ ok: false, error: 'Missing RESEND_API_KEY' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
-      commit(res); return res;
+      const res = NextResponse.json(
+        { ok: false, error: "Missing RESEND_API_KEY" },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+      commit(res);
+      return res;
     }
 
-    const baseUrl = process.env.APP_BASE_URL || 'https://www.whosoncall.app';
-    const loginUrl = `${baseUrl.replace(/\/$/, '')}/`;
-    const supportEmail = process.env.SUPPORT_EMAIL || 'support@premuss.org';
+    const baseUrl = process.env.APP_BASE_URL || "https://www.whosoncall.app";
+    const loginUrl = `${baseUrl.replace(/\/$/, "")}/`;
+    const supportEmail = process.env.SUPPORT_EMAIL || "support@premuss.org";
 
-    const rawFromEnv = process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM;
-    const rawFrom = sanitizeFromRaw(rawFromEnv) || "Who's On Call <no-reply@whosoncall.app>";
-    const from = buildFromHeader(rawFrom, "Who's On Call", process.env.NODE_ENV);
+    const rawFromEnv =
+      process.env.APPROVAL_EMAIL_FROM || process.env.RESEND_FROM;
+    const rawFrom =
+      sanitizeFromRaw(rawFromEnv) || "Who's On Call <no-reply@whosoncall.app>";
+    const from = buildFromHeader(
+      rawFrom,
+      "Who's On Call",
+      process.env.NODE_ENV,
+    );
     if (!from) {
-      const res = NextResponse.json({ ok: false, error: 'Invalid FROM address. Check APPROVAL_EMAIL_FROM/RESEND_FROM.', details: { rawFrom } }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
-      commit(res); return res;
+      const res = NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid FROM address. Check APPROVAL_EMAIL_FROM/RESEND_FROM.",
+          details: { rawFrom },
+        },
+        { status: 400, headers: { "Cache-Control": "no-store" } },
+      );
+      commit(res);
+      return res;
     }
 
     const resend = new Resend(resendApiKey);
-    const safeName = name || (to.includes('@') ? to.split('@')[0] : 'there');
-    const subject = process.env.APPROVAL_EMAIL_SUBJECT || 'Access Granted \u2705';
+    const safeName = name || (to.includes("@") ? to.split("@")[0] : "there");
+    const subject =
+      process.env.APPROVAL_EMAIL_SUBJECT || "Access Granted \u2705";
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = (await resend.emails.send({
       from,
       to,
       subject,
       react: ApprovalEmail({ name: safeName, loginUrl, baseUrl, supportEmail }),
       text: buildApprovalPlainText({ name: safeName, loginUrl, supportEmail }),
       reply_to: supportEmail,
-    }) as any;
+    })) as any;
 
     if (error) {
       const details: any = {
@@ -81,22 +116,68 @@ export async function POST(req: Request) {
         from,
         rawFrom,
       };
-      try { console.error('Resend test-approval-email failed', { from, rawFrom, to, subject, details }); } catch {}
-      try { await supabase.from('signup_errors').insert({ email: to, error_text: `approval_email_test_failed: ${error.message}`.slice(0,1000), context: { stage: 'approval_email_test', provider: 'resend', from, rawFrom, ...details } }); } catch {}
+      try {
+        console.error("Resend test-approval-email failed", {
+          from,
+          rawFrom,
+          to,
+          subject,
+          details,
+        });
+      } catch {}
+      try {
+        await supabase.from("signup_errors").insert({
+          email: to,
+          error_text: `approval_email_test_failed: ${error.message}`.slice(
+            0,
+            1000,
+          ),
+          context: {
+            stage: "approval_email_test",
+            provider: "resend",
+            from,
+            rawFrom,
+            ...details,
+          },
+        });
+      } catch {}
       const status = (error as any)?.statusCode || 500;
-      const res = NextResponse.json({ ok: false, error: error.message, details }, { status, headers: { 'Cache-Control': 'no-store' } });
-      commit(res); return res;
+      const res = NextResponse.json(
+        { ok: false, error: error.message, details },
+        { status, headers: { "Cache-Control": "no-store" } },
+      );
+      commit(res);
+      return res;
     }
 
-    try { await supabase.from('signup_errors').insert({ email: to, error_text: 'approval_email_test_sent', context: { stage: 'approval_email_test', provider: 'resend', id: data?.id || null, from } }); } catch {}
+    try {
+      await supabase.from("signup_errors").insert({
+        email: to,
+        error_text: "approval_email_test_sent",
+        context: {
+          stage: "approval_email_test",
+          provider: "resend",
+          id: data?.id || null,
+          from,
+        },
+      });
+    } catch {}
 
-    const res = NextResponse.json({ ok: true, id: data?.id || null, to, from }, { headers: { 'Cache-Control': 'no-store' } });
-    commit(res); return res;
+    const res = NextResponse.json(
+      { ok: true, id: data?.id || null, to, from },
+      { headers: { "Cache-Control": "no-store" } },
+    );
+    commit(res);
+    return res;
   } catch (e: any) {
     const { commit } = await getServerSupabase();
     const message = e?.message || String(e);
-    const res = NextResponse.json({ ok: false, error: message }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
-    commit(res); return res;
+    const res = NextResponse.json(
+      { ok: false, error: message },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
+    commit(res);
+    return res;
   }
 }
 

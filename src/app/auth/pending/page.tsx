@@ -17,8 +17,8 @@ export default function PendingApprovalPage() {
           </h1>
           <p className="text-lg md:text-xl text-gray-700 dark:text-gray-300">
             We have received your signup application. Your application will be
-            reviewed for approval within 24&nbsp;hrs. If there is no response you
-            can follow up by contacting us through email.&nbsp;
+            reviewed for approval within 24&nbsp;hrs. If there is no response
+            you can follow up by contacting us through email.&nbsp;
             <a href={mailto} className="text-blue-600 hover:underline">
               Contact us
             </a>
@@ -26,7 +26,8 @@ export default function PendingApprovalPage() {
           </p>
 
           <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
-            (Subject will be pre‑filled as “user signup who&apos;s on call follow up”)
+            (Subject will be pre‑filled as “user signup who&apos;s on call
+            follow up”)
           </div>
         </section>
       </main>

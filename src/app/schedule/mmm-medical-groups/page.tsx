@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useCallback } from 'react';
-import { getBrowserClient } from '@/lib/supabase/client';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { toast } from 'sonner';
-import Header from '@/components/Header';
-import { usePageRefresh } from '@/components/PullToRefresh';
+import { useCallback, useEffect, useState } from "react";
+import { getBrowserClient } from "@/lib/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import Header from "@/components/Header";
+import { usePageRefresh } from "@/components/PullToRefresh";
 const supabase = getBrowserClient();
 
 type MedicalGroupEntry = {
@@ -17,39 +17,53 @@ type MedicalGroupEntry = {
 
 export default function MMMGroupsTab() {
   const [groups, setGroups] = useState<MedicalGroupEntry[]>([]);
-  const [newProvider, setNewProvider] = useState({ name: '', medical_group: '' });
+  const [newProvider, setNewProvider] = useState({
+    name: "",
+    medical_group: "",
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchGroups = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('mmm_medical_groups').select('*');
-    if (error) toast.error('Error fetching groups');
+    const { data, error } = await supabase
+      .from("mmm_medical_groups")
+      .select("*");
+    if (error) toast.error("Error fetching groups");
     else setGroups(data as MedicalGroupEntry[]);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    fetchGroups();
+    const loadGroups = async () => {
+      await fetchGroups();
+    };
+    loadGroups();
   }, [fetchGroups]);
 
   usePageRefresh(null); // full reload on pull-to-refresh
 
   const handleAdd = async () => {
-    if (!newProvider.name || !newProvider.medical_group) return toast.warning('Fill all fields');
-    const { error } = await supabase.from('mmm_medical_groups').insert([newProvider]);
-    if (error) toast.error('Error adding provider');
+    if (!newProvider.name || !newProvider.medical_group)
+      return toast.warning("Fill all fields");
+    const { error } = await supabase
+      .from("mmm_medical_groups")
+      .insert([newProvider]);
+    if (error) toast.error("Error adding provider");
     else {
-      toast.success('Provider added');
-      setNewProvider({ name: '', medical_group: '' });
+      toast.success("Provider added");
+      setNewProvider({ name: "", medical_group: "" });
       fetchGroups();
     }
   };
 
   const handleDelete = async (id: number) => {
-    const { error } = await supabase.from('mmm_medical_groups').delete().eq('id', id);
-    if (error) toast.error('Error deleting provider');
+    const { error } = await supabase
+      .from("mmm_medical_groups")
+      .delete()
+      .eq("id", id);
+    if (error) toast.error("Error deleting provider");
     else {
-      toast.success('Provider deleted');
+      toast.success("Provider deleted");
       fetchGroups();
     }
   };
@@ -58,7 +72,9 @@ export default function MMMGroupsTab() {
     <>
       <Header />
       <section className="mx-auto max-w-5xl px-4 py-6">
-        <h1 className="text-2xl font-semibold mb-6 tracking-tight">MMM Medical Groups</h1>
+        <h1 className="text-2xl font-semibold mb-6 tracking-tight">
+          MMM Medical Groups
+        </h1>
         <div className="mb-6 flex flex-col md:flex-row gap-3 items-start md:items-end bg-white/70 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700 rounded-lg p-4 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:supports-[backdrop-filter]:bg-gray-900/30 shadow-sm">
           <div className="flex-1 w-full">
             <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">
@@ -81,7 +97,10 @@ export default function MMMGroupsTab() {
               placeholder="Medical Group"
               value={newProvider.medical_group}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setNewProvider({ ...newProvider, medical_group: e.target.value })
+                setNewProvider({
+                  ...newProvider,
+                  medical_group: e.target.value,
+                })
               }
               className="bg-white dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 shadow-sm"
             />
@@ -95,7 +114,9 @@ export default function MMMGroupsTab() {
         </div>
 
         {loading ? (
-          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">Loading...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse">
+            Loading...
+          </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {groups.map((item) => (
@@ -126,7 +147,9 @@ export default function MMMGroupsTab() {
         )}
 
         {!loading && groups.length === 0 && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">No providers yet.</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+            No providers yet.
+          </p>
         )}
       </section>
     </>

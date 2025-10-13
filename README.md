@@ -115,9 +115,11 @@ Tip: In local dev, Resend’s onboarding sender can only deliver to your account
 PWA manifest: `public/manifest.json` (replaces older `site.webmanifest`).
 
 Generate iOS light/dark splash screens after updating `public/brand/wordmark.png`:
+
 ```bash
 npm run pwa:splash
 ```
+
 Assets are written to `public/splash/light` and `public/splash/dark` and already referenced in `app/layout.tsx`.
 
 Add a maskable icon (optional, Android adaptive shapes): create `public/icon-512-maskable.png` and add to `icons` array in the manifest with `"purpose": "any maskable"`.
@@ -138,4 +140,3 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-

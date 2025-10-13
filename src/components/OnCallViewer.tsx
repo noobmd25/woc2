@@ -1,26 +1,34 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import toast from 'react-hot-toast';
-import LayoutShell from './LayoutShell';
-import { getBrowserClient } from '@/lib/supabase/client';
-import { usePageRefresh } from '@/components/PullToRefresh';
-import useUserRole from '@/app/hooks/useUserRole';
-import Link from 'next/link';
-import { resolveDirectorySpecialty } from '@/lib/specialtyMapping';
+import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import toast from "react-hot-toast";
+import LayoutShell from "./LayoutShell";
+import { getBrowserClient } from "@/lib/supabase/client";
+import { usePageRefresh } from "@/components/PullToRefresh";
+import useUserRole from "@/app/hooks/useUserRole";
+import Link from "next/link";
+import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
 const supabase = getBrowserClient();
 
 export default function OnCallViewer() {
-  const [specialty, setSpecialty] = useState('Internal Medicine');
-  const [plan, setPlan] = useState('');
+  const [specialty, setSpecialty] = useState("Internal Medicine");
+  const [plan, setPlan] = useState("");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [providerData, setProviderData] = useState<any | null>(null);
-  const [debugInfo, setDebugInfo] = useState<{ criteria: string; rows: number } | null>(null);
+  const [debugInfo, setDebugInfo] = useState<{
+    criteria: string;
+    rows: number;
+  } | null>(null);
 
   const role = useUserRole();
 
   const [specialties, setSpecialties] = useState<string[]>([]);
-  const [specialtyFetchMeta, setSpecialtyFetchMeta] = useState<{ error?: string; count: number; ts?: number }>({ count: 0 });
+  const [specialtyFetchMeta, setSpecialtyFetchMeta] = useState<{
+    error?: string;
+    count: number;
+    ts?: number;
+  }>({ count: 0 });
   const specialtyToastRef = useRef(false);
   const [specialtyLoading, setSpecialtyLoading] = useState(false); // loading state for refresh control
 
@@ -29,28 +37,34 @@ export default function OnCallViewer() {
     setSpecialtyLoading(true);
     try {
       const { data, error } = await supabase
-        .from('specialties')
-        .select('name, show_oncall')
-        .eq('show_oncall', true)
-        .order('name', { ascending: true });
+        .from("specialties")
+        .select("name, show_oncall")
+        .eq("show_oncall", true)
+        .order("name", { ascending: true });
 
       if (error) {
         setSpecialties([]);
-        setSpecialtyFetchMeta({ error: error.message, count: 0, ts: Date.now() });
-        toast.error('Specialties fetch failed: ' + error.message);
+        setSpecialtyFetchMeta({
+          error: error.message,
+          count: 0,
+          ts: Date.now(),
+        });
+        toast.error("Specialties fetch failed: " + error.message);
         return;
       }
-      const names = Array.isArray(data) ? data.map((s: { name: string }) => s.name) : [];
+      const names = Array.isArray(data)
+        ? data.map((s: { name: string }) => s.name)
+        : [];
       setSpecialties(names);
       setSpecialtyFetchMeta({ count: names.length, ts: Date.now() });
       if (names.length === 0 && !specialtyToastRef.current) {
         specialtyToastRef.current = true;
-        toast.error('No specialties returned (possible RLS / role issue).');
+        toast.error("No specialties returned (possible RLS / role issue).");
       }
     } finally {
       setSpecialtyLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchSpecialties();
@@ -61,9 +75,14 @@ export default function OnCallViewer() {
 
   // Toast fallback on render if still empty after first load (avoid spamming)
   useEffect(() => {
-    if (specialties.length === 0 && !specialtyFetchMeta.error && specialtyFetchMeta.ts && !specialtyToastRef.current) {
+    if (
+      specialties.length === 0 &&
+      !specialtyFetchMeta.error &&
+      specialtyFetchMeta.ts &&
+      !specialtyToastRef.current
+    ) {
       specialtyToastRef.current = true;
-      toast('Specialty list empty. Check RLS / viewer role mapping.');
+      toast("Specialty list empty. Check RLS / viewer role mapping.");
     }
   }, [specialties, specialtyFetchMeta]);
 
@@ -80,39 +99,39 @@ export default function OnCallViewer() {
 
   const toYMD = (d: Date) => {
     const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${y}-${m}-${day}`;
   };
 
-  const cleanPhone = (s: string) => String(s ?? '').replace(/[^\d+]/g, '');
+  const cleanPhone = (s: string) => String(s ?? "").replace(/[^\d+]/g, "");
   const toWhatsAppNumber = (raw: string) => {
     const c = cleanPhone(raw);
-    const digits = c.startsWith('+') ? c.slice(1).replace(/\D/g, '') : c.replace(/\D/g, '');
+    const digits = c.startsWith("+")
+      ? c.slice(1).replace(/\D/g, "")
+      : c.replace(/\D/g, "");
     return digits.length === 10 ? `1${digits}` : digits; // assume +1 if 10 digits (US/PR)
   };
-
 
   const copyPrimary = async () => {
     if (providerData?.phone_number) {
       await navigator.clipboard.writeText(providerData.phone_number);
-      toast.success('Primary phone copied');
+      toast.success("Primary phone copied");
     }
   };
 
   const copySecondary = async () => {
     if (providerData?.second_phone) {
       await navigator.clipboard.writeText(providerData.second_phone);
-      toast.success('Resident phone copied');
+      toast.success("Resident phone copied");
     }
   };
 
   const dirHref = providerData?.provider_name
     ? `/directory?provider=${encodeURIComponent(providerData.provider_name)}`
-    : '/directory';
+    : "/directory";
 
-
-  const planGateActive = specialty === 'Internal Medicine' && !plan;
+  const planGateActive = specialty === "Internal Medicine" && !plan;
 
   // Add missing navigation handlers
   const handlePrevDay = useCallback(() => {
@@ -141,69 +160,84 @@ export default function OnCallViewer() {
       const dateString = toYMD(baseDate);
 
       // If Internal Medicine requires a plan and none is selected, show guidance and skip querying
-      if (specialty === 'Internal Medicine' && !plan) {
+      if (specialty === "Internal Medicine" && !plan) {
         setProviderData(null);
-        setDebugInfo({ criteria: `specialty=${specialty}, plan=<none>, date=${dateString}`, rows: 0 });
+        setDebugInfo({
+          criteria: `specialty=${specialty}, plan=<none>, date=${dateString}`,
+          rows: 0,
+        });
         return;
       }
 
       let query = supabase
-        .from('schedules')
+        .from("schedules")
         // select all to be resilient if new columns (cover, covering_provider) are not yet migrated
-        .select('*')
-        .eq('on_call_date', dateString)
-        .eq('specialty', specialty);
+        .select("*")
+        .eq("on_call_date", dateString)
+        .eq("specialty", specialty);
 
-      if (specialty === 'Internal Medicine') {
-        query = query.eq('healthcare_plan', plan);
+      if (specialty === "Internal Medicine") {
+        query = query.eq("healthcare_plan", plan);
       } else {
-        query = query.is('healthcare_plan', null);
+        query = query.is("healthcare_plan", null);
       }
 
       const { data: scheduleData, error: scheduleError } = await query;
       if (scheduleError) {
-        toast.error('Error fetching schedule: ' + scheduleError.message);
+        toast.error("Error fetching schedule: " + scheduleError.message);
         setProviderData(null);
         return;
       }
       const rows = Array.isArray(scheduleData) ? scheduleData.length : 0;
-      setDebugInfo({ criteria: `specialty=${specialty}, plan=${specialty === 'Internal Medicine' ? (plan || '—') : 'n/a'}, date=${dateString}`, rows });
+      setDebugInfo({
+        criteria: `specialty=${specialty}, plan=${specialty === "Internal Medicine" ? plan || "—" : "n/a"}, date=${dateString}`,
+        rows,
+      });
 
       if (!scheduleData || scheduleData.length === 0) {
-        toast.error('No provider found for this selection.');
+        toast.error("No provider found for this selection.");
         setProviderData(null);
         return;
       }
       const record = scheduleData[0];
 
       const { data: directoryList } = await supabase
-        .from('directory')
-        .select('phone_number')
-        .eq('provider_name', record.provider_name);
+        .from("directory")
+        .select("phone_number")
+        .eq("provider_name", record.provider_name);
 
-      const directoryData = Array.isArray(directoryList) ? directoryList[0] : null;
+      const directoryData = Array.isArray(directoryList)
+        ? directoryList[0]
+        : null;
 
       let secondPhone = null;
       let secondSource: string | null = null;
       if (record.show_second_phone) {
-        const pref = (record.second_phone_pref as 'auto' | 'pa' | 'residency') ?? 'auto';
+        const pref =
+          (record.second_phone_pref as "auto" | "pa" | "residency") ?? "auto";
         const baseSpec = resolveDirectorySpecialty(specialty);
         const lookupOrder =
-          pref === 'pa'
+          pref === "pa"
             ? [`${baseSpec} PA Phone`]
-            : pref === 'residency'
+            : pref === "residency"
               ? [`${baseSpec} Residency`]
               : [`${baseSpec} PA Phone`, `${baseSpec} Residency`];
 
         const { data: secondPhoneList } = await supabase
-          .from('directory')
-          .select('provider_name, phone_number')
-          .in('provider_name', lookupOrder);
+          .from("directory")
+          .select("provider_name, phone_number")
+          .in("provider_name", lookupOrder);
 
         if (Array.isArray(secondPhoneList) && secondPhoneList.length > 0) {
           const foundByOrder = lookupOrder
-            .map(name => secondPhoneList.find(r => r.provider_name === name && r.phone_number))
-            .find(Boolean) as { provider_name: string; phone_number: string } | undefined;
+            .map((name) =>
+              secondPhoneList.find(
+                (r) => r.provider_name === name && r.phone_number,
+              ),
+            )
+            .find(Boolean) as
+            | { provider_name: string; phone_number: string }
+            | undefined;
 
           if (foundByOrder) {
             secondPhone = foundByOrder.phone_number;
@@ -218,9 +252,9 @@ export default function OnCallViewer() {
       if (record?.cover && record?.covering_provider) {
         coverProviderName = record.covering_provider as string;
         const { data: coverDir } = await supabase
-          .from('directory')
-          .select('phone_number')
-          .eq('provider_name', coverProviderName);
+          .from("directory")
+          .select("phone_number")
+          .eq("provider_name", coverProviderName);
         const coverDirRow = Array.isArray(coverDir) ? coverDir[0] : null;
         coverPhone = coverDirRow?.phone_number ?? null;
       }
@@ -236,13 +270,13 @@ export default function OnCallViewer() {
     };
 
     fetchSchedule();
-  }, [specialty, plan, currentDate, supabase]);
+  }, [specialty, plan, currentDate]);
 
   const secondPhoneLabel = (() => {
-    const s = providerData?._second_phone_source || '';
-    if (/PA/i.test(s)) return 'PA';
-    if (/Residency/i.test(s)) return 'Resident';
-    return 'Resident/PA';
+    const s = providerData?._second_phone_source || "";
+    if (/PA/i.test(s)) return "PA";
+    if (/Residency/i.test(s)) return "Resident";
+    return "Resident/PA";
   })();
 
   return (
@@ -250,12 +284,12 @@ export default function OnCallViewer() {
       <div className="app-container px-4 py-6 max-w-[400px] mx-auto bg-gray-100 dark:bg-black">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold">On Call List</h2>
-          {role === 'admin' && (
+          {role === "admin" && (
             <span className="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
               Admin
             </span>
           )}
-          {role === 'scheduler' && (
+          {role === "scheduler" && (
             <span className="inline-flex items-center rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200">
               Scheduler
             </span>
@@ -268,7 +302,11 @@ export default function OnCallViewer() {
             <div className="flex items-center gap-2 text-[10px] sm:text-xs">
               {specialtyFetchMeta.ts && !specialtyLoading && (
                 <span className="text-gray-500 dark:text-gray-400 hidden sm:inline">
-                  Updated {new Date(specialtyFetchMeta.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  Updated{" "}
+                  {new Date(specialtyFetchMeta.ts).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </span>
               )}
               <button
@@ -277,7 +315,7 @@ export default function OnCallViewer() {
                 className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Refresh specialties"
               >
-                {specialtyLoading ? '...' : 'Refresh'}
+                {specialtyLoading ? "..." : "Refresh"}
               </button>
             </div>
           </div>
@@ -285,7 +323,7 @@ export default function OnCallViewer() {
             <div className="mb-2 p-2 text-xs rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
               {specialtyFetchMeta.error
                 ? `Error loading specialties: ${specialtyFetchMeta.error}`
-                : 'No specialties available. Viewer role may lack RLS select permission.'}
+                : "No specialties available. Viewer role may lack RLS select permission."}
               <div className="mt-1 flex gap-2">
                 <button
                   onClick={fetchSpecialties}
@@ -293,10 +331,12 @@ export default function OnCallViewer() {
                 >
                   Retry
                 </button>
-                {role === 'admin' && (
+                {role === "admin" && (
                   <button
                     onClick={() => {
-                      toast(JSON.stringify({ meta: specialtyFetchMeta }, null, 2));
+                      toast(
+                        JSON.stringify({ meta: specialtyFetchMeta }, null, 2),
+                      );
                     }}
                     className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 text-xs hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
@@ -311,7 +351,7 @@ export default function OnCallViewer() {
             onChange={(e) => {
               const newSpecialty = e.target.value;
               setSpecialty(newSpecialty);
-              if (newSpecialty !== 'Internal Medicine') setPlan('');
+              if (newSpecialty !== "Internal Medicine") setPlan("");
             }}
             className="w-full p-2 border border-gray-300 rounded"
             disabled={specialties.length === 0}
@@ -325,7 +365,7 @@ export default function OnCallViewer() {
           </select>
         </div>
 
-        {specialty === 'Internal Medicine' && (
+        {specialty === "Internal Medicine" && (
           <div className="mb-4">
             <label className="block mb-1">Select Healthcare Plan:</label>
             <select
@@ -333,9 +373,24 @@ export default function OnCallViewer() {
               onChange={(e) => setPlan(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded"
             >
-              <option value="" disabled>Select Healthcare Plan</option>
-              {['Triple S Advantage/Unattached','Vital','405/M88','PAMG','REMAS','SMA','CSE','In Salud','IPA B','MCS'].map((p) => (
-                <option key={p} value={p}>{p}</option>
+              <option value="" disabled>
+                Select Healthcare Plan
+              </option>
+              {[
+                "Triple S Advantage/Unattached",
+                "Vital",
+                "405/M88",
+                "PAMG",
+                "REMAS",
+                "SMA",
+                "CSE",
+                "In Salud",
+                "IPA B",
+                "MCS",
+              ].map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
               ))}
             </select>
             <div className="mt-2 flex gap-2 justify-end">
@@ -361,23 +416,47 @@ export default function OnCallViewer() {
         )}
 
         <div className="flex items-center justify-center gap-4 mb-4">
-          <button onClick={handlePrevDay} className="px-3 py-1 bg-blue-500 text-white rounded">&lt;</button>
+          <button
+            onClick={handlePrevDay}
+            className="px-3 py-1 bg-blue-500 text-white rounded"
+          >
+            &lt;
+          </button>
           <div>
-            {(() => { const d = effectiveOnCallDate(currentDate); return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); })()}
-            <div className="text-[11px] text-gray-500 dark:text-gray-400">7:00am – 6:59am window</div>
+            {(() => {
+              const d = effectiveOnCallDate(currentDate);
+              return d.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              });
+            })()}
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">
+              7:00am – 6:59am window
+            </div>
           </div>
-          <button onClick={handleNextDay} className="px-3 py-1 bg-blue-500 text-white rounded">&gt;</button>
+          <button
+            onClick={handleNextDay}
+            className="px-3 py-1 bg-blue-500 text-white rounded"
+          >
+            &gt;
+          </button>
         </div>
         <div className="text-center mb-4">
-          <button onClick={handleToday} className="px-4 py-2 bg-gray-700 text-white rounded">Today</button>
+          <button
+            onClick={handleToday}
+            className="px-4 py-2 bg-gray-700 text-white rounded"
+          >
+            Today
+          </button>
         </div>
 
         {/* Schedule / Provider block with interaction gate */}
-        <div className={`relative ${planGateActive ? 'opacity-60' : ''}`}>
+        <div className={`relative ${planGateActive ? "opacity-60" : ""}`}>
           {planGateActive && (
             <div
               className="absolute inset-0 flex items-center justify-center bg-transparent cursor-not-allowed"
-              onClick={() => toast.error('Select a healthcare plan first.')}
+              onClick={() => toast.error("Select a healthcare plan first.")}
             >
               <span className="text-xs text-gray-600 dark:text-gray-300 bg-white/70 dark:bg-gray-800/70 px-2 py-1 rounded">
                 Plan required
@@ -387,7 +466,9 @@ export default function OnCallViewer() {
           <div id="schedule-container" className="mt-6 pointer-events-auto">
             {providerData ? (
               <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center border border-gray-200 dark:border-gray-700">
-                <h3 className="text-2xl font-bold">Dr. {providerData.provider_name}</h3>
+                <h3 className="text-2xl font-bold">
+                  Dr. {providerData.provider_name}
+                </h3>
                 {providerData.healthcare_plan && (
                   <p className="text-sm text-gray-600 dark:text-gray-300">
                     Plan: {providerData.healthcare_plan}
@@ -395,13 +476,35 @@ export default function OnCallViewer() {
                 )}
                 {providerData.phone_number && (
                   <div className="mt-2 space-y-1">
-                    <p className="text-2xl font-semibold text-black dark:text-white">Phone: {providerData.phone_number}</p>
+                    <p className="text-2xl font-semibold text-black dark:text-white">
+                      Phone: {providerData.phone_number}
+                    </p>
                     <div className="flex justify-center gap-4 mt-2">
-                      <a href={`tel:${cleanPhone(providerData.phone_number)}`} title="Call" className="text-blue-500 hover:text-blue-700">
-                        <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
+                      <a
+                        href={`tel:${cleanPhone(providerData.phone_number)}`}
+                        title="Call"
+                        className="text-blue-500 hover:text-blue-700"
+                      >
+                        <Image
+                          src="/icons/phone.svg"
+                          alt="Call"
+                          width={40}
+                          height={40}
+                          className="w-10 h-10"
+                        />
                       </a>
-                      <a href={`sms:${cleanPhone(providerData.phone_number)}`} title="Text" className="text-green-500 hover:text-green-700">
-                        <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
+                      <a
+                        href={`sms:${cleanPhone(providerData.phone_number)}`}
+                        title="Text"
+                        className="text-green-500 hover:text-green-700"
+                      >
+                        <Image
+                          src="/icons/imessage.svg"
+                          alt="iMessage"
+                          width={40}
+                          height={40}
+                          className="w-10 h-10"
+                        />
                       </a>
                       <a
                         href={`https://wa.me/${toWhatsAppNumber(providerData.phone_number)}`}
@@ -410,46 +513,79 @@ export default function OnCallViewer() {
                         title="WhatsApp"
                         className="text-green-600 hover:text-green-800"
                       >
-                        <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
+                        <Image
+                          src="/icons/whatsapp.svg"
+                          alt="WhatsApp"
+                          width={40}
+                          height={40}
+                          className="w-10 h-10"
+                        />
                       </a>
                     </div>
                   </div>
                 )}
-                {providerData.show_second_phone && providerData.second_phone && (
-                  <div className="mt-4 space-y-1">
-                    <p className="text-2xl font-semibold text-black dark:text-white">
-                      {secondPhoneLabel}: {providerData.second_phone}
-                    </p>
-                    {providerData._second_phone_source && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        ({providerData._second_phone_source})
+                {providerData.show_second_phone &&
+                  providerData.second_phone && (
+                    <div className="mt-4 space-y-1">
+                      <p className="text-2xl font-semibold text-black dark:text-white">
+                        {secondPhoneLabel}: {providerData.second_phone}
                       </p>
-                    )}
-                    <div className="flex justify-center gap-4 mt-2">
-                      <a href={`tel:${cleanPhone(providerData.second_phone)}`} title="Call" className="text-blue-500 hover:text-blue-700">
-                        <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
-                      </a>
-                      <a href={`sms:${cleanPhone(providerData.second_phone)}`} title="Text" className="text-green-500 hover:text-green-700">
-                        <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
-                      </a>
-                      <a
-                        href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="WhatsApp"
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
-                      </a>
+                      {providerData._second_phone_source && (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          ({providerData._second_phone_source})
+                        </p>
+                      )}
+                      <div className="flex justify-center gap-4 mt-2">
+                        <a
+                          href={`tel:${cleanPhone(providerData.second_phone)}`}
+                          title="Call"
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <Image
+                            src="/icons/phone.svg"
+                            alt="Call"
+                            width={40}
+                            height={40}
+                            className="w-10 h-10"
+                          />
+                        </a>
+                        <a
+                          href={`sms:${cleanPhone(providerData.second_phone)}`}
+                          title="Text"
+                          className="text-green-500 hover:text-green-700"
+                        >
+                          <Image
+                            src="/icons/imessage.svg"
+                            alt="iMessage"
+                            width={40}
+                            height={40}
+                            className="w-10 h-10"
+                          />
+                        </a>
+                        <a
+                          href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="WhatsApp"
+                          className="text-green-600 hover:text-green-800"
+                        >
+                          <Image
+                            src="/icons/whatsapp.svg"
+                            alt="WhatsApp"
+                            width={40}
+                            height={40}
+                            className="w-10 h-10"
+                          />
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
             ) : (
               <p className="text-center text-gray-500">
-                {specialty === 'Internal Medicine' && !plan
-                  ? 'Please select a healthcare plan.'
-                  : 'No provider found for this selection.'}
+                {specialty === "Internal Medicine" && !plan
+                  ? "Please select a healthcare plan."
+                  : "No provider found for this selection."}
               </p>
             )}
           </div>
@@ -458,21 +594,47 @@ export default function OnCallViewer() {
         {/* Cover physician section */}
         {providerData?.cover && providerData?.cover_provider_name && (
           <div className="mt-4 bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
-            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Call cover physician</h4>
+            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
+              Call cover physician
+            </h4>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-base font-semibold">Dr. {providerData.cover_provider_name}</p>
+                <p className="text-base font-semibold">
+                  Dr. {providerData.cover_provider_name}
+                </p>
                 {!providerData.cover_phone && (
-                  <p className="text-xs text-gray-500">No phone found in directory</p>
+                  <p className="text-xs text-gray-500">
+                    No phone found in directory
+                  </p>
                 )}
               </div>
               {providerData.cover_phone && (
                 <div className="flex space-x-8">
-                  <a href={`tel:${cleanPhone(providerData.cover_phone)}`} title="Call" className="text-blue-500 hover:text-blue-700">
-                    <img src="/icons/phone.svg" alt="Call" className="w-10 h-10" />
+                  <a
+                    href={`tel:${cleanPhone(providerData.cover_phone)}`}
+                    title="Call"
+                    className="text-blue-500 hover:text-blue-700"
+                  >
+                    <Image
+                      src="/icons/phone.svg"
+                      alt="Call"
+                      width={40}
+                      height={40}
+                      className="w-10 h-10"
+                    />
                   </a>
-                  <a href={`sms:${cleanPhone(providerData.cover_phone)}`} title="Text" className="text-green-500 hover:text-green-700">
-                    <img src="/icons/imessage.svg" alt="iMessage" className="w-10 h-10" />
+                  <a
+                    href={`sms:${cleanPhone(providerData.cover_phone)}`}
+                    title="Text"
+                    className="text-green-500 hover:text-green-700"
+                  >
+                    <Image
+                      src="/icons/imessage.svg"
+                      alt="iMessage"
+                      width={40}
+                      height={40}
+                      className="w-10 h-10"
+                    />
                   </a>
                   <a
                     href={`https://wa.me/${toWhatsAppNumber(providerData.cover_phone)}`}
@@ -481,7 +643,13 @@ export default function OnCallViewer() {
                     title="WhatsApp"
                     className="text-green-600 hover:text-green-800"
                   >
-                    <img src="/icons/whatsapp.svg" alt="WhatsApp" className="w-10 h-10" />
+                    <Image
+                      src="/icons/whatsapp.svg"
+                      alt="WhatsApp"
+                      width={40}
+                      height={40}
+                      className="w-10 h-10"
+                    />
                   </a>
                 </div>
               )}
@@ -489,18 +657,24 @@ export default function OnCallViewer() {
           </div>
         )}
 
-        {(role === 'admin' || role === 'scheduler') && debugInfo && (
+        {(role === "admin" || role === "scheduler") && debugInfo && (
           <div className="mt-3 text-xs text-gray-600 dark:text-gray-300">
-            <div>Query: <code className="font-mono">{debugInfo.criteria}</code></div>
-            <div>Schedule rows: <strong>{debugInfo.rows}</strong></div>
+            <div>
+              Query: <code className="font-mono">{debugInfo.criteria}</code>
+            </div>
+            <div>
+              Schedule rows: <strong>{debugInfo.rows}</strong>
+            </div>
           </div>
         )}
 
-        {role === 'admin' && (
+        {role === "admin" && (
           <div className="mt-6 bg-white dark:bg-gray-800 p-4 rounded border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Admin Tools</h3>
-              <span className="text-xs text-gray-500">Only visible to admins</span>
+              <span className="text-xs text-gray-500">
+                Only visible to admins
+              </span>
             </div>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
@@ -541,11 +715,13 @@ export default function OnCallViewer() {
             </p>
           </div>
         )}
-        {role === 'scheduler' && (
+        {role === "scheduler" && (
           <div className="mt-6 bg-white dark:bg-gray-800 p-4 rounded border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Scheduler Tools</h3>
-              <span className="text-xs text-gray-500">Only visible to schedulers</span>
+              <span className="text-xs text-gray-500">
+                Only visible to schedulers
+              </span>
             </div>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
