@@ -1,10 +1,17 @@
+import { FlatCompat } from "@eslint/eslintrc";
+import js from "@eslint/js";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
 import prettierPlugin from "eslint-plugin-prettier";
 import prettierConfig from "eslint-config-prettier";
-import nextPlugin from "@next/eslint-plugin-next";
 
-// Flat ESLint config (ESLint v9) manually wiring Next.js plugin to avoid rushstack patch issue.
+const compat = new FlatCompat({
+  // import.meta.dirname is available after Node.js v20.11.0
+  baseDirectory: import.meta.dirname,
+  recommendedConfig: js.configs.recommended,
+});
+
+// ESLint flat config with Next.js using FlatCompat
 export default [
   // Global ignores - these apply to all configs
   {
@@ -24,6 +31,11 @@ export default [
       "public/**/*",
     ],
   },
+  // Next.js configuration
+  ...compat.config({
+    extends: ["next/core-web-vitals", "prettier"],
+  }),
+  // TypeScript and Prettier configuration
   {
     files: ["**/*.{js,mjs,cjs,jsx,ts,tsx}"],
     languageOptions: {
@@ -35,19 +47,14 @@ export default [
       },
     },
     plugins: {
-      "@next/next": nextPlugin,
       "@typescript-eslint": tseslint,
       prettier: prettierPlugin,
     },
-    settings: {
-      next: { rootDir: ["."] },
-    },
     rules: {
-      ...nextPlugin.configs["core-web-vitals"].rules,
+      // TypeScript rules
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/explicit-module-boundary-types": "off",
       "@typescript-eslint/ban-ts-comment": "off",
-      "prefer-const": "warn",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -56,10 +63,13 @@ export default [
           caughtErrors: "none",
         },
       ],
-      "react/no-unescaped-entities": "off",
       "@typescript-eslint/no-empty-object-type": "off",
+      // General rules
+      "prefer-const": "warn",
+      "react/no-unescaped-entities": "off",
       "sort-imports": ["warn", { ignoreDeclarationSort: true }], // organize imports
       quotes: ["warn", "double"], // enforce double quotes
+      // Prettier integration
       ...prettierConfig.rules,
       "prettier/prettier": ["warn", { singleQuote: false }], // Prettier: double quotes
     },

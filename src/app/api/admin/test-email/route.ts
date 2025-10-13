@@ -88,7 +88,8 @@ export async function POST(req: Request) {
     }
 
     const resend = new Resend(resendApiKey);
-    const html = `<p>This is a test email from <strong>Who's On Call</strong>. If you received this, the Resend pipeline is working.</p>`;
+    const html =
+      "<p>This is a test email from <strong>Who's On Call</strong>. If you received this, the Resend pipeline is working.</p>";
     const text =
       "This is a test email from Who's On Call. If you received this, the Resend pipeline is working.";
 

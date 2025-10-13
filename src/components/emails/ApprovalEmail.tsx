@@ -3,7 +3,8 @@
 // This component purposefully avoids external dependencies.
 
 import * as React from "react";
-
+import Image from "next/image";
+import Head from "next/head";
 export interface ApprovalEmailProps {
   name: string;
   loginUrl: string;
@@ -23,11 +24,11 @@ export function ApprovalEmail({
   const support = supportEmail || "support@premuss.org";
   return (
     <html lang="en">
-      <head>
+      <Head>
         <meta charSet="UTF-8" />
         <title>Access Granted</title>
         <meta name="viewport" content="width=device-width,initial-scale=1" />
-      </head>
+      </Head>
       <body style={bodyStyle}>
         <div style={containerStyle}>
           <div style={heroStyle}>
@@ -37,10 +38,12 @@ export function ApprovalEmail({
               rel="noopener noreferrer"
               style={{ display: "inline-block" }}
             >
-              <img
+              <Image
                 src={logoUrl}
                 alt="Who's On Call Logo"
-                style={{ maxWidth: 160, height: "auto" }}
+                width={160}
+                height={40}
+                className="w-full h-auto"
               />
             </a>
           </div>

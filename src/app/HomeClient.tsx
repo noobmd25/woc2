@@ -11,28 +11,31 @@ import { usePageRefresh } from "@/components/PullToRefresh";
 export default function HomeClient() {
   const supabase = getBrowserClient();
   const router = useRouter();
-  const [showLogin, setShowLogin] = useState(false);
+  const search = useSearchParams();
+
+  // Initialize showLogin based on localStorage and search params
+  const [showLogin, setShowLogin] = useState(() => {
+    if (typeof window === "undefined") return false;
+
+    const fromLocalStorage = localStorage.getItem("openSignInModal") === "true";
+    if (fromLocalStorage) {
+      localStorage.removeItem("openSignInModal");
+      return true;
+    }
+
+    return search?.get("showSignIn") === "true";
+  });
+
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [position, setPosition] = useState<"Resident" | "Attending" | "">("");
   const [pgyYear, setPgyYear] = useState<string>("1");
-  const search = useSearchParams();
   const [showPasswordFields, setShowPasswordFields] = useState(false);
 
-  useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      localStorage.getItem("openSignInModal") === "true"
-    ) {
-      localStorage.removeItem("openSignInModal");
-      setShowLogin(true);
-    }
-  }, []);
-
+  // Clean up URL when showSignIn param is present
   useEffect(() => {
     if (search?.get("showSignIn") === "true") {
-      setShowLogin(true);
       if (typeof window !== "undefined") {
         const url = new URL(window.location.href);
         url.searchParams.delete("showSignIn");

@@ -1,6 +1,5 @@
 "use client";
-
-import * as React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
 const supabase = getBrowserClient();
 
@@ -22,20 +21,31 @@ type RoleRequest = {
 };
 
 export default function AccessRequests() {
-  const [rows, setRows] = React.useState<RoleRequest[] | null>(null);
-  const [loading, setLoading] = React.useState<boolean>(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [actingId, setActingId] = React.useState<string | null>(null);
-  const [backfilling, setBackfilling] = React.useState<boolean>(false);
-  const [missingCount, setMissingCount] = React.useState<number>(0);
-  const [profilesById, setProfilesById] = React.useState<
+  const [rows, setRows] = useState<RoleRequest[] | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actingId, setActingId] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState<boolean>(false);
+  const [missingCount, setMissingCount] = useState<number>(0);
+  const [profilesById, setProfilesById] = useState<
     Record<string, { full_name: string | null }>
   >({});
 
-  const pendingRequestsCount = React.useMemo(() => (rows ?? []).length, [rows]);
-
+  const pendingRequestsCount = useMemo(() => (rows ?? []).length, [rows]);
+  // --- New: simple toast notifications ---
+  type Toast = { id: string; message: string; kind?: "info" | "error" };
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const addToast = useCallback(
+    (message: string, kind: Toast["kind"] = "info", ttl = 6000) => {
+      const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
+      const t = { id, message, kind } as Toast;
+      setToasts((s) => [t, ...s]);
+      setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), ttl);
+    },
+    [],
+  );
   // Debug: log client session/profile on mount to help diagnose missing auth
-  React.useEffect(() => {
+  useEffect(() => {
     let mounted = true;
     (async () => {
       try {
@@ -52,12 +62,12 @@ export default function AccessRequests() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [addToast]);
 
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [editRole, setEditRole] = React.useState<
-    "viewer" | "scheduler" | "admin"
-  >("viewer");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editRole, setEditRole] = useState<"viewer" | "scheduler" | "admin">(
+    "viewer",
+  );
 
   // --- New: current users management state ---
   type ProfileRow = {
@@ -70,35 +80,35 @@ export default function AccessRequests() {
     updated_at?: string | null;
   };
 
-  const [users, setUsers] = React.useState<ProfileRow[] | null>(null);
-  const [usersLoading, setUsersLoading] = React.useState<boolean>(true);
-  const [userActingId, setUserActingId] = React.useState<string | null>(null);
-  const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
-  const [editingUserRole, setEditingUserRole] = React.useState<
+  const [users, setUsers] = useState<ProfileRow[] | null>(null);
+  const [usersLoading, setUsersLoading] = useState<boolean>(true);
+  const [userActingId, setUserActingId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingUserRole, setEditingUserRole] = useState<
     "viewer" | "scheduler" | "admin"
   >("viewer");
 
   // --- New: pagination / search / sorting state ---
-  const [page, setPage] = React.useState<number>(1);
-  const [pageSize, setPageSize] = React.useState<number>(20);
-  const [totalUsers, setTotalUsers] = React.useState<number | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
   const totalPages = totalUsers
     ? Math.max(1, Math.ceil(totalUsers / pageSize))
     : 1;
 
-  const [searchQ, setSearchQ] = React.useState<string>("");
-  const [debouncedSearchQ, setDebouncedSearchQ] = React.useState<string>("");
-  const [sortBy, setSortBy] = React.useState<
+  const [searchQ, setSearchQ] = useState<string>("");
+  const [debouncedSearchQ, setDebouncedSearchQ] = useState<string>("");
+  const [sortBy, setSortBy] = useState<
     "full_name" | "email" | "role" | "created_at"
   >("full_name");
-  const [sortDir, setSortDir] = React.useState<"asc" | "desc">("asc");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Cursor pagination state (server returns nextCursor). Keep a cursor history to enable Prev navigation.
-  const [cursors, setCursors] = React.useState<(string | null)[]>([null]); // index 0 = page 1
-  const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+  const [cursors, setCursors] = useState<(string | null)[]>([null]); // index 0 = page 1
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
 
   // Helper: toggle sorting for column
-  const handleSort = React.useCallback(
+  const handleSort = useCallback(
     (col: "full_name" | "email" | "role" | "created_at") => {
       setSortBy((prevCol) => {
         if (prevCol === col) {
@@ -114,21 +124,8 @@ export default function AccessRequests() {
     [],
   );
 
-  // --- New: simple toast notifications ---
-  type Toast = { id: string; message: string; kind?: "info" | "error" };
-  const [toasts, setToasts] = React.useState<Toast[]>([]);
-  const addToast = React.useCallback(
-    (message: string, kind: Toast["kind"] = "info", ttl = 6000) => {
-      const id = String(Date.now()) + Math.random().toString(36).slice(2, 8);
-      const t = { id, message, kind } as Toast;
-      setToasts((s) => [t, ...s]);
-      setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), ttl);
-    },
-    [],
-  );
-
   // ensure current user is an approved admin (client-side guard)
-  const ensureAdminOrThrow = React.useCallback(async () => {
+  const ensureAdminOrThrow = useCallback(async () => {
     try {
       const { data: userRes } = await supabase.auth.getUser();
       const userId = userRes?.user?.id;
@@ -151,7 +148,7 @@ export default function AccessRequests() {
     }
   }, []);
 
-  const computeMissingCount = React.useCallback(async () => {
+  const computeMissingCount = useCallback(async () => {
     // Try server-side counter first (security definer). If it doesn't exist, fall back to client calc.
     try {
       const { data, error } = await supabase.rpc("count_missing_role_requests");
@@ -180,72 +177,7 @@ export default function AccessRequests() {
     }
   }, []);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    // 1) Load pending role requests (source of truth for approvals)
-    const { data, error } = await supabase
-      .from("role_requests")
-      .select("*")
-      .eq("status", "pending")
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      setError(error.message);
-      setRows([]);
-    } else {
-      setRows((data ?? []) as RoleRequest[]);
-      // Fetch profile names for the listed requests (best-effort; ignore errors)
-      const list = (data ?? []) as RoleRequest[];
-      const ids = Array.from(
-        new Set(
-          list.map((r) => r.user_id).filter((v): v is string => Boolean(v)),
-        ),
-      );
-      if (ids.length > 0) {
-        const { data: profs } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .in("id", ids);
-        if (profs && Array.isArray(profs)) {
-          const map: Record<string, { full_name: string | null }> = {};
-          for (const p of profs) {
-            if (p && p.id)
-              map[p.id] = { full_name: (p as any).full_name ?? null };
-          }
-          setProfilesById(map);
-        } else {
-          setProfilesById({});
-        }
-      } else {
-        setProfilesById({});
-      }
-    }
-
-    // 2) Compute how many pending profiles lack a pending role_request (for backfill notification)
-    await computeMissingCount();
-
-    setLoading(false);
-
-    // Also refresh the users list so admin sees current state after loading requests
-    setPage(1);
-    setCursors([null]);
-    await loadUsers({
-      page: 1,
-      search: debouncedSearchQ,
-      sortBy,
-      sortDir,
-      cursor: null,
-    });
-  }, [computeMissingCount]);
-
-  React.useEffect(() => {
-    load();
-  }, [load]);
-
-  // --- New: load current users/profiles ---
-  const loadUsers = React.useCallback(
+  const loadUsers = useCallback(
     async ({
       page: p = 1,
       search = "",
@@ -332,8 +264,71 @@ export default function AccessRequests() {
     },
     [pageSize, sortBy, sortDir, ensureAdminOrThrow, addToast],
   );
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-  React.useEffect(() => {
+    // 1) Load pending role requests (source of truth for approvals)
+    const { data, error } = await supabase
+      .from("role_requests")
+      .select("*")
+      .eq("status", "pending")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      setError(error.message);
+      setRows([]);
+    } else {
+      setRows((data ?? []) as RoleRequest[]);
+      // Fetch profile names for the listed requests (best-effort; ignore errors)
+      const list = (data ?? []) as RoleRequest[];
+      const ids = Array.from(
+        new Set(
+          list.map((r) => r.user_id).filter((v): v is string => Boolean(v)),
+        ),
+      );
+      if (ids.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", ids);
+        if (profs && Array.isArray(profs)) {
+          const map: Record<string, { full_name: string | null }> = {};
+          for (const p of profs) {
+            if (p && p.id)
+              map[p.id] = { full_name: (p as any).full_name ?? null };
+          }
+          setProfilesById(map);
+        } else {
+          setProfilesById({});
+        }
+      } else {
+        setProfilesById({});
+      }
+    }
+
+    // 2) Compute how many pending profiles lack a pending role_request (for backfill notification)
+    await computeMissingCount();
+
+    setLoading(false);
+
+    // Also refresh the users list so admin sees current state after loading requests
+    setPage(1);
+    setCursors([null]);
+    await loadUsers({
+      page: 1,
+      search: debouncedSearchQ,
+      sortBy,
+      sortDir,
+      cursor: null,
+    });
+  }, [computeMissingCount, debouncedSearchQ, loadUsers, sortBy, sortDir]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(() => {
     // when search or sort changes, reset page and cursor history
     setPage(1);
     setCursors([null]);
@@ -346,10 +341,10 @@ export default function AccessRequests() {
     });
   }, [debouncedSearchQ, sortBy, sortDir, loadUsers]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const cur = cursors[page - 1] ?? null;
     loadUsers({ page, search: debouncedSearchQ, sortBy, sortDir, cursor: cur });
-  }, [page]);
+  }, [page, cursors, debouncedSearchQ, loadUsers, sortBy, sortDir]);
 
   // --- New: update a user's role in profiles table ---
   const beginEditUser = (u: ProfileRow) => {

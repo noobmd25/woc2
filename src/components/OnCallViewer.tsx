@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import toast from "react-hot-toast";
 import LayoutShell from "./LayoutShell";
 import { getBrowserClient } from "@/lib/supabase/client";
@@ -63,7 +64,7 @@ export default function OnCallViewer() {
     } finally {
       setSpecialtyLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     fetchSpecialties();
@@ -269,7 +270,7 @@ export default function OnCallViewer() {
     };
 
     fetchSchedule();
-  }, [specialty, plan, currentDate, supabase]);
+  }, [specialty, plan, currentDate]);
 
   const secondPhoneLabel = (() => {
     const s = providerData?._second_phone_source || "";
@@ -484,9 +485,11 @@ export default function OnCallViewer() {
                         title="Call"
                         className="text-blue-500 hover:text-blue-700"
                       >
-                        <img
+                        <Image
                           src="/icons/phone.svg"
                           alt="Call"
+                          width={40}
+                          height={40}
                           className="w-10 h-10"
                         />
                       </a>
@@ -495,9 +498,11 @@ export default function OnCallViewer() {
                         title="Text"
                         className="text-green-500 hover:text-green-700"
                       >
-                        <img
+                        <Image
                           src="/icons/imessage.svg"
                           alt="iMessage"
+                          width={40}
+                          height={40}
                           className="w-10 h-10"
                         />
                       </a>
@@ -508,9 +513,11 @@ export default function OnCallViewer() {
                         title="WhatsApp"
                         className="text-green-600 hover:text-green-800"
                       >
-                        <img
+                        <Image
                           src="/icons/whatsapp.svg"
                           alt="WhatsApp"
+                          width={40}
+                          height={40}
                           className="w-10 h-10"
                         />
                       </a>
@@ -534,9 +541,11 @@ export default function OnCallViewer() {
                           title="Call"
                           className="text-blue-500 hover:text-blue-700"
                         >
-                          <img
+                          <Image
                             src="/icons/phone.svg"
                             alt="Call"
+                            width={40}
+                            height={40}
                             className="w-10 h-10"
                           />
                         </a>
@@ -545,9 +554,11 @@ export default function OnCallViewer() {
                           title="Text"
                           className="text-green-500 hover:text-green-700"
                         >
-                          <img
+                          <Image
                             src="/icons/imessage.svg"
                             alt="iMessage"
+                            width={40}
+                            height={40}
                             className="w-10 h-10"
                           />
                         </a>
@@ -558,9 +569,11 @@ export default function OnCallViewer() {
                           title="WhatsApp"
                           className="text-green-600 hover:text-green-800"
                         >
-                          <img
+                          <Image
                             src="/icons/whatsapp.svg"
                             alt="WhatsApp"
+                            width={40}
+                            height={40}
                             className="w-10 h-10"
                           />
                         </a>
@@ -602,9 +615,11 @@ export default function OnCallViewer() {
                     title="Call"
                     className="text-blue-500 hover:text-blue-700"
                   >
-                    <img
+                    <Image
                       src="/icons/phone.svg"
                       alt="Call"
+                      width={40}
+                      height={40}
                       className="w-10 h-10"
                     />
                   </a>
@@ -613,9 +628,11 @@ export default function OnCallViewer() {
                     title="Text"
                     className="text-green-500 hover:text-green-700"
                   >
-                    <img
+                    <Image
                       src="/icons/imessage.svg"
                       alt="iMessage"
+                      width={40}
+                      height={40}
                       className="w-10 h-10"
                     />
                   </a>
@@ -626,9 +643,11 @@ export default function OnCallViewer() {
                     title="WhatsApp"
                     className="text-green-600 hover:text-green-800"
                   >
-                    <img
+                    <Image
                       src="/icons/whatsapp.svg"
                       alt="WhatsApp"
+                      width={40}
+                      height={40}
                       className="w-10 h-10"
                     />
                   </a>

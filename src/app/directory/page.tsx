@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
 import useUserRole from "@/app/hooks/useUserRole";
@@ -23,7 +23,7 @@ export default function DirectoryPage() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [search, setSearch] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("");
-  const [filtered, setFiltered] = useState<Provider[]>([]);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newSpecialty, setNewSpecialty] = useState("");
@@ -157,25 +157,25 @@ export default function DirectoryPage() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchProviders();
-    fetchSpecialties();
+    const loadData = async () => {
+      await Promise.all([fetchProviders(), fetchSpecialties()]);
+    };
+    loadData();
   }, [fetchProviders, fetchSpecialties]);
 
   usePageRefresh(null); // full reload on pull-to-refresh
 
-  useEffect(() => {
+  const filtered = useMemo(() => {
     const lowerSearch = search.toLowerCase();
-    setFiltered(
-      providers.filter((p) => {
-        const matchesSearch =
-          (p.provider_name || "").toLowerCase().includes(lowerSearch) ||
-          (p.specialty || "").toLowerCase().includes(lowerSearch) ||
-          (p.phone_number || "").includes(lowerSearch);
-        const matchesSpecialty =
-          !specialtyFilter || p.specialty === specialtyFilter;
-        return matchesSearch && matchesSpecialty;
-      }),
-    );
+    return providers.filter((p) => {
+      const matchesSearch =
+        (p.provider_name || "").toLowerCase().includes(lowerSearch) ||
+        (p.specialty || "").toLowerCase().includes(lowerSearch) ||
+        (p.phone_number || "").includes(lowerSearch);
+      const matchesSpecialty =
+        !specialtyFilter || p.specialty === specialtyFilter;
+      return matchesSearch && matchesSpecialty;
+    });
   }, [search, specialtyFilter, providers]);
 
   const specialties = (

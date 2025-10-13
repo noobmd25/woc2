@@ -34,7 +34,10 @@ export default function MMMGroupsTab() {
   }, []);
 
   useEffect(() => {
-    fetchGroups();
+    const loadGroups = async () => {
+      await fetchGroups();
+    };
+    loadGroups();
   }, [fetchGroups]);
 
   usePageRefresh(null); // full reload on pull-to-refresh

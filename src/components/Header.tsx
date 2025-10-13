@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { toast } from "react-hot-toast";
 import { useRouter } from "next/navigation";
@@ -109,7 +110,13 @@ export default function Header() {
             className="w-40 h-auto block"
             onClick={() => setMenuOpen(false)}
           >
-            <img src="/logo.svg" alt="Logo" className="w-full h-auto" />
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={160}
+              height={40}
+              className="w-full h-auto"
+            />
           </Link>
         </div>
         <button

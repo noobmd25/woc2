@@ -20,8 +20,6 @@ export default function MMMPcpLookupPage() {
   >([]);
   const [loading, setLoading] = useState(false);
   const [sortByGroup, setSortByGroup] = useState(false);
-  const [groupColors, setGroupColors] = useState<Record<string, string>>({});
-
   const runLookup = useCallback(
     async (name: string) => {
       if (!supabase) return;
@@ -48,15 +46,16 @@ export default function MMMPcpLookupPage() {
 
   usePageRefresh(null); // full reload on pull-to-refresh
 
-  useEffect(() => {
-    if (results.length === 0) return;
+  const groupColors = useMemo(() => {
     const palette = [
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+      "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200",
       "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
       "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200",
-      "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
       "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200",
-      "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-200",
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
+      "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
       "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
       "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
     ];
@@ -67,7 +66,7 @@ export default function MMMPcpLookupPage() {
     unique.forEach((g, idx) => {
       mapping[g] = palette[idx % palette.length];
     });
-    setGroupColors(mapping);
+    return mapping;
   }, [results]);
 
   const sorted = [...results].sort((a, b) => {
