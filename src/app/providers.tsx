@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { getBrowserClient } from "@/lib/supabase/client";
 import { Toaster, toast } from "react-hot-toast";
+
+import { getBrowserClient } from "@/lib/supabase/client";
 
 const PUBLIC_PATHS = [
   "/",

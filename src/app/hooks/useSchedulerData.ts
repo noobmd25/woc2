@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const supabase = getBrowserClient();

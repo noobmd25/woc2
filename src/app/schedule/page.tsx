@@ -1,20 +1,18 @@
 "use client";
 
-import FullCalendar from "@fullcalendar/react";
+import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getBrowserClient } from "@/lib/supabase/client";
-import LayoutShell from "@/components/LayoutShell";
-import { toast } from "react-hot-toast";
-import useUserRole from "@/app/hooks/useUserRole";
-import type { EventContentArg } from "@fullcalendar/core";
-import React from "react";
-// Removed unused dayjs import
-// import dayjs from 'dayjs';
-import { useRouter } from "next/navigation";
+import FullCalendar from "@fullcalendar/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
+
+import useUserRole from "@/app/hooks/useUserRole";
+import LayoutShell from "@/components/LayoutShell";
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
+import { getBrowserClient } from "@/lib/supabase/client";
 
 const supabase = getBrowserClient();
 

@@ -1,14 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import toast from "react-hot-toast";
-import LayoutShell from "./LayoutShell";
-import { getBrowserClient } from "@/lib/supabase/client";
-import { usePageRefresh } from "@/components/PullToRefresh";
-import useUserRole from "@/app/hooks/useUserRole";
 import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
+
+import useUserRole from "@/app/hooks/useUserRole";
+import { usePageRefresh } from "@/components/PullToRefresh";
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
+import { getBrowserClient } from "@/lib/supabase/client";
+
+import LayoutShell from "./LayoutShell";
+
 const supabase = getBrowserClient();
 
 export default function OnCallViewer() {

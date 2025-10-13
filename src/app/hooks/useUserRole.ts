@@ -1,6 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+
 import { getBrowserClient } from "@/lib/supabase/client";
+
+import { useEffect, useState } from "react";
 
 export type Role = "admin" | "scheduler" | "viewer";
 

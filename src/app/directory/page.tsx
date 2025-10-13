@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getBrowserClient } from "@/lib/supabase/client";
 import { FaSortDown, FaSortUp } from "react-icons/fa";
+
 import useUserRole from "@/app/hooks/useUserRole";
 import { usePageRefresh } from "@/components/PullToRefresh";
+import { getBrowserClient } from "@/lib/supabase/client";
 
 interface Provider {
   id: string;

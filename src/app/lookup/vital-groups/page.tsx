@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getBrowserClient } from "@/lib/supabase/client";
+
 import Header from "@/components/Header";
 import { usePageRefresh } from "@/components/PullToRefresh";
+import { getBrowserClient } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 

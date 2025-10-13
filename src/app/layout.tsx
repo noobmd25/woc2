@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import { Roboto_Mono } from "next/font/google";
-import "./globals.css";
+
 import Footer from "@/components/Footer";
-import Providers from "./providers";
+import PullToRefresh from "@/components/PullToRefresh";
 import SupabaseProvider from "@/components/supabase-provider";
 import "@/lib/disableConsole";
-import PullToRefresh from "@/components/PullToRefresh";
+
+import "./globals.css";
+
+import Providers from "./providers";
 
 const robotoMono = Roboto_Mono({
   variable: "--font-roboto-mono",
@@ -48,8 +51,8 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
     googleBot: {
-      index: true,
-      follow: true,
+      "index": true,
+      "follow": true,
       "max-image-preview": "large",
       "max-snippet": -1,
       "max-video-preview": -1,
@@ -92,9 +95,9 @@ export default function RootLayout({
   const orgJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: "Who's On Call",
-    url: "https://whosoncall.app",
-    logo: "https://whosoncall.app/logo.svg",
+    "name": "Who's On Call",
+    "url": "https://whosoncall.app",
+    "logo": "https://whosoncall.app/logo.svg",
   };
   return (
     <html lang="en">

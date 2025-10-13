@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getBrowserClient } from "@/lib/supabase/client";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+
 import Header from "@/components/Header";
 import { usePageRefresh } from "@/components/PullToRefresh";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { getBrowserClient } from "@/lib/supabase/client";
+
 const supabase = getBrowserClient();
 
 type MedicalGroupEntry = {

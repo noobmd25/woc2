@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import Header from "./Header";
 import { Toaster } from "react-hot-toast";
+
+import Header from "./Header";
 
 export default function LayoutShell({
   children,

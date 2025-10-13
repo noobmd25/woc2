@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+
+import { createClient } from "@supabase/supabase-js";
+import { NextRequest, NextResponse } from "next/server";
+
 import { rateLimit } from "@/lib/rateLimit";
 
 const PASSWORD_POLICY =

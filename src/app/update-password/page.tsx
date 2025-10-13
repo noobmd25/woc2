@@ -1,9 +1,9 @@
 "use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "react-hot-toast";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
+
 const supabase = getBrowserClient();
 
 export default function UpdatePasswordPage() {
