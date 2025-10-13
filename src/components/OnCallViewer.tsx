@@ -131,8 +131,6 @@ export default function OnCallViewer() {
     ? `/directory?provider=${encodeURIComponent(providerData.provider_name)}`
     : "/directory";
 
-  const planGateActive = specialty === "Internal Medicine" && !plan;
-
   // Add missing navigation handlers
   const handlePrevDay = useCallback(() => {
     setCurrentDate((d) => {
@@ -393,6 +391,12 @@ export default function OnCallViewer() {
                 </option>
               ))}
             </select>
+
+            {!plan && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Select a healthcare plan to see today’s provider.
+              </p>
+            )}
             <div className="mt-2 flex gap-2 justify-end">
               <Link
                 href="/lookup/mmm-pcp"
@@ -407,11 +411,6 @@ export default function OnCallViewer() {
                 Vital Group Lookup
               </Link>
             </div>
-            {!plan && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Select a healthcare plan to see today’s provider.
-              </p>
-            )}
           </div>
         )}
 
@@ -452,143 +451,130 @@ export default function OnCallViewer() {
         </div>
 
         {/* Schedule / Provider block with interaction gate */}
-        <div className={`relative ${planGateActive ? "opacity-60" : ""}`}>
-          {planGateActive && (
-            <div
-              className="absolute inset-0 flex items-center justify-center bg-transparent cursor-not-allowed"
-              onClick={() => toast.error("Select a healthcare plan first.")}
-            >
-              <span className="text-xs text-gray-600 dark:text-gray-300 bg-white/70 dark:bg-gray-800/70 px-2 py-1 rounded">
-                Plan required
-              </span>
-            </div>
-          )}
-          <div id="schedule-container" className="mt-6 pointer-events-auto">
-            {providerData ? (
-              <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center border border-gray-200 dark:border-gray-700">
-                <h3 className="text-2xl font-bold">
-                  Dr. {providerData.provider_name}
-                </h3>
-                {providerData.healthcare_plan && (
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Plan: {providerData.healthcare_plan}
+        <div id="schedule-container" className="mt-6 pointer-events-auto">
+          {providerData ? (
+            <div className="bg-white dark:bg-gray-800 p-4 rounded shadow-md text-center border border-gray-200 dark:border-gray-700">
+              <h3 className="text-2xl font-bold">
+                Dr. {providerData.provider_name}
+              </h3>
+              {providerData.healthcare_plan && (
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Plan: {providerData.healthcare_plan}
+                </p>
+              )}
+              {providerData.phone_number && (
+                <div className="mt-2 space-y-1">
+                  <p className="text-2xl font-semibold text-black dark:text-white">
+                    Phone: {providerData.phone_number}
                   </p>
-                )}
-                {providerData.phone_number && (
-                  <div className="mt-2 space-y-1">
-                    <p className="text-2xl font-semibold text-black dark:text-white">
-                      Phone: {providerData.phone_number}
-                    </p>
-                    <div className="flex justify-center gap-4 mt-2">
-                      <a
-                        href={`tel:${cleanPhone(providerData.phone_number)}`}
-                        title="Call"
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <Image
-                          src="/icons/phone.svg"
-                          alt="Call"
-                          width={40}
-                          height={40}
-                          className="w-10 h-10"
-                        />
-                      </a>
-                      <a
-                        href={`sms:${cleanPhone(providerData.phone_number)}`}
-                        title="Text"
-                        className="text-green-500 hover:text-green-700"
-                      >
-                        <Image
-                          src="/icons/imessage.svg"
-                          alt="iMessage"
-                          width={40}
-                          height={40}
-                          className="w-10 h-10"
-                        />
-                      </a>
-                      <a
-                        href={`https://wa.me/${toWhatsAppNumber(providerData.phone_number)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="WhatsApp"
-                        className="text-green-600 hover:text-green-800"
-                      >
-                        <Image
-                          src="/icons/whatsapp.svg"
-                          alt="WhatsApp"
-                          width={40}
-                          height={40}
-                          className="w-10 h-10"
-                        />
-                      </a>
-                    </div>
+                  <div className="flex justify-center gap-4 mt-2">
+                    <a
+                      href={`tel:${cleanPhone(providerData.phone_number)}`}
+                      title="Call"
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <Image
+                        src="/icons/phone.svg"
+                        alt="Call"
+                        width={40}
+                        height={40}
+                        className="w-10 h-10"
+                      />
+                    </a>
+                    <a
+                      href={`sms:${cleanPhone(providerData.phone_number)}`}
+                      title="Text"
+                      className="text-green-500 hover:text-green-700"
+                    >
+                      <Image
+                        src="/icons/imessage.svg"
+                        alt="iMessage"
+                        width={40}
+                        height={40}
+                        className="w-10 h-10"
+                      />
+                    </a>
+                    <a
+                      href={`https://wa.me/${toWhatsAppNumber(providerData.phone_number)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="WhatsApp"
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <Image
+                        src="/icons/whatsapp.svg"
+                        alt="WhatsApp"
+                        width={40}
+                        height={40}
+                        className="w-10 h-10"
+                      />
+                    </a>
                   </div>
-                )}
-                {providerData.show_second_phone &&
-                  providerData.second_phone && (
-                    <div className="mt-4 space-y-1">
-                      <p className="text-2xl font-semibold text-black dark:text-white">
-                        {secondPhoneLabel}: {providerData.second_phone}
-                      </p>
-                      {providerData._second_phone_source && (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          ({providerData._second_phone_source})
-                        </p>
-                      )}
-                      <div className="flex justify-center gap-4 mt-2">
-                        <a
-                          href={`tel:${cleanPhone(providerData.second_phone)}`}
-                          title="Call"
-                          className="text-blue-500 hover:text-blue-700"
-                        >
-                          <Image
-                            src="/icons/phone.svg"
-                            alt="Call"
-                            width={40}
-                            height={40}
-                            className="w-10 h-10"
-                          />
-                        </a>
-                        <a
-                          href={`sms:${cleanPhone(providerData.second_phone)}`}
-                          title="Text"
-                          className="text-green-500 hover:text-green-700"
-                        >
-                          <Image
-                            src="/icons/imessage.svg"
-                            alt="iMessage"
-                            width={40}
-                            height={40}
-                            className="w-10 h-10"
-                          />
-                        </a>
-                        <a
-                          href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="WhatsApp"
-                          className="text-green-600 hover:text-green-800"
-                        >
-                          <Image
-                            src="/icons/whatsapp.svg"
-                            alt="WhatsApp"
-                            width={40}
-                            height={40}
-                            className="w-10 h-10"
-                          />
-                        </a>
-                      </div>
-                    </div>
+                </div>
+              )}
+              {providerData.show_second_phone && providerData.second_phone && (
+                <div className="mt-4 space-y-1">
+                  <p className="text-2xl font-semibold text-black dark:text-white">
+                    {secondPhoneLabel}: {providerData.second_phone}
+                  </p>
+                  {providerData._second_phone_source && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      ({providerData._second_phone_source})
+                    </p>
                   )}
-              </div>
-            ) : (
-              <p className="text-center text-gray-500">
-                {specialty === "Internal Medicine" && !plan
-                  ? "Please select a healthcare plan."
-                  : "No provider found for this selection."}
-              </p>
-            )}
-          </div>
+                  <div className="flex justify-center gap-4 mt-2">
+                    <a
+                      href={`tel:${cleanPhone(providerData.second_phone)}`}
+                      title="Call"
+                      className="text-blue-500 hover:text-blue-700"
+                    >
+                      <Image
+                        src="/icons/phone.svg"
+                        alt="Call"
+                        width={40}
+                        height={40}
+                        className="w-10 h-10"
+                      />
+                    </a>
+                    <a
+                      href={`sms:${cleanPhone(providerData.second_phone)}`}
+                      title="Text"
+                      className="text-green-500 hover:text-green-700"
+                    >
+                      <Image
+                        src="/icons/imessage.svg"
+                        alt="iMessage"
+                        width={40}
+                        height={40}
+                        className="w-10 h-10"
+                      />
+                    </a>
+                    <a
+                      href={`https://wa.me/${toWhatsAppNumber(providerData.second_phone)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="WhatsApp"
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <Image
+                        src="/icons/whatsapp.svg"
+                        alt="WhatsApp"
+                        width={40}
+                        height={40}
+                        className="w-10 h-10"
+                      />
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-center text-gray-500">
+              {specialty === "Internal Medicine" && !plan
+                ? "Please select a healthcare plan."
+                : "No provider found for this selection."}
+            </p>
+          )}
         </div>
 
         {/* Cover physician section */}
