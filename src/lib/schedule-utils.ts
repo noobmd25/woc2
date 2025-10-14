@@ -1,0 +1,158 @@
+/**
+ * Schedule-related utility functions
+ */
+
+// --- Provider search helpers: rank closest names ---
+export const normalize = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+export function levenshteinCapped(a: string, b: string, cap = 2): number {
+  if (a === b) return 0;
+  const la = a.length,
+    lb = b.length;
+  if (Math.abs(la - lb) > cap) return cap + 1;
+  const max = cap + 1;
+  const prev = new Array(lb + 1).fill(0).map((_, j) => (j <= cap ? j : max));
+  for (let i = 1; i <= la; i++) {
+    const curr = new Array(lb + 1).fill(max);
+    const jStart = Math.max(1, i - cap);
+    const jEnd = Math.min(lb, i + cap);
+    curr[jStart - 1] = max;
+    curr[jStart] = Math.min(
+      prev[jStart] + (a[i - 1] !== b[jStart - 1] ? 1 : 0),
+      prev[jStart] + 1,
+      curr[jStart - 1] + 1,
+    );
+    for (let j = jStart + 1; j <= jEnd; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        prev[j] + 1, // deletion
+        curr[j - 1] + 1, // insertion
+        prev[j - 1] + cost, // substitution
+      );
+    }
+    if (curr.slice(jStart, jEnd + 1).every((v) => v > cap)) return cap + 1;
+    for (let j = 0; j <= lb; j++) prev[j] = curr[j] ?? max;
+  }
+  return prev[lb];
+}
+
+export function scoreName(name: string, q: string): number {
+  const n = normalize(name);
+  const query = normalize(q);
+  if (!query) return 0;
+  if (n === query) return 1_000_000; // exact
+  let score = 0;
+  if (n.startsWith(query)) score += 500_000; // prefix
+  const idx = n.indexOf(query);
+  if (idx > 0 && /\W/.test(n[idx - 1] ?? "")) score += 300_000; // word-start
+  // subsequence bonus
+  let i = 0;
+  for (const ch of n) if (ch === query[i]) i++;
+  if (i === query.length)
+    score += 100_000 - Math.max(0, n.length - query.length);
+  const ed = levenshteinCapped(n, query, 2);
+  if (ed <= 2) score += 50_000 - 10_000 * ed; // small typos
+  score += Math.max(0, 10_000 - n.length); // shorter names slight boost
+  return score;
+}
+
+// Helper function to format dates as local ISO (YYYY-MM-DD) in local time
+export const toLocalISODate = (date: Date) =>
+  new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  ).toLocaleDateString("sv-SE");
+
+// Local date helper to avoid UTC drift when handling YYYY-MM-DD strings
+export const parseLocalYMD = (ymd: string) => {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, (m as number) - 1, d as number, 12, 0, 0, 0);
+};
+
+// Distinct color helpers and color map state
+export const getTextColorForBackground = (hex: string) => {
+  const rgb = parseInt(hex.slice(1), 16);
+  const r = (rgb >> 16) & 255;
+  const g = (rgb >> 8) & 255;
+  const b = rgb & 255;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 186 ? "black" : "white";
+};
+
+export const hslToHex = (h: number, s: number, l: number) => {
+  l /= 100;
+  const a = (s * Math.min(l, 1 - l)) / 100;
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+};
+
+export const generateDistinctColors = (count: number) => {
+  const colors = [];
+  for (let i = 0; i < count; i++) {
+    const h = (i * 137.508) % 360; // Golden angle approximation
+    const s = 70; // 70% saturation
+    const l = 55; // 55% lightness
+    colors.push(hslToHex(h, s, l));
+  }
+  return colors;
+};
+
+export const plans = [
+  "Triple S Advantage/Unattached",
+  "Vital",
+  "405/M88",
+  "PAMG",
+  "REMAS",
+  "SMA",
+  "CSE",
+  "In Salud",
+  "IPA B",
+  "MCS",
+];
+
+// Type definitions
+export interface ScheduleEntry {
+  on_call_date: string;
+  provider_name: string;
+  specialty: string;
+  healthcare_plan: string | null;
+  show_second_phone: boolean;
+  second_phone_pref: "auto" | "pa" | "residency";
+  cover: boolean;
+  covering_provider: string | null;
+}
+
+export interface PendingEntry extends ScheduleEntry {
+  id?: string;
+}
+
+export interface MiniCalendarEvent {
+  date: string;
+  provider: string;
+}
+
+export interface Specialty {
+  id: string;
+  name: string;
+  show_oncall: boolean;
+}
+
+export interface Provider {
+  name: string;
+  phone_1: string | null;
+  phone_2: string | null;
+  second_phone_source: string | null;
+  specialty: string | null;
+}
