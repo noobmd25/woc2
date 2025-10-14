@@ -3,6 +3,15 @@
 import { memo, useCallback, useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const supabase = getBrowserClient();
@@ -156,101 +165,95 @@ const SpecialtyManagementModal = memo(
         if (!isOpen) return null;
 
         return (
-            <div
-                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
-                onClick={onClose}
-            >
-                <div
-                    className="bg-white dark:bg-gray-800 w-full max-w-2xl rounded-lg shadow-xl max-h-[80vh] overflow-y-auto"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="px-6 pt-5 pb-3 border-b dark:border-gray-700 flex items-center justify-between sticky top-0 bg-white dark:bg-gray-800 z-10">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-bold">
                             Manage Specialties
-                        </h2>
-                        <button
-                            onClick={onClose}
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-2xl"
-                            aria-label="Close modal"
-                        >
-                            ×
-                        </button>
-                    </div>
+                        </DialogTitle>
+                        <DialogDescription>
+                            Add, edit, or remove specialties for schedule management
+                        </DialogDescription>
+                    </DialogHeader>
 
-                    <div className="px-6 py-4 space-y-4">
+                    <div className="flex-1 overflow-y-auto px-1 space-y-6">
                         {/* Add New Specialty Form */}
                         <form onSubmit={handleAddSpecialty} className="flex gap-2">
-                            <input
+                            <Input
                                 type="text"
                                 value={newSpecName}
                                 onChange={(e) => setNewSpecName(e.target.value)}
                                 placeholder="New specialty name..."
-                                className="flex-1 px-3 py-2 border rounded-md dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                                className="flex-1"
                             />
-                            <button
+                            <Button
                                 type="submit"
-                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors"
+                                className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white shadow-sm"
                             >
                                 Add
-                            </button>
+                            </Button>
                         </form>
 
                         {/* Specialty List */}
-                        <div className="space-y-2">
+                        <div className="space-y-3">
                             {specialtyEditList.map((spec) => (
                                 <div
                                     key={spec.id}
-                                    className="flex items-center justify-between p-3 border rounded-md dark:border-gray-700"
+                                    className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-900/50 hover:shadow-md transition-shadow"
                                 >
                                     {editingSpecId === spec.id ? (
                                         <>
-                                            <input
+                                            <Input
                                                 type="text"
                                                 value={specEditName}
                                                 onChange={(e) => setSpecEditName(e.target.value)}
-                                                className="flex-1 px-2 py-1 border rounded dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                                                className="flex-1 mr-3"
                                                 autoFocus
                                             />
-                                            <div className="flex gap-2 ml-2">
-                                                <button
+                                            <div className="flex gap-2">
+                                                <Button
                                                     onClick={() => handleSaveSpecialty(spec.id, spec.name)}
-                                                    className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-sm transition-colors"
+                                                    size="sm"
+                                                    className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white"
                                                 >
                                                     Save
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
                                                     onClick={handleCancelEditSpecialty}
-                                                    className="px-3 py-1 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white rounded text-sm transition-colors"
+                                                    size="sm"
+                                                    variant="outline"
                                                 >
                                                     Cancel
-                                                </button>
+                                                </Button>
                                             </div>
                                         </>
                                     ) : (
                                         <>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-gray-900 dark:text-white font-medium">
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <span className="text-gray-900 dark:text-white font-semibold text-base">
                                                     {spec.name}
                                                 </span>
                                                 {spec.show_oncall && (
-                                                    <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 px-2 py-1 rounded">
+                                                    <span className="text-xs bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 rounded-full font-medium">
                                                         Active
                                                     </span>
                                                 )}
                                             </div>
                                             <div className="flex gap-2">
-                                                <button
+                                                <Button
                                                     onClick={() => handleStartEditSpecialty(spec.id, spec.name)}
-                                                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                                                    size="sm"
+                                                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white"
                                                 >
                                                     Edit
-                                                </button>
-                                                <button
+                                                </Button>
+                                                <Button
                                                     onClick={() => handleDeleteSpecialty(spec.id, spec.name)}
-                                                    className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
+                                                    size="sm"
+                                                    variant="destructive"
                                                 >
                                                     Delete
-                                                </button>
+                                                </Button>
                                             </div>
                                         </>
                                     )}
@@ -258,8 +261,8 @@ const SpecialtyManagementModal = memo(
                             ))}
                         </div>
                     </div>
-                </div>
-            </div>
+                </DialogContent>
+            </Dialog>
         );
     }
 );

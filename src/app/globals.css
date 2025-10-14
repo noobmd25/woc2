@@ -1,23 +1,11 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+@custom-variant dark (&:is(.dark *));
 
 body {
   margin: 0;
   padding: 0;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
 }
 
 /* Slide-up animation for bottom sheet */
@@ -103,6 +91,8 @@ body {
   animation: modal-pop-in 0.28s cubic-bezier(0.16, 0.84, 0.44, 1);
 }
 
+/* FullCalendar Main Calendar Styles - Schedule Management Page */
+
 /* Override FullCalendar event background to be fully transparent */
 .fc-event {
   background: none !important;
@@ -111,41 +101,66 @@ body {
   border-color: transparent !important;
 }
 
+/* Calendar day numbers - readable in both themes */
 .fc-daygrid-day-number {
-  font-weight: bold;
-  color: black;
+  @apply font-bold text-gray-900 dark:text-gray-100;
 }
 
+/* Calendar header (weekday names) */
 .fc-col-header-cell-cushion {
-  color: black !important;
+  @apply text-gray-900 dark:text-gray-100 font-semibold;
 }
 
+/* Calendar day cells */
+.fc-daygrid-day {
+  @apply transition-colors duration-150;
+}
+
+/* Hover effect on calendar days */
 .fc-daygrid-day:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  @apply bg-blue-50 dark:bg-blue-950/30;
 }
 
-@media (prefers-color-scheme: dark) {
-  .fc-daygrid-day:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .fc-daygrid-day-number {
-    color: #d4d4d4; /* light gray */
-  }
-}
-
+/* Today highlight - using amber for better visibility */
 .fc-daygrid-day.fc-day-today {
-  background: #ffeb3b;
+  @apply bg-amber-100 dark:bg-amber-950/40;
+  border: 2px solid theme('colors.amber.500') !important;
 }
 
+/* Other month days (grayed out) */
 .fc-daygrid-day.fc-day-other {
-  pointer-events: none !important;
-  background-color: black; /* optional, for visual dimming */
-  opacity: 0.3;
+  @apply pointer-events-none bg-gray-50 dark:bg-gray-900/50 opacity-40;
 }
 
+/* Calendar borders */
+.fc-theme-standard td,
+.fc-theme-standard th {
+  @apply border-gray-200 dark:border-gray-700;
+}
+
+/* Calendar header background */
+.fc-col-header-cell {
+  @apply bg-gray-50 dark:bg-gray-800;
+}
+
+/* Calendar scrollbar styling */
+.fc-scroller::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+.fc-scroller::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-800;
+}
+
+.fc-scroller::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 dark:bg-gray-600 rounded;
+}
+
+.fc-scroller::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500 dark:bg-gray-500;
+}
+
+/* Modal overlay styles */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -153,183 +168,162 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  @apply bg-black/50 backdrop-blur-sm;
   transition: opacity 0.3s;
 }
 
 /* Mini Calendar Styles */
+/* Mini Calendar Styles - Using Tailwind-compatible syntax */
 .mini-calendar-container {
-  font-size: 0.75rem;
+  @apply text-xs;
 }
 
 .mini-calendar-container .fc-theme-standard td,
 .mini-calendar-container .fc-theme-standard th {
-  border: 1px solid #e5e7eb;
+  @apply border border-gray-200 dark:border-gray-700;
 }
 
 .mini-calendar-container .fc-col-header-cell {
-  background-color: #f9fafb;
-  font-weight: 600;
-  font-size: 0.625rem;
-  padding: 0.25rem 0;
-  text-align: center;
-  color: #6b7280;
+  @apply bg-gray-100 dark:bg-gray-800 font-semibold text-[0.625rem] py-1 text-center text-gray-600 dark:text-gray-400;
 }
 
 .mini-calendar-container .fc-daygrid-day {
-  min-height: 1.75rem !important;
-  height: 1.75rem !important;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
+  min-height: 2rem !important;
+  height: 2rem !important;
+  @apply cursor-pointer transition-all duration-150 ease-in-out bg-white dark:bg-gray-900;
 }
 
 .mini-calendar-container .fc-daygrid-day:hover {
-  background-color: #f3f4f6 !important;
+  @apply bg-blue-50 dark:bg-blue-950/30;
+  transform: scale(1.05);
 }
 
 .mini-calendar-container .fc-daygrid-day-number {
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 0.125rem;
-  text-align: center;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.25rem;
-  transition: all 0.2s ease;
+  @apply text-xs font-medium p-0.5 text-center w-full h-full flex items-center justify-center rounded transition-all duration-150 text-gray-900 dark:text-gray-100;
 }
 
+/* Primary Date - Emerald Green */
 .mini-calendar-container .fc-primary-date {
-  background-color: #10b981 !important;
-  color: white !important;
-  cursor: default !important;
+  @apply bg-emerald-500 dark:bg-emerald-600 text-white cursor-default;
 }
 
 .mini-calendar-container .fc-primary-date:hover {
-  background-color: #10b981 !important;
+  @apply bg-emerald-500 dark:bg-emerald-600;
+  transform: scale(1) !important;
 }
 
 .mini-calendar-container .fc-primary-date .fc-daygrid-day-number {
-  background-color: transparent;
-  font-weight: 600;
+  @apply bg-transparent font-bold text-white;
 }
 
+/* Selected Date - Blue */
 .mini-calendar-container .fc-selected-date {
-  background-color: #3b82f6 !important;
-  color: white !important;
+  @apply bg-blue-500 dark:bg-blue-600 text-white;
 }
 
 .mini-calendar-container .fc-selected-date:hover {
-  background-color: #2563eb !important;
+  @apply bg-blue-600 dark:bg-blue-700;
 }
 
 .mini-calendar-container .fc-selected-date .fc-daygrid-day-number {
-  background-color: transparent;
-  font-weight: 600;
+  @apply bg-transparent font-bold text-white;
 }
 
+/* Unavailable Date */
 .mini-calendar-container .fc-unavailable-date {
-  background-color: #f3f4f6 !important;
-  color: #9ca3af !important;
-  pointer-events: none !important;
-  cursor: not-allowed !important;
+  @apply bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-600 pointer-events-none cursor-not-allowed;
 }
 
 .mini-calendar-container .fc-unavailable-date:hover {
-  background-color: #f3f4f6 !important;
+  @apply bg-gray-100 dark:bg-gray-800;
+  transform: scale(1) !important;
 }
 
 .mini-calendar-container .fc-unavailable-date .fc-daygrid-day-number {
-  background-color: transparent;
-  opacity: 0.6;
+  @apply bg-transparent opacity-60;
 }
 
+/* Other Month Disabled */
 .mini-calendar-container .fc-other-month-disabled {
-  background-color: #fafafa !important;
-  color: #d1d5db !important;
-  pointer-events: none !important;
-  cursor: not-allowed !important;
-  opacity: 0.4;
+  @apply bg-gray-50 dark:bg-gray-900/50 text-gray-300 dark:text-gray-700 pointer-events-none cursor-not-allowed opacity-40;
 }
 
 .mini-calendar-container .fc-other-month-disabled:hover {
-  background-color: #fafafa !important;
+  @apply bg-gray-50 dark:bg-gray-900/50;
+  transform: scale(1) !important;
 }
 
 .mini-calendar-container .fc-other-month-disabled .fc-daygrid-day-number {
-  background-color: transparent;
-  opacity: 0.5;
+  @apply bg-transparent opacity-50;
 }
 
+/* Today - Amber/Orange */
 .mini-calendar-container .fc-day-today {
-  background-color: #fff7ed !important;
-  border: 1px solid #fb923c !important;
+  @apply bg-amber-50 dark:bg-amber-950/50;
+  border: 2px solid theme('colors.amber.500') !important;
 }
 
 .mini-calendar-container .fc-day-today .fc-daygrid-day-number {
-  color: #ea580c;
-  font-weight: 600;
+  @apply text-amber-700 dark:text-amber-400 font-bold;
 }
 
 .mini-calendar-container .fc-day-today.fc-primary-date {
-  background-color: #10b981 !important;
-  border: 1px solid #fb923c !important;
+  @apply bg-emerald-500 dark:bg-emerald-600;
+  border: 2px solid theme('colors.amber.500') !important;
+}
+
+.mini-calendar-container .fc-day-today.fc-primary-date .fc-daygrid-day-number {
+  @apply text-white;
 }
 
 .mini-calendar-container .fc-day-today.fc-selected-date {
-  background-color: #3b82f6 !important;
-  border: 1px solid #fb923c !important;
+  @apply bg-blue-500 dark:bg-blue-600;
+  border: 2px solid theme('colors.amber.500') !important;
 }
 
-/* Dark mode adjustments */
-@media (prefers-color-scheme: dark) {
-  .mini-calendar-container .fc-theme-standard td,
-  .mini-calendar-container .fc-theme-standard th {
-    border-color: #374151;
-  }
-
-  .mini-calendar-container .fc-col-header-cell {
-    background-color: #1f2937;
-    color: #9ca3af;
-  }
-
-  .mini-calendar-container .fc-daygrid-day:hover {
-    background-color: #374151 !important;
-  }
-
-  .mini-calendar-container .fc-day-today {
-    background-color: #451a03 !important;
-    border-color: #fb923c !important;
-  }
-
-  .mini-calendar-container .fc-unavailable-date {
-    background-color: #1f2937 !important;
-    color: #6b7280 !important;
-  }
-
-  .mini-calendar-container .fc-other-month-disabled {
-    background-color: #111827 !important;
-    color: #4b5563 !important;
-  }
+.mini-calendar-container .fc-day-today.fc-selected-date .fc-daygrid-day-number {
+  @apply text-white;
 }
 
 /* Responsive adjustments */
 @media (max-width: 640px) {
+  .mini-calendar-container {
+    @apply text-[0.6875rem];
+  }
+
   .mini-calendar-container .fc-daygrid-day {
-    min-height: 1.5rem !important;
-    height: 1.5rem !important;
+    min-height: 1.75rem !important;
+    height: 1.75rem !important;
   }
 
   .mini-calendar-container .fc-daygrid-day-number {
-    font-size: 0.6875rem;
+    @apply text-[0.6875rem] p-px;
   }
 
   .mini-calendar-container .fc-col-header-cell {
-    font-size: 0.5625rem;
-    padding: 0.125rem 0;
+    @apply text-[0.5625rem] py-0.5;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .mini-calendar-container .fc-daygrid-day {
+    min-height: 2.25rem !important;
+    height: 2.25rem !important;
+  }
+
+  .mini-calendar-container .fc-daygrid-day-number {
+    @apply text-[0.8125rem];
+  }
+}
+
+@media (min-width: 769px) {
+  .mini-calendar-container .fc-daygrid-day {
+    min-height: 2.5rem !important;
+    height: 2.5rem !important;
+  }
+
+  .mini-calendar-container .fc-daygrid-day-number {
+    @apply text-sm;
   }
 }
 
@@ -359,4 +353,120 @@ body {
 .mini-calendar-container .fc-selected-date::before,
 .mini-calendar-container .fc-unavailable-date::before {
   display: none;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

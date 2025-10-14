@@ -17,6 +17,16 @@ import useUserRole from "@/app/hooks/useUserRole";
 import LayoutShell from "@/components/LayoutShell";
 import ScheduleModal from "@/components/schedule/ScheduleModal";
 import SpecialtyManagementModal from "@/components/schedule/SpecialtyManagementModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import {
   type MiniCalendarEvent,
@@ -26,9 +36,6 @@ import {
   toLocalISODate,
 } from "@/lib/schedule-utils";
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
-import { getBrowserClient } from "@/lib/supabase/client";
-
-const supabase = getBrowserClient();
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -47,10 +54,13 @@ export default function SchedulePage() {
   const [coverEnabled, setCoverEnabled] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
   const [miniCalendarDate, setMiniCalendarDate] = useState(new Date());
-  const [miniCalendarEvents, setMiniCalendarEvents] = useState<MiniCalendarEvent[]>([]);
 
-  // Pending changes tracking (for batch save)
-  const [pendingDeletions, setPendingDeletions] = useState<{ date: string; provider: string }[]>([]);
+  // Track events being deleted for immediate visual feedback
+  const [deletingEvents, setDeletingEvents] = useState<Set<string>>(new Set());
+
+  // Delete confirmation dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<{ date: string; provider: string } | null>(null);
 
   // Modal states
   const [showClearModal, setShowClearModal] = useState(false);
@@ -84,6 +94,8 @@ export default function SchedulePage() {
     addEntry,
     addMultipleEntries,
     updateEntry,
+    deleteEntryByDateAndProvider,
+    clearMonth,
   } = useScheduleEntries(specialty, plan);
 
   // Get all unique provider names for color mapping
@@ -196,46 +208,32 @@ export default function SchedulePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleRange, specialty, plan]);
 
-  // Load mini calendar events
-  const loadMiniCalendarEvents = useCallback(async () => {
-    if (!specialty || !selectedModalDate) return;
+  // Compute mini calendar events from entries for the modal month
+  const miniCalendarEvents: MiniCalendarEvent[] = useMemo(() => {
+    if (!selectedModalDate) return [];
 
     const modalDate = new Date(selectedModalDate + "T12:00:00");
-    setMiniCalendarDate(new Date(modalDate.getFullYear(), modalDate.getMonth(), 1));
-
     const startOfMonth = new Date(modalDate.getFullYear(), modalDate.getMonth(), 1);
     const endOfMonth = new Date(modalDate.getFullYear(), modalDate.getMonth() + 1, 0);
 
-    try {
-      let query = supabase
-        .from("schedules")
-        .select("on_call_date, provider_name")
-        .eq("specialty", specialty)
-        .gte("on_call_date", toLocalISODate(startOfMonth))
-        .lte("on_call_date", toLocalISODate(endOfMonth));
+    const startDateStr = toLocalISODate(startOfMonth);
+    const endDateStr = toLocalISODate(endOfMonth);
 
-      if (specialty === "Internal Medicine" && plan) {
-        query = query.eq("healthcare_plan", plan);
-      }
+    return entries
+      .filter(entry => entry.on_call_date >= startDateStr && entry.on_call_date <= endDateStr)
+      .map(entry => ({
+        date: entry.on_call_date,
+        provider: entry.provider_name,
+      }));
+  }, [entries, selectedModalDate]);
 
-      const { data } = await query;
-
-      setMiniCalendarEvents(
-        (data || []).map(item => ({
-          date: item.on_call_date,
-          provider: item.provider_name,
-        }))
-      );
-    } catch (error) {
-      console.error("Error loading mini calendar events:", error);
-    }
-  }, [specialty, plan, selectedModalDate]);
-
+  // Update mini calendar date when modal opens
   useEffect(() => {
-    if (isModalOpen && !editingEntry) {
-      loadMiniCalendarEvents();
+    if (isModalOpen && selectedModalDate) {
+      const modalDate = new Date(selectedModalDate + "T12:00:00");
+      setMiniCalendarDate(new Date(modalDate.getFullYear(), modalDate.getMonth(), 1));
     }
-  }, [isModalOpen, editingEntry, loadMiniCalendarEvents]);
+  }, [isModalOpen, selectedModalDate]);
 
   // Update "Works with" phone display when modal opens or preference changes
   useEffect(() => {
@@ -418,7 +416,7 @@ export default function SchedulePage() {
       return;
     }
 
-    if (!currentProviderId.trim()) {
+    if (!currentProviderId) {
       toast.error("Please select a provider.");
       return;
     }
@@ -486,52 +484,73 @@ export default function SchedulePage() {
     getProviderById,
   ]);
 
-  // Handle clear event (delete from calendar)
+  // Handle clear event (delete from calendar) with confirmation
   useEffect(() => {
     const handleClearEvent = (e: Event) => {
       const customEvent = e as CustomEvent<{ date: string; provider: string }>;
       const { date, provider } = customEvent.detail;
-      setPendingDeletions(prev => [...prev, { date, provider }]);
-      toast.success("Entry marked for deletion. Save Changes to commit.");
+
+      // Store the event to delete and open confirmation dialog
+      setEventToDelete({ date, provider });
+      setDeleteConfirmOpen(true);
     };
 
     window.addEventListener("clearEvent", handleClearEvent);
     return () => window.removeEventListener("clearEvent", handleClearEvent);
   }, []);
 
-  // Handle save changes (commit pending additions and deletions)
+  // Handle confirmed deletion
+  const handleConfirmedDelete = useCallback(async () => {
+    if (!eventToDelete) return;
+
+    const { date, provider } = eventToDelete;
+    const eventId = `${date}-${provider}`;
+
+    // Close dialog
+    setDeleteConfirmOpen(false);
+
+    // Mark as deleting for immediate visual feedback
+    setDeletingEvents(prev => new Set(prev).add(eventId));
+
+    try {
+      // Delete using the hook function
+      const success = await deleteEntryByDateAndProvider(date, provider, specialty, plan);
+
+      if (success) {
+        // Reload entries to reflect the change
+        if (visibleRange) {
+          await loadEntries(visibleRange.start, visibleRange.end, specialty, plan);
+        }
+      }
+
+      // Remove from deleting state
+      setDeletingEvents(prev => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to delete entry:", error);
+      toast.error("Failed to delete entry");
+      // Remove from deleting state on error
+      setDeletingEvents(prev => {
+        const next = new Set(prev);
+        next.delete(eventId);
+        return next;
+      });
+    } finally {
+      setEventToDelete(null);
+    }
+  }, [eventToDelete, specialty, plan, deleteEntryByDateAndProvider, loadEntries, visibleRange]);
+
+  // Handle save changes (commit pending additions only - deletions are immediate)
   const handleSaveChanges = useCallback(async (source?: "shortcut" | "button") => {
-    if (pendingEntries.length === 0 && pendingDeletions.length === 0) {
+    if (pendingEntries.length === 0) {
       toast.success("No changes to save.");
       return;
     }
 
     try {
-      // Handle deletions first
-      for (const del of pendingDeletions) {
-        let deleteQuery = supabase
-          .from("schedules")
-          .delete()
-          .eq("on_call_date", del.date)
-          .eq("specialty", specialty)
-          .eq("provider_name", del.provider.replace(/^Dr\. /, "").trim());
-
-        if (specialty === "Internal Medicine") {
-          if (plan) {
-            deleteQuery = deleteQuery.eq("healthcare_plan", plan);
-          } else {
-            deleteQuery = deleteQuery.is("healthcare_plan", null);
-          }
-        }
-
-        const { error } = await deleteQuery;
-        if (error) {
-          console.error("Failed to delete entry:", error);
-          toast.error("Failed to delete some entries.");
-          return;
-        }
-      }
-
       // Handle pending entries (already saved via modal, but handle any remaining)
       if (pendingEntries.length > 0) {
         // These are typically already saved, but we can add logic here if needed
@@ -544,13 +563,12 @@ export default function SchedulePage() {
         toast.success("All changes saved successfully!");
       }
 
-      setPendingDeletions([]);
       await refreshCalendarVisibleRange();
     } catch (error) {
       console.error("Error in handleSaveChanges:", error);
       toast.error("Failed to save changes.");
     }
-  }, [pendingEntries, pendingDeletions, specialty, plan, refreshCalendarVisibleRange]);
+  }, [pendingEntries, refreshCalendarVisibleRange]);
 
   // Global keyboard shortcut: Ctrl/Cmd+S to save
   useEffect(() => {
@@ -581,31 +599,18 @@ export default function SchedulePage() {
     const startOfMonth = toLocalISODate(firstDay);
     const startOfNextMonth = toLocalISODate(firstDayNext);
 
-    let deleteQuery = supabase
-      .from("schedules")
-      .delete({ count: "exact" })
-      .eq("specialty", specialty)
-      .gte("on_call_date", startOfMonth)
-      .lt("on_call_date", startOfNextMonth);
+    // Use the hook function to clear the month
+    const { success, count } = await clearMonth(startOfMonth, startOfNextMonth, specialty, plan);
 
-    if (specialty === "Internal Medicine" && plan) {
-      deleteQuery = deleteQuery.eq("healthcare_plan", plan);
-    }
-
-    const { error, count } = await deleteQuery;
-
-    if (error) {
-      console.error("Error clearing month:", error);
-      toast.error("Failed to clear the month.");
-    } else {
+    if (success) {
       toast.success(
-        `Cleared ${count ?? 0} entr${(count ?? 0) === 1 ? "y" : "ies"} for ${monthLabel} — ${specialty === "Internal Medicine" ? `IM · ${plan}` : specialty}.`
+        `Cleared ${count} entr${count === 1 ? "y" : "ies"} for ${monthLabel} — ${specialty === "Internal Medicine" ? `IM · ${plan}` : specialty}.`
       );
       await refreshCalendarVisibleRange();
     }
 
     setShowClearModal(false);
-  }, [getVisibleMonthRange, getVisibleMonthLabel, specialty, plan, refreshCalendarVisibleRange]);
+  }, [getVisibleMonthRange, getVisibleMonthLabel, specialty, plan, clearMonth, refreshCalendarVisibleRange]);
 
   // Global Escape key handler for modals
   useEffect(() => {
@@ -646,65 +651,95 @@ export default function SchedulePage() {
   const calendarEvents = useMemo(() => {
     const allEntries = [...entries, ...pendingEntries];
 
-    return allEntries.map(entry => {
-      const colors = getProviderColors(entry.provider_name);
-      const title = entry.cover ? `${entry.provider_name} (Cover)` : entry.provider_name;
+    return allEntries
+      .filter(entry => {
+        // Filter out events that are being deleted
+        const eventId = `${entry.on_call_date}-${entry.provider_name}`;
+        return !deletingEvents.has(eventId);
+      })
+      .map(entry => {
+        const colors = getProviderColors(entry.provider_name);
+        const title = entry.cover ? `${entry.provider_name} (Cover)` : entry.provider_name;
 
-      return {
-        id: `${entry.on_call_date}-${entry.provider_name}`,
-        title: `Dr. ${title}`,
-        start: entry.on_call_date,
-        allDay: true,
-        backgroundColor: colors.backgroundColor,
-        textColor: colors.textColor,
-        borderColor: colors.backgroundColor,
-        extendedProps: {
-          entry,
-          isPending: pendingEntries.includes(entry as PendingEntry),
-        },
-      };
-    });
-  }, [entries, pendingEntries, getProviderColors]);
+        return {
+          id: `${entry.on_call_date}-${entry.provider_name}`,
+          title: `Dr. ${title}`,
+          start: entry.on_call_date,
+          allDay: true,
+          backgroundColor: colors.backgroundColor,
+          textColor: colors.textColor,
+          borderColor: colors.backgroundColor,
+          extendedProps: {
+            entry,
+            isPending: pendingEntries.includes(entry as PendingEntry),
+          },
+        };
+      });
+  }, [entries, pendingEntries, getProviderColors, deletingEvents]);
 
   // Event content renderer with delete button
   const renderEventContent = useCallback((eventInfo: EventContentArg) => {
     const isPending = eventInfo.event.extendedProps.isPending;
+    const entry = eventInfo.event.extendedProps.entry;
     const canEdit = role === "admin" || role === "scheduler";
     const currentProvider = eventInfo.event.title.replace(/^Dr\. /, "").replace(/ \(Cover\)$/, "").trim();
+    const hasSecondPhone = entry?.show_second_phone && entry?.second_phone_pref !== "auto";
 
     return (
       <div
-        className={`flex flex-col w-full px-2 py-2 rounded ${isPending ? 'opacity-70 border-dashed' : ''}`}
+        className={`
+          relative flex flex-col w-full px-3 py-2 rounded-lg shadow-sm
+          transition-all duration-150 hover:shadow-md
+          ${isPending ? 'opacity-75 border-2 border-dashed' : 'border border-transparent'}
+        `}
         style={{
           backgroundColor: eventInfo.backgroundColor,
           color: eventInfo.textColor,
         }}
       >
         {canEdit && (
-          <div className="flex justify-end wi-full">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                window.dispatchEvent(
-                  new CustomEvent("clearEvent", {
-                    detail: {
-                      date: eventInfo.event.startStr,
-                      provider: currentProvider,
-                    },
-                  })
-                );
-              }}
-              aria-label="Remove provider from this date"
-              className="text-xs px-1 pointer-events-auto hover:bg-black/20 rounded cursor-pointer"
-              style={{ color: eventInfo.textColor }}
-            >
-              ✕
-            </button>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              window.dispatchEvent(
+                new CustomEvent("clearEvent", {
+                  detail: {
+                    date: eventInfo.event.startStr,
+                    provider: currentProvider,
+                  },
+                })
+              );
+            }}
+            aria-label="Remove provider from this date"
+            className="
+              absolute -top-1.5 -right-1.5
+              w-5 h-5 flex items-center justify-center
+              text-xs font-bold rounded-full
+              bg-white dark:bg-gray-800
+              text-gray-600 dark:text-gray-300
+              hover:bg-red-500 hover:text-white
+              shadow-md hover:shadow-lg
+              transition-all duration-150
+              pointer-events-auto cursor-pointer
+              z-10
+            "
+          >
+            ✕
+          </button>
         )}
-        <span className="whitespace-normal break-words text-sm cursor-pointer">
-          {eventInfo.event.title}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="whitespace-normal break-words text-sm font-medium cursor-pointer pr-2">
+            {eventInfo.event.title}
+          </span>
+          {hasSecondPhone && (
+            <span
+              className="flex-shrink-0 text-xs"
+              title={`Works with ${entry.second_phone_pref === "residency" ? "Residency" : "PA Phone"}`}
+            >
+              📞
+            </span>
+          )}
+        </div>
       </div>
     );
   }, [role]);
@@ -743,25 +778,25 @@ export default function SchedulePage() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowSpecialtyModal(true)}
-                className="px-3 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
               >
                 Edit Specialties
               </button>
               <Link
                 href="/schedule/mmm-medical-groups"
-                className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
+                className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-4 py-2 text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
               >
                 MMM Medical Groups
               </Link>
               <Link
                 href="/schedule/vital-medical-groups"
-                className="bg-[#0086BF] hover:bg-[#0070A3] text-white font-medium px-3 py-2 text-sm rounded-md shadow transition"
+                className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-4 py-2 text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
               >
                 Vital Medical Groups
               </Link>
               <Link
                 href="/admin"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
               >
                 Admin Panel
               </Link>
@@ -771,7 +806,7 @@ export default function SchedulePage() {
           {role === "scheduler" && (
             <Link
               href="/admin"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
             >
               Admin Panel
             </Link>
@@ -781,19 +816,19 @@ export default function SchedulePage() {
         {/* Specialty and Plan Selection - Original Dropdown UI */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-4 mb-6">
           <div>
-            <label className="block text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Specialty
             </label>
             {specialtiesLoading ? (
-              <div className="flex items-center px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:border-gray-600">
+              <div className="flex items-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
                 <LoadingSpinner size="sm" />
-                <span className="ml-2 text-gray-600 dark:text-gray-400">Loading specialties...</span>
+                <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">Loading specialties...</span>
               </div>
             ) : (
               <select
                 value={specialty}
                 onChange={(e) => setSpecialty(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                className="w-full min-w-[200px] px-4 py-2.5 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
               >
                 {specialties.map((spec) => (
                   <option key={spec} value={spec}>
@@ -808,7 +843,7 @@ export default function SchedulePage() {
             <div>
               <label
                 htmlFor="healthcare-plan"
-                className="block text-gray-700 dark:text-gray-300 mb-1"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
               >
                 Healthcare Plan
               </label>
@@ -816,7 +851,7 @@ export default function SchedulePage() {
                 id="healthcare-plan"
                 value={plan || ""}
                 onChange={(e) => setPlan(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                className="w-full min-w-[200px] px-4 py-2.5 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
               >
                 <option value="">-- Select a Plan --</option>
                 {plans.map((p) => (
@@ -830,20 +865,20 @@ export default function SchedulePage() {
         </div>
 
         {/* Calendar */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden relative">
-          <div className="p-4 border-b dark:border-gray-700">
-            <h2 className="text-xl font-semibold">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden relative border border-gray-200 dark:border-gray-700">
+          <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
               {resolveDirectorySpecialty(specialty)}
               {specialty === "Internal Medicine" && plan && (
-                <span className="text-blue-600 dark:text-blue-400 ml-2">({plan})</span>
+                <span className="text-blue-600 dark:text-blue-400 ml-2 text-lg">({plan})</span>
               )}
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
               Click on a date to add a new schedule entry
             </p>
           </div>
 
-          <div className="p-4 relative">
+          <div className="p-4 sm:p-6 relative">
             <FullCalendar
               ref={calendarRef}
               plugins={calendarPlugins}
@@ -862,9 +897,9 @@ export default function SchedulePage() {
               datesSet={onDatesSet}
             />
             {entriesLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm z-10">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg z-10">
                 <LoadingSpinner size="lg" />
-                <span className="mt-3 text-gray-700 dark:text-gray-300 text-sm">Loading schedule...</span>
+                <span className="mt-3 text-gray-700 dark:text-gray-300 text-sm font-medium">Loading schedule...</span>
               </div>
             )}
           </div>
@@ -992,6 +1027,43 @@ export default function SchedulePage() {
           onSpecialtyChange={setSpecialty}
           onReloadSpecialties={reloadSpecialties}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Schedule Entry</AlertDialogTitle>
+              <AlertDialogDescription>
+                {eventToDelete && (
+                  <>
+                    Are you sure you want to remove <strong>{eventToDelete.provider}</strong> from{" "}
+                    <strong>
+                      {new Date(eventToDelete.date + 'T12:00:00').toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </strong>?
+                    <br />
+                    <br />
+                    This action cannot be undone.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setEventToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmedDelete}
+                className="bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white"
+              >
+                Delete Entry
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </LayoutShell>
   );

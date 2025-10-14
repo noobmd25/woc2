@@ -76,7 +76,7 @@ const ProviderSearch = memo(
       [onSearchChange],
     );
 
-    const handleInputFocus = useCallback(() => {
+    const handleInputClick = useCallback(() => {
       setIsOpen(true);
     }, []);
 
@@ -143,14 +143,14 @@ const ProviderSearch = memo(
     }, [loading, isOpen]);
 
     return (
-      <div ref={containerRef} className="relative">
+      <div ref={containerRef} className="relative mt-2">
         <div className="relative">
           <input
             ref={inputRef}
             type="text"
             value={searchQuery}
             onChange={handleInputChange}
-            onFocus={handleInputFocus}
+            onClick={handleInputClick}
             onKeyDown={handleKeyDown}
             placeholder={
               loading ? "Loading providers..." : "Type to search or click to browse..."

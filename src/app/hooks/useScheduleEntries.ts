@@ -163,7 +163,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
     [reloadCurrentEntries],
   );
 
-  // Delete schedule entry
+  // Delete schedule entry by ID
   const deleteEntry = useCallback(
     async (id: string) => {
       try {
@@ -188,6 +188,77 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
       }
     },
     [reloadCurrentEntries],
+  );
+
+  // Delete schedule entry by date and provider name
+  const deleteEntryByDateAndProvider = useCallback(
+    async (date: string, providerName: string, spec: string, hp: string | null) => {
+      try {
+        let deleteQuery = supabase
+          .from("schedules")
+          .delete()
+          .eq("on_call_date", date)
+          .eq("specialty", spec)
+          .eq("provider_name", providerName.replace(/^Dr\. /, "").trim());
+
+        if (spec === "Internal Medicine") {
+          if (hp) {
+            deleteQuery = deleteQuery.eq("healthcare_plan", hp);
+          } else {
+            deleteQuery = deleteQuery.is("healthcare_plan", null);
+          }
+        }
+
+        const { error } = await deleteQuery;
+
+        if (error) {
+          console.error("Failed to delete schedule entry:", error);
+          toast.error("Failed to delete entry");
+          return false;
+        } else {
+          toast.success("Entry deleted successfully");
+          return true;
+        }
+      } catch (error) {
+        console.error("Error in deleteEntryByDateAndProvider:", error);
+        toast.error("Failed to delete entry");
+        return false;
+      }
+    },
+    [],
+  );
+
+  // Clear all entries for a specific month
+  const clearMonth = useCallback(
+    async (startOfMonth: string, startOfNextMonth: string, spec: string, hp: string | null) => {
+      try {
+        let deleteQuery = supabase
+          .from("schedules")
+          .delete({ count: "exact" })
+          .eq("specialty", spec)
+          .gte("on_call_date", startOfMonth)
+          .lt("on_call_date", startOfNextMonth);
+
+        if (spec === "Internal Medicine" && hp) {
+          deleteQuery = deleteQuery.eq("healthcare_plan", hp);
+        }
+
+        const { error, count } = await deleteQuery;
+
+        if (error) {
+          console.error("Error clearing month:", error);
+          toast.error("Failed to clear the month.");
+          return { success: false, count: 0 };
+        } else {
+          return { success: true, count: count ?? 0 };
+        }
+      } catch (error) {
+        console.error("Error in clearMonth:", error);
+        toast.error("Failed to clear the month.");
+        return { success: false, count: 0 };
+      }
+    },
+    [],
   );
 
   // Add multiple entries at once
@@ -266,6 +337,8 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
     addEntry,
     updateEntry,
     deleteEntry,
+    deleteEntryByDateAndProvider,
+    clearMonth,
     addMultipleEntries,
     addPendingEntry,
     removePendingEntry,

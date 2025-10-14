@@ -1,9 +1,22 @@
 "use client";
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 
 import MiniCalendar from "@/components/schedule/MiniCalendar";
 import ProviderSearch from "@/components/schedule/ProviderSearch";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   type MiniCalendarEvent,
   type PendingEntry,
@@ -66,9 +79,17 @@ const ScheduleModal = memo(
     onProviderIdChange,
     onSubmit,
   }: ScheduleModalProps) => {
+    // Local state for multi-day selection toggle
+    const [showMultiDaySelector, setShowMultiDaySelector] = useState(false);
+
     // Find current provider by ID to get the name for display
     const currentProvider = providers.find(p => p.id === currentProviderId);
     const currentProviderName = currentProvider?.name || "";
+
+    const handleClose = useCallback(() => {
+      setShowMultiDaySelector(false);
+      onClose();
+    }, [onClose]);
 
     const handleProviderSearchSelect = useCallback(
       (provider: Provider) => {
@@ -88,13 +109,13 @@ const ScheduleModal = memo(
     if (!isOpen) return null;
 
     return (
-      <div className="modal-overlay">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <div className="px-4 sm:px-6 py-4 border-b dark:border-gray-700">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
               {isEditing ? "Edit Schedule Entry" : "Add Schedule Entry"}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            </DialogTitle>
+            <DialogDescription>
               {selectedModalDate && (
                 <>
                   {specialty} -{" "}
@@ -108,18 +129,13 @@ const ScheduleModal = memo(
                   )}
                 </>
               )}
-            </p>
-          </div>
+            </DialogDescription>
+          </DialogHeader>
 
           <div className="px-4 sm:px-6 py-4 space-y-4">
             {/* Provider Selection - Searchable Select */}
             <div>
-              <label
-                htmlFor="provider-search"
-                className="block text-sm font-medium mb-2"
-              >
-                Provider Name *
-              </label>
+              <Label htmlFor="provider-search">Provider Name *</Label>
               <ProviderSearch
                 providers={providers}
                 searchQuery={currentProviderName}
@@ -132,27 +148,32 @@ const ScheduleModal = memo(
 
             {/* Second Phone Preference */}
             <div>
-              <label
-                htmlFor="second-phone-pref"
-                className="block text-sm font-medium mb-2"
-              >
-                Second Phone Preference
-              </label>
-              <select
+              <Label >Works with</Label>
+              <RadioGroup
+                className="flex flex-row flex-wrap mt-2"
                 value={secondPref}
-                onChange={(e) =>
-                  onSecondPrefChange(
-                    e.target.value as "none" | "residency" | "pa",
-                  )
-                }
-                className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:text-white dark:border-gray-700"
+                onValueChange={onSecondPrefChange}
                 disabled={loading}
-                id="second-phone-pref"
               >
-                <option value="none">None (use automatic preference)</option>
-                <option value="residency">Prefer residency phone</option>
-                <option value="pa">Prefer PA/office phone</option>
-              </select>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="none" id="pref-none" />
+                  <Label htmlFor="pref-none" className="font-normal cursor-pointer">
+                    None
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="residency" id="pref-residency" />
+                  <Label htmlFor="pref-residency" className="font-normal cursor-pointer">
+                    Residency
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="pa" id="pref-pa" />
+                  <Label htmlFor="pref-pa" className="font-normal cursor-pointer">
+                    PA Phone
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
 
             {/* Display second phone if available */}
@@ -168,42 +189,55 @@ const ScheduleModal = memo(
             )}
 
             {/* Cover Provider */}
-            <div>
-              <label className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  checked={coverEnabled}
-                  onChange={(e) => onCoverEnabledChange(e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-600"
-                  disabled={loading}
-                />
-                <span className="text-sm font-medium">
-                  This is a cover arrangement
-                </span>
-              </label>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="cover-enabled"
+                checked={coverEnabled}
+                onCheckedChange={(checked) => onCoverEnabledChange(checked as boolean)}
+                disabled={loading}
+              />
+              <Label
+                htmlFor="cover-enabled"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                This is a cover arrangement
+              </Label>
             </div>
 
             {coverEnabled && (
               <div>
-                <label
-                  htmlFor="coverProvider"
-                  className="block text-sm font-medium mb-2"
-                >
-                  Covering Provider Name
-                </label>
-                <input
+                <Label htmlFor="coverProvider">Covering Provider Name</Label>
+                <Input
+                  className="mt-1"
                   ref={coverInputRef}
                   type="text"
                   id="coverProvider"
                   placeholder="Covering provider name"
-                  className="w-full px-3 py-2 border rounded-md dark:bg-gray-900 dark:text-white dark:border-gray-700"
                   disabled={loading}
                 />
               </div>
             )}
 
-            {/* Mini Calendar for Additional Days */}
+            {/* Multi-Day Selection Toggle */}
             {!isEditing && (
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="multi-day-selector"
+                  checked={showMultiDaySelector}
+                  onCheckedChange={(checked) => setShowMultiDaySelector(checked as boolean)}
+                  disabled={loading}
+                />
+                <Label
+                  htmlFor="multi-day-selector"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Select multiple days
+                </Label>
+              </div>
+            )}
+
+            {/* Mini Calendar for Additional Days */}
+            {!isEditing && showMultiDaySelector && (
               <MiniCalendar
                 selectedModalDate={selectedModalDate}
                 selectedAdditionalDays={selectedAdditionalDays}
@@ -219,29 +253,28 @@ const ScheduleModal = memo(
           </div>
 
           {/* Modal Actions */}
-          <div className="px-4 sm:px-6 py-3 border-t dark:border-gray-700 flex justify-end gap-2">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
-              onClick={onClose}
-              className="px-3 sm:px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-white rounded disabled:opacity-50"
+              variant="outline"
+              onClick={handleClose}
               disabled={loading}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={onSubmit}
-              className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50 flex items-center gap-2"
               disabled={loading}
             >
               {loading && (
-                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
               )}
               {isEditing ? "Update Entry" : "Add Entry"}
-            </button>
-          </div>
-        </div>
-      </div>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
   },
 );

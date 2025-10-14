@@ -82,7 +82,8 @@ export const getTextColorForBackground = (hex: string) => {
   const g = (rgb >> 8) & 255;
   const b = rgb & 255;
   const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 186 ? "black" : "white";
+  // Adjusted threshold for better readability
+  return luminance > 155 ? "#1f2937" : "#ffffff"; // gray-800 or white
 };
 
 export const hslToHex = (h: number, s: number, l: number) => {
@@ -99,13 +100,36 @@ export const hslToHex = (h: number, s: number, l: number) => {
 };
 
 export const generateDistinctColors = (count: number) => {
+  // Predefined vibrant and readable colors for better consistency
+  const baseColors = [
+    { h: 200, s: 75, l: 55 },  // Blue
+    { h: 160, s: 70, l: 50 },  // Emerald/Teal
+    { h: 280, s: 65, l: 55 },  // Purple
+    { h: 30, s: 75, l: 55 },   // Orange
+    { h: 340, s: 70, l: 55 },  // Rose/Pink
+    { h: 120, s: 65, l: 50 },  // Green
+    { h: 260, s: 70, l: 60 },  // Violet
+    { h: 50, s: 75, l: 55 },   // Amber
+    { h: 180, s: 70, l: 50 },  // Cyan
+    { h: 320, s: 65, l: 55 },  // Magenta
+  ];
+
   const colors = [];
+
   for (let i = 0; i < count; i++) {
-    const h = (i * 137.508) % 360; // Golden angle approximation
-    const s = 70; // 70% saturation
-    const l = 55; // 55% lightness
-    colors.push(hslToHex(h, s, l));
+    if (i < baseColors.length) {
+      // Use predefined colors for first providers
+      const { h, s, l } = baseColors[i];
+      colors.push(hslToHex(h, s, l));
+    } else {
+      // Generate additional colors using golden angle with better parameters
+      const h = (i * 137.508) % 360;
+      const s = 70 + (i % 3) * 5;  // Vary saturation slightly
+      const l = 50 + (i % 2) * 8;  // Vary lightness slightly
+      colors.push(hslToHex(h, s, l));
+    }
   }
+
   return colors;
 };
 
