@@ -133,19 +133,6 @@ export const generateDistinctColors = (count: number) => {
   return colors;
 };
 
-export const plans = [
-  "Triple S Advantage/Unattached",
-  "Vital",
-  "405/M88",
-  "PAMG",
-  "REMAS",
-  "SMA",
-  "CSE",
-  "In Salud",
-  "IPA B",
-  "MCS",
-];
-
 // Type definitions
 export interface ScheduleEntry {
   on_call_date: string;

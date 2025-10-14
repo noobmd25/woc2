@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -38,7 +38,7 @@ interface ScheduleModalProps {
   secondPhone?: string;
   secondSource?: string | null;
   coverEnabled: boolean;
-  coverInputRef?: React.RefObject<HTMLInputElement | null>;
+  // (removed coverInputRef prop)
   editingEntry: any;
   currentProviderId: string;
   loading?: boolean;
@@ -48,6 +48,8 @@ interface ScheduleModalProps {
   onSecondPrefChange: (pref: "none" | "residency" | "pa") => void;
   onCoverEnabledChange: (enabled: boolean) => void;
   onProviderIdChange: (id: string) => void;
+  coveringProviderId: string;
+  onCoveringProviderIdChange: (id: string) => void;
   onSubmit: () => void;
 }
 
@@ -67,7 +69,8 @@ const ScheduleModal = memo(
     secondPhone = "",
     secondSource = null,
     coverEnabled,
-    coverInputRef,
+    coveringProviderId,
+    onCoveringProviderIdChange,
     editingEntry: _editingEntry,
     currentProviderId,
     loading = false,
@@ -82,14 +85,20 @@ const ScheduleModal = memo(
     // Local state for multi-day selection toggle
     const [showMultiDaySelector, setShowMultiDaySelector] = useState(false);
 
+    // Covering provider is fully controlled by parent
+    const coveringProvider = providers.find(p => p.id === coveringProviderId);
+    const coveringProviderName = coveringProvider?.name || "";
+
     // Find current provider by ID to get the name for display
     const currentProvider = providers.find(p => p.id === currentProviderId);
     const currentProviderName = currentProvider?.name || "";
 
+
     const handleClose = useCallback(() => {
       setShowMultiDaySelector(false);
+      onCoveringProviderIdChange("");
       onClose();
-    }, [onClose]);
+    }, [onClose, onCoveringProviderIdChange]);
 
     const handleProviderSearchSelect = useCallback(
       (provider: Provider) => {
@@ -105,6 +114,10 @@ const ScheduleModal = memo(
       },
       [onProviderIdChange],
     );
+
+
+    // Exclude current provider from covering provider list
+    const availableCoverProviders = providers.filter(p => p.id !== currentProviderId);
 
     if (!isOpen) return null;
 
@@ -206,14 +219,14 @@ const ScheduleModal = memo(
 
             {coverEnabled && (
               <div>
-                <Label htmlFor="coverProvider">Covering Provider Name</Label>
-                <Input
-                  className="mt-1"
-                  ref={coverInputRef}
-                  type="text"
-                  id="coverProvider"
-                  placeholder="Covering provider name"
-                  disabled={loading}
+                <Label htmlFor="coverProvider">Covering Provider</Label>
+                <ProviderSearch
+                  providers={availableCoverProviders}
+                  searchQuery={coveringProviderName}
+                  onSearchChange={() => onCoveringProviderIdChange("")}
+                  onProviderSelect={provider => onCoveringProviderIdChange(provider.id)}
+                  selectedProvider={coveringProviderName}
+                  loading={loading}
                 />
               </div>
             )}

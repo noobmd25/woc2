@@ -470,3 +470,86 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* FullCalendar Responsive Styles */
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .fc .fc-toolbar {
+    @apply flex-row gap-2 py-2;
+  }
+  
+  .fc .fc-toolbar-chunk {
+    @apply flex flex-col items-center justify-center w-full;
+  }
+  
+  .fc .fc-button-group {
+    @apply gap-1;
+  }
+  
+  .fc .fc-button {
+    @apply py-1.5 px-2.5 text-xs leading-none min-w-0;
+  }
+  
+  /* Hide text in prev/next buttons on mobile, keep icons only */
+  .fc .fc-prev-button .fc-icon,
+  .fc .fc-next-button .fc-icon {
+    margin: 0 !important;
+  }
+  
+  .fc .fc-toolbar-title {
+    @apply text-base leading-5 font-semibold;
+  }
+  
+  .fc .fc-col-header-cell {
+    @apply py-1.5 px-0.5 text-xs font-semibold;
+  }
+  
+  .fc .fc-col-header-cell-cushion {
+    @apply py-1 uppercase;
+  }
+  
+  .fc-daygrid-day-number {
+    @apply p-1 text-xs font-medium;
+  }
+  
+  .fc-daygrid-day-frame {
+    min-height: 3.5rem !important;
+  }
+  
+  .fc-event {
+    font-size: 0.7rem !important;
+    margin: 1px !important;
+    padding: 1px 2px !important;
+  }
+  
+  .fc .fc-more-link {
+    @apply text-[0.7rem] p-0.5;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .fc .fc-toolbar {
+    @apply py-3;
+  }
+  
+  .fc .fc-button {
+    @apply py-2 px-3.5 text-sm;
+  }
+  
+  .fc .fc-toolbar-title {
+    @apply text-xl font-semibold;
+  }
+  
+  .fc .fc-col-header-cell {
+    @apply py-2 px-1 text-sm;
+  }
+}
+
+/* Desktop - enhanced header */
+@media (min-width: 1025px) {
+  .fc .fc-col-header-cell {
+    @apply font-semibold;
+    font-size: 0.9rem;
+  }
+}

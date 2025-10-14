@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "react-hot-toast";
 
+import { SPECIALTIES } from "@/lib/constants";
 import {
   type PendingEntry,
   type ScheduleEntry,
@@ -24,7 +25,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
     }
 
     // For Internal Medicine, require a plan to be selected
-    if (specialty === "Internal Medicine" && !plan) {
+    if (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan) {
       return; // Don't call setEntries to avoid unnecessary re-renders
     }
 
@@ -36,7 +37,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
         .eq("specialty", specialty);
 
       // Add plan filter for Internal Medicine
-      if (specialty === "Internal Medicine" && plan) {
+      if (specialty === SPECIALTIES.INTERNAL_MEDICINE && plan) {
         query = query.eq("healthcare_plan", plan);
       }
 
@@ -63,13 +64,13 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
   // Load schedule entries from database with optional date range
   // Takes specialty and plan as parameters to avoid recreating the callback
   const loadEntries = useCallback(
-    async (startDate: Date, endDate: Date, spec: string, hp: string | null) => {
+    async (startDate: Date, endDate: Date, spec: string, plan: string | null) => {
       if (!spec) {
         return; // Don't call setEntries to avoid unnecessary re-renders
       }
 
       // For Internal Medicine, require a plan to be selected
-      if (spec === "Internal Medicine" && !hp) {
+      if (spec === SPECIALTIES.INTERNAL_MEDICINE && !plan) {
         return; // Don't call setEntries to avoid unnecessary re-renders
       }
 
@@ -81,8 +82,8 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
           .eq("specialty", spec);
 
         // Add plan filter for Internal Medicine
-        if (spec === "Internal Medicine" && hp) {
-          query = query.eq("healthcare_plan", hp);
+        if (spec === SPECIALTIES.INTERNAL_MEDICINE && plan) {
+          query = query.eq("healthcare_plan", plan);
         }
 
         // Add date range
@@ -201,7 +202,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
           .eq("specialty", spec)
           .eq("provider_name", providerName.replace(/^Dr\. /, "").trim());
 
-        if (spec === "Internal Medicine") {
+        if (spec === SPECIALTIES.INTERNAL_MEDICINE) {
           if (hp) {
             deleteQuery = deleteQuery.eq("healthcare_plan", hp);
           } else {
@@ -230,7 +231,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
 
   // Clear all entries for a specific month
   const clearMonth = useCallback(
-    async (startOfMonth: string, startOfNextMonth: string, spec: string, hp: string | null) => {
+    async (startOfMonth: string, startOfNextMonth: string, spec: string, plan: string | null) => {
       try {
         let deleteQuery = supabase
           .from("schedules")
@@ -239,8 +240,8 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
           .gte("on_call_date", startOfMonth)
           .lt("on_call_date", startOfNextMonth);
 
-        if (spec === "Internal Medicine" && hp) {
-          deleteQuery = deleteQuery.eq("healthcare_plan", hp);
+        if (spec === SPECIALTIES.INTERNAL_MEDICINE && plan) {
+          deleteQuery = deleteQuery.eq("healthcare_plan", plan);
         }
 
         const { error, count } = await deleteQuery;
