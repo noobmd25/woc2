@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 
 import MiniCalendar from "@/components/schedule/MiniCalendar";
 import ProviderSearch from "@/components/schedule/ProviderSearch";
@@ -85,34 +85,55 @@ const ScheduleModal = memo(
     // Local state for multi-day selection toggle
     const [showMultiDaySelector, setShowMultiDaySelector] = useState(false);
 
-    // Covering provider is fully controlled by parent
-    const coveringProvider = providers.find(p => p.id === coveringProviderId);
-    const coveringProviderName = coveringProvider?.name || "";
 
-    // Find current provider by ID to get the name for display
+    // Provider search input state (controlled)
+    const [providerSearchQuery, setProviderSearchQuery] = useState("");
     const currentProvider = providers.find(p => p.id === currentProviderId);
-    const currentProviderName = currentProvider?.name || "";
+    const providerInputValue = currentProvider ? currentProvider.name : providerSearchQuery;
+    useEffect(() => {
+      if (isOpen && currentProvider) {
+        setProviderSearchQuery(currentProvider.name);
+      } else if (isOpen && !currentProvider) {
+        setProviderSearchQuery("");
+      }
+      // Only run when modal opens or provider changes
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, currentProviderId]);
+    // Covering provider search input state (controlled)
+    const [coveringProviderSearchQuery, setCoveringProviderSearchQuery] = useState("");
+    const coveringProvider = providers.find(p => p.id === coveringProviderId);
+    const coveringProviderInputValue = coveringProvider ? coveringProvider.name : coveringProviderSearchQuery;
 
-
+    // Sync covering provider input with selection or modal open
+    useEffect(() => {
+      if (isOpen && coveringProvider) {
+        setCoveringProviderSearchQuery(coveringProvider.name);
+      } else if (isOpen && !coveringProvider) {
+        setCoveringProviderSearchQuery("");
+      }
+      // Only run when modal opens or covering provider changes
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, coveringProviderId]);
     const handleClose = useCallback(() => {
       setShowMultiDaySelector(false);
       onCoveringProviderIdChange("");
       onClose();
     }, [onClose, onCoveringProviderIdChange]);
 
+    const handleProviderInputChange = useCallback(
+      (query: string) => {
+        setProviderSearchQuery(query);
+        onProviderIdChange(""); // Clear selection while typing
+      },
+      [onProviderIdChange],
+    );
+
     const handleProviderSearchSelect = useCallback(
       (provider: Provider) => {
+        setProviderSearchQuery(provider.name);
         onProviderSelect(provider);
       },
       [onProviderSelect],
-    );
-
-    const handleProviderInputChange = useCallback(
-      (_query: string) => {
-        // When searching, we need to clear the ID until a provider is selected
-        onProviderIdChange("");
-      },
-      [onProviderIdChange],
     );
 
 
@@ -151,10 +172,10 @@ const ScheduleModal = memo(
               <Label htmlFor="provider-search">Provider Name *</Label>
               <ProviderSearch
                 providers={providers}
-                searchQuery={currentProviderName}
+                searchQuery={providerInputValue}
                 onSearchChange={handleProviderInputChange}
                 onProviderSelect={handleProviderSearchSelect}
-                selectedProvider={currentProviderName}
+                selectedProvider={currentProvider ? currentProvider.name : ""}
                 loading={loading}
               />
             </div>
@@ -207,7 +228,7 @@ const ScheduleModal = memo(
                 id="cover-enabled"
                 checked={coverEnabled}
                 onCheckedChange={(checked) => onCoverEnabledChange(checked as boolean)}
-                disabled={loading}
+                disabled={loading || !currentProvider}
               />
               <Label
                 htmlFor="cover-enabled"
@@ -222,10 +243,16 @@ const ScheduleModal = memo(
                 <Label htmlFor="coverProvider">Covering Provider</Label>
                 <ProviderSearch
                   providers={availableCoverProviders}
-                  searchQuery={coveringProviderName}
-                  onSearchChange={() => onCoveringProviderIdChange("")}
-                  onProviderSelect={provider => onCoveringProviderIdChange(provider.id)}
-                  selectedProvider={coveringProviderName}
+                  searchQuery={coveringProviderInputValue}
+                  onSearchChange={query => {
+                    setCoveringProviderSearchQuery(query);
+                    onCoveringProviderIdChange("");
+                  }}
+                  onProviderSelect={provider => {
+                    setCoveringProviderSearchQuery(provider.name);
+                    onCoveringProviderIdChange(provider.id);
+                  }}
+                  selectedProvider={coveringProvider ? coveringProvider.name : ""}
                   loading={loading}
                 />
               </div>
@@ -259,7 +286,7 @@ const ScheduleModal = memo(
                 pendingEntries={pendingEntries}
                 specialty={specialty}
                 plan={plan}
-                providerName={currentProviderName}
+                providerName={currentProvider ? currentProvider.name : ""}
                 onDateSelect={onDateSelect}
               />
             )}
