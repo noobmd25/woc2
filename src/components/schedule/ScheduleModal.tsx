@@ -27,14 +27,14 @@ interface ScheduleModalProps {
   coverEnabled: boolean;
   coverInputRef?: React.RefObject<HTMLInputElement | null>;
   editingEntry: any;
-  currentProviderName: string;
+  currentProviderId: string;
   loading?: boolean;
   onClose: () => void;
   onProviderSelect: (provider: Provider) => void;
   onDateSelect: (dateStr: string) => void;
   onSecondPrefChange: (pref: "none" | "residency" | "pa") => void;
   onCoverEnabledChange: (enabled: boolean) => void;
-  onProviderNameChange: (name: string) => void;
+  onProviderIdChange: (id: string) => void;
   onSubmit: () => void;
 }
 
@@ -56,16 +56,20 @@ const ScheduleModal = memo(
     coverEnabled,
     coverInputRef,
     editingEntry: _editingEntry,
-    currentProviderName,
+    currentProviderId,
     loading = false,
     onClose,
     onProviderSelect,
     onDateSelect,
     onSecondPrefChange,
     onCoverEnabledChange,
-    onProviderNameChange,
+    onProviderIdChange,
     onSubmit,
   }: ScheduleModalProps) => {
+    // Find current provider by ID to get the name for display
+    const currentProvider = providers.find(p => p.id === currentProviderId);
+    const currentProviderName = currentProvider?.name || "";
+
     const handleProviderSearchSelect = useCallback(
       (provider: Provider) => {
         onProviderSelect(provider);
@@ -74,10 +78,11 @@ const ScheduleModal = memo(
     );
 
     const handleProviderInputChange = useCallback(
-      (query: string) => {
-        onProviderNameChange(query);
+      (_query: string) => {
+        // When searching, we need to clear the ID until a provider is selected
+        onProviderIdChange("");
       },
-      [onProviderNameChange],
+      [onProviderIdChange],
     );
 
     if (!isOpen) return null;

@@ -42,7 +42,7 @@ export default function SchedulePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedModalDate, setSelectedModalDate] = useState<string | null>(null);
   const [selectedAdditionalDays, setSelectedAdditionalDays] = useState<string[]>([]);
-  const [currentProviderName, setCurrentProviderName] = useState("");
+  const [currentProviderId, setCurrentProviderId] = useState("");
   const [secondPref, setSecondPref] = useState<"none" | "residency" | "pa">("none");
   const [coverEnabled, setCoverEnabled] = useState(false);
   const [editingEntry, setEditingEntry] = useState<any>(null);
@@ -140,6 +140,16 @@ export default function SchedulePage() {
   // Computed flags
   const canEdit = useMemo(() => role === "admin" || role === "scheduler", [role]);
   const isIMWithoutPlan = useMemo(() => specialty === "Internal Medicine" && !plan, [specialty, plan]);
+
+  // Helper to get provider by ID
+  const getProviderById = useCallback((id: string) => {
+    return allProviders.find(p => p.id === id);
+  }, [allProviders]);
+
+  // Helper to get provider by name (for backward compatibility)
+  const getProviderByName = useCallback((name: string) => {
+    return allProviders.find(p => p.name === name);
+  }, [allProviders]);
 
   // Session storage: restore on mount
   useEffect(() => {
@@ -338,7 +348,7 @@ export default function SchedulePage() {
     setSelectedModalDate(dateStr);
     setIsModalOpen(true);
     setEditingEntry(null);
-    setCurrentProviderName("");
+    setCurrentProviderId("");
     setSelectedAdditionalDays([]);
     setSecondPref("none");
     setCoverEnabled(false);
@@ -368,7 +378,9 @@ export default function SchedulePage() {
 
     if (entry) {
       setSelectedModalDate(entry.on_call_date);
-      setCurrentProviderName(entry.provider_name);
+      // Find provider by name and store ID
+      const provider = getProviderByName(entry.provider_name);
+      setCurrentProviderId(provider?.id || "");
       setSecondPref(entry.second_phone_pref === "auto" ? "none" : (entry.second_phone_pref as "residency" | "pa") || "none");
       setCoverEnabled(entry.cover || false);
       setEditingEntry(entry);
@@ -376,10 +388,10 @@ export default function SchedulePage() {
       setSelectedAdditionalDays([]);
       setIsModalOpen(true);
     }
-  }, [canEdit, isIMWithoutPlan, entries]);
+  }, [canEdit, isIMWithoutPlan, entries, getProviderByName]);
 
   const handleProviderSelect = useCallback((provider: Provider) => {
-    setCurrentProviderName(provider.name);
+    setCurrentProviderId(provider.id);
   }, []);
 
   const handleDateSelect = useCallback((dateStr: string) => {
@@ -394,7 +406,7 @@ export default function SchedulePage() {
   const handleModalClose = useCallback(() => {
     setIsModalOpen(false);
     setEditingEntry(null);
-    setCurrentProviderName("");
+    setCurrentProviderId("");
     setSelectedAdditionalDays([]);
     setSecondPref("none");
     setCoverEnabled(false);
@@ -406,9 +418,15 @@ export default function SchedulePage() {
       return;
     }
 
-    const providerName = currentProviderName.trim();
-    if (!providerName) {
-      toast.error("Please enter a provider name.");
+    if (!currentProviderId.trim()) {
+      toast.error("Please select a provider.");
+      return;
+    }
+
+    // Get provider name from ID
+    const provider = getProviderById(currentProviderId);
+    if (!provider) {
+      toast.error("Invalid provider selected.");
       return;
     }
 
@@ -421,7 +439,7 @@ export default function SchedulePage() {
 
       const baseEntry = {
         on_call_date: selectedModalDate,
-        provider_name: providerName,
+        provider_name: provider.name, // Use the provider name for database
         specialty,
         healthcare_plan: specialty === "Internal Medicine" ? plan : null,
         show_second_phone: secondPref !== "none",
@@ -454,7 +472,7 @@ export default function SchedulePage() {
     }
   }, [
     selectedModalDate,
-    currentProviderName,
+    currentProviderId,
     specialty,
     plan,
     secondPref,
@@ -465,6 +483,7 @@ export default function SchedulePage() {
     addEntry,
     addMultipleEntries,
     handleModalClose,
+    getProviderById,
   ]);
 
   // Handle clear event (delete from calendar)
@@ -655,15 +674,14 @@ export default function SchedulePage() {
 
     return (
       <div
-        className={`relative w-full px-1 py-0.5 rounded ${isPending ? 'opacity-70 border-dashed' : ''}`}
+        className={`flex flex-col w-full px-2 py-2 rounded ${isPending ? 'opacity-70 border-dashed' : ''}`}
         style={{
           backgroundColor: eventInfo.backgroundColor,
           color: eventInfo.textColor,
         }}
       >
-        <div className="flex justify-between items-start gap-1">
-          <span className="text-xs flex-1 truncate">{eventInfo.event.title}</span>
-          {canEdit && (
+        {canEdit && (
+          <div className="flex justify-end wi-full">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -676,13 +694,17 @@ export default function SchedulePage() {
                   })
                 );
               }}
-              className="text-white hover:bg-black/20 rounded px-1 text-sm font-bold leading-none"
-              style={{ minWidth: '16px', height: '16px' }}
+              aria-label="Remove provider from this date"
+              className="text-xs px-1 pointer-events-auto hover:bg-black/20 rounded cursor-pointer"
+              style={{ color: eventInfo.textColor }}
             >
-              ×
+              ✕
             </button>
-          )}
-        </div>
+          </div>
+        )}
+        <span className="whitespace-normal break-words text-sm cursor-pointer">
+          {eventInfo.event.title}
+        </span>
       </div>
     );
   }, [role]);
@@ -950,14 +972,14 @@ export default function SchedulePage() {
           coverEnabled={coverEnabled}
           coverInputRef={coverInputRef}
           editingEntry={editingEntry}
-          currentProviderName={currentProviderName}
+          currentProviderId={currentProviderId}
           loading={modalLoading}
           onClose={handleModalClose}
           onProviderSelect={handleProviderSelect}
           onDateSelect={handleDateSelect}
           onSecondPrefChange={setSecondPref}
           onCoverEnabledChange={setCoverEnabled}
-          onProviderNameChange={setCurrentProviderName}
+          onProviderIdChange={setCurrentProviderId}
           onSubmit={handleModalSubmit}
         />
 

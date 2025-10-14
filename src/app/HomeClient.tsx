@@ -69,7 +69,7 @@ export default function HomeClient() {
   const _refreshSession = useCallback(async () => {
     try {
       await supabase.auth.getUser();
-    } catch {}
+    } catch { }
   }, [supabase]);
 
   usePageRefresh(null); // full reload on pull-to-refresh
@@ -187,7 +187,7 @@ export default function HomeClient() {
             error_text: signUpError.message || String(signUpError),
             context: { stage: "signup" },
           });
-        } catch {}
+        } catch { }
         return;
       }
 
@@ -202,7 +202,7 @@ export default function HomeClient() {
           error_text: err?.message || String(err),
           context: { stage: "unexpected" },
         });
-      } catch {}
+      } catch { }
     }
   };
 
@@ -238,8 +238,10 @@ export default function HomeClient() {
         return;
       }
     }
-    toast.success("Login successful");
+
+    // Close modal and navigate immediately
     setShowLogin(false);
+
     const nextParam = search?.get("next");
     const redirectTo =
       nextParam && nextParam.startsWith("/") ? nextParam : "/oncall";

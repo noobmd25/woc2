@@ -29,7 +29,7 @@ export const useProviders = (specialty: string) => {
       // Fetch all providers for this specialty (including Residency and PA Phone)
       const { data, error } = await supabase
         .from("directory")
-        .select("provider_name, specialty, phone_number")
+        .select("id, provider_name, specialty, phone_number")
         .eq("specialty", spec)
         .order("provider_name", { ascending: true });
 
@@ -41,6 +41,7 @@ export const useProviders = (specialty: string) => {
       } else {
         // Map database fields to Provider interface
         const mappedProviders: Provider[] = (data || []).map((item) => ({
+          id: item.id,
           name: item.provider_name,
           phone_1: item.phone_number,
           phone_2: null,
