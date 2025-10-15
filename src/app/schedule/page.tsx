@@ -731,6 +731,7 @@ export default function SchedulePage() {
           color: eventInfo.textColor,
         }}
       >
+        {/* Absolute delete button for sm+ screens */}
         {canEditEvent && (
           <button
             onClick={(e) => {
@@ -745,18 +746,7 @@ export default function SchedulePage() {
               );
             }}
             aria-label="Remove provider from this date"
-            className="
-              absolute -top-1 sm:-top-1.5 -right-1 sm:-right-1.5
-              w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center
-              text-[10px] sm:text-xs font-bold rounded-full
-              bg-white dark:bg-gray-800
-              text-gray-600 dark:text-gray-300
-              hover:bg-red-500 hover:text-white
-              shadow-md hover:shadow-lg
-              transition-all duration-150
-              pointer-events-auto cursor-pointer
-              z-10
-            "
+            className="hidden sm:flex absolute -top-1.5 -right-1.5 w-5 h-5 items-center justify-center text-xs font-bold rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white shadow-md hover:shadow-lg transition-all duration-150 pointer-events-auto cursor-pointer z-10"
           >
             ✕
           </button>
@@ -772,6 +762,26 @@ export default function SchedulePage() {
             >
               📞
             </span>
+          )}
+          {/* Inline delete button for mobile */}
+          {canEditEvent && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(
+                  new CustomEvent("clearEvent", {
+                    detail: {
+                      date: eventInfo.event.startStr,
+                      provider: currentProvider,
+                    },
+                  })
+                );
+              }}
+              aria-label="Remove provider from this date"
+              className="sm:hidden ml-1 w-5 h-5 flex items-center justify-center text-xs font-bold rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white shadow-md hover:shadow-lg transition-all duration-150 pointer-events-auto cursor-pointer"
+            >
+              ✕
+            </button>
           )}
         </div>
       </div>
