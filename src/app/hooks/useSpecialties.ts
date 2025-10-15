@@ -12,6 +12,7 @@ export const useSpecialties = () => {
   const [specialties, setSpecialties] = useState<string[]>([]);
   const [specialtyEditList, setSpecialtyEditList] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
 
   const reloadSpecialties = useCallback(async () => {
     setLoading(true);
@@ -53,14 +54,16 @@ export const useSpecialties = () => {
       const trimmedName = name.trim();
       if (!trimmedName) return false;
 
+      // Check for duplicates in current list
       const duplicate = specialtyEditList.some(
-        (s) => s.name.toLowerCase() === trimmedName.toLowerCase(),
+        (s) => s.name.toLowerCase() === trimmedName.toLowerCase()
       );
       if (duplicate) {
         toast.error("Specialty already exists.");
         return false;
       }
 
+      setActionLoading(prev => ({ ...prev, add: true }));
       try {
         const { error } = await supabase
           .from("specialties")
@@ -79,6 +82,8 @@ export const useSpecialties = () => {
         console.error("Error in addSpecialty:", error);
         toast.error("Failed to add specialty.");
         return false;
+      } finally {
+        setActionLoading(prev => ({ ...prev, add: false }));
       }
     },
     [specialtyEditList, reloadSpecialties],
@@ -101,6 +106,7 @@ export const useSpecialties = () => {
         return false;
       }
 
+      setActionLoading(prev => ({ ...prev, [id]: true }));
       try {
         const updates: any = { name: trimmedName };
         if (showOncall !== undefined) {
@@ -118,20 +124,39 @@ export const useSpecialties = () => {
           return false;
         } else {
           toast.success("Specialty updated.");
-          await reloadSpecialties();
+          // Optimistically update local state instead of reloading
+          setSpecialtyEditList(prev =>
+            prev.map(s => s.id === id ? { ...s, name: trimmedName, ...(showOncall !== undefined && { show_oncall: showOncall }) } : s)
+          );
+          // Update active specialties list if show_oncall changed
+          if (showOncall !== undefined) {
+            setSpecialties(prev => {
+              const updated = specialtyEditList.find(s => s.id === id);
+              if (!updated) return prev;
+              if (showOncall && !prev.includes(trimmedName)) {
+                return [...prev, trimmedName].sort();
+              } else if (!showOncall && prev.includes(updated.name)) {
+                return prev.filter(name => name !== updated.name);
+              }
+              return prev;
+            });
+          }
           return true;
         }
       } catch (error) {
         console.error("Error in updateSpecialty:", error);
         toast.error("Failed to update specialty.");
         return false;
+      } finally {
+        setActionLoading(prev => ({ ...prev, [id]: false }));
       }
     },
-    [specialtyEditList, reloadSpecialties],
+    [specialtyEditList],
   );
 
   const deleteSpecialty = useCallback(
     async (id: string) => {
+      setActionLoading(prev => ({ ...prev, [`delete-${id}`]: true }));
       try {
         const { error } = await supabase
           .from("specialties")
@@ -151,18 +176,61 @@ export const useSpecialties = () => {
         console.error("Error in deleteSpecialty:", error);
         toast.error("Failed to delete specialty.");
         return false;
+      } finally {
+        setActionLoading(prev => ({ ...prev, [`delete-${id}`]: false }));
       }
     },
     [reloadSpecialties],
+  );
+
+  // Toggle show_oncall
+  const toggleShowOnCall = useCallback(
+    async (id: string, currentValue: boolean) => {
+      setActionLoading(prev => ({ ...prev, [`toggle-${id}`]: true }));
+      try {
+        const { error } = await supabase
+          .from("specialties")
+          .update({ show_oncall: !currentValue })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Failed to toggle show_oncall:", error);
+          toast.error("Failed to update specialty.");
+        } else {
+          toast.success("Specialty updated.");
+          // Optimistically update local state
+          const specialty = specialtyEditList.find(s => s.id === id);
+          if (specialty) {
+            setSpecialtyEditList(prev =>
+              prev.map(s => s.id === id ? { ...s, show_oncall: !currentValue } : s)
+            );
+            // Update active specialties list
+            if (!currentValue && !specialties.includes(specialty.name)) {
+              setSpecialties(prev => [...prev, specialty.name].sort());
+            } else if (currentValue) {
+              setSpecialties(prev => prev.filter(name => name !== specialty.name));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error in toggleShowOnCall:", error);
+        toast.error("Failed to update specialty.");
+      } finally {
+        setActionLoading(prev => ({ ...prev, [`toggle-${id}`]: false }));
+      }
+    },
+    [specialtyEditList, specialties],
   );
 
   return {
     specialties,
     specialtyEditList,
     loading,
+    actionLoading,
     reloadSpecialties,
     addSpecialty,
     updateSpecialty,
     deleteSpecialty,
+    toggleShowOnCall,
   };
 };

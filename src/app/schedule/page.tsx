@@ -1058,11 +1058,9 @@ export default function SchedulePage() {
         {/* Specialty Management Modal */}
         <SpecialtyManagementModal
           isOpen={showSpecialtyModal}
-          specialtyEditList={specialtyEditList}
           currentSpecialty={specialty}
           onClose={() => setShowSpecialtyModal(false)}
           onSpecialtyChange={setSpecialty}
-          onReloadSpecialties={reloadSpecialties}
         />
 
         {/* Delete Confirmation Dialog */}
