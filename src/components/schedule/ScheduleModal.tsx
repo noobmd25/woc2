@@ -19,8 +19,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   type MiniCalendarEvent,
-  type PendingEntry,
-  type Provider,
+  type Provider
 } from "@/lib/schedule-utils";
 
 interface ScheduleModalProps {
@@ -33,7 +32,6 @@ interface ScheduleModalProps {
   selectedAdditionalDays: string[];
   miniCalendarDate: Date;
   miniCalendarEvents: MiniCalendarEvent[];
-  pendingEntries: PendingEntry[];
   secondPref: "none" | "residency" | "pa";
   secondPhone?: string;
   secondSource?: string | null;
@@ -64,7 +62,6 @@ const ScheduleModal = memo(
     selectedAdditionalDays,
     miniCalendarDate,
     miniCalendarEvents,
-    pendingEntries,
     secondPref,
     secondPhone = "",
     secondSource = null,
@@ -104,6 +101,14 @@ const ScheduleModal = memo(
     const coveringProvider = providers.find(p => p.id === coveringProviderId);
     const coveringProviderInputValue = coveringProvider ? coveringProvider.name : coveringProviderSearchQuery;
 
+    // Compute unavailable dates for the current provider (excluding the selectedModalDate)
+    const unavailableDates = miniCalendarEvents
+      .filter(
+        (ev) =>
+          ev.provider === (currentProvider ? currentProvider.name : "") &&
+          ev.date !== selectedModalDate // allow the main selected date
+      )
+      .map((ev) => ev.date);
     // Sync covering provider input with selection or modal open
     useEffect(() => {
       if (isOpen && coveringProvider) {
@@ -265,7 +270,7 @@ const ScheduleModal = memo(
                   id="multi-day-selector"
                   checked={showMultiDaySelector}
                   onCheckedChange={(checked) => setShowMultiDaySelector(checked as boolean)}
-                  disabled={loading}
+                  disabled={loading || !currentProvider} // <-- disable if no provider selected
                 />
                 <Label
                   htmlFor="multi-day-selector"
@@ -283,11 +288,10 @@ const ScheduleModal = memo(
                 selectedAdditionalDays={selectedAdditionalDays}
                 miniCalendarDate={miniCalendarDate}
                 miniCalendarEvents={miniCalendarEvents}
-                pendingEntries={pendingEntries}
-                specialty={specialty}
-                plan={plan}
                 providerName={currentProvider ? currentProvider.name : ""}
                 onDateSelect={onDateSelect}
+                unavailableDates={unavailableDates} // <-- add this prop
+
               />
             )}
           </div>

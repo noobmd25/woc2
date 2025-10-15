@@ -5,7 +5,6 @@ import { toast } from "react-hot-toast";
 
 import { SPECIALTIES } from "@/lib/constants";
 import {
-  type PendingEntry,
   type ScheduleEntry,
   toLocalISODate,
 } from "@/lib/schedule-utils";
@@ -15,7 +14,6 @@ const supabase = getBrowserClient();
 
 export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
-  const [pendingEntries, setPendingEntries] = useState<PendingEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Internal reload function - stable with dependencies
@@ -290,49 +288,9 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
     [reloadCurrentEntries],
   );
 
-  // Manage pending entries (local state)
-  const addPendingEntry = useCallback((entry: PendingEntry) => {
-    setPendingEntries((prev) => {
-      // Remove any existing entry for the same date/specialty/plan
-      const filtered = prev.filter(
-        (e) =>
-          !(
-            e.on_call_date === entry.on_call_date &&
-            e.specialty === entry.specialty &&
-            (e.healthcare_plan ?? "") === (entry.healthcare_plan ?? "")
-          ),
-      );
-      return [...filtered, entry];
-    });
-  }, []);
-
-  const removePendingEntry = useCallback((date: string) => {
-    setPendingEntries((prev) => prev.filter((e) => e.on_call_date !== date));
-  }, []);
-
-  const clearPendingEntries = useCallback(() => {
-    setPendingEntries([]);
-  }, []);
-
-  // Commit pending entries to database
-  const commitPendingEntries = useCallback(async () => {
-    if (pendingEntries.length === 0) return true;
-
-    const entriesWithoutId = pendingEntries.map(
-      ({ id: _id, ...entry }) => entry,
-    );
-    const success = await addMultipleEntries(entriesWithoutId);
-
-    if (success) {
-      clearPendingEntries();
-    }
-
-    return success;
-  }, [pendingEntries, addMultipleEntries, clearPendingEntries]);
 
   return {
     entries,
-    pendingEntries,
     loading,
     loadEntries,
     addEntry,
@@ -341,9 +299,5 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
     deleteEntryByDateAndProvider,
     clearMonth,
     addMultipleEntries,
-    addPendingEntry,
-    removePendingEntry,
-    clearPendingEntries,
-    commitPendingEntries,
   };
 };

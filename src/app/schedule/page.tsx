@@ -1,5 +1,16 @@
 "use client";
 
+import { useColorMapping } from "@/app/hooks/useColorMapping";
+import { useProviders } from "@/app/hooks/useProviders";
+import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
+import { useSpecialties } from "@/app/hooks/useSpecialties";
+import { MONTH_NAMES, PLANS, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
+import {
+  type MiniCalendarEvent,
+  type Provider,
+  toLocalISODate
+} from "@/lib/schedule-utils";
+import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
 import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -9,10 +20,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 
-import { useColorMapping } from "@/app/hooks/useColorMapping";
-import { useProviders } from "@/app/hooks/useProviders";
-import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
-import { useSpecialties } from "@/app/hooks/useSpecialties";
 import useUserRole from "@/app/hooks/useUserRole";
 import LayoutShell from "@/components/LayoutShell";
 import ScheduleModal from "@/components/schedule/ScheduleModal";
@@ -28,14 +35,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { MONTH_NAMES, PLANS, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
-import {
-  type MiniCalendarEvent,
-  type PendingEntry,
-  type Provider,
-  toLocalISODate,
-} from "@/lib/schedule-utils";
-import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
+
 
 export default function SchedulePage() {
   const router = useRouter();
@@ -94,7 +94,6 @@ export default function SchedulePage() {
   const { providers, allProviders } = useProviders(specialty);
   const {
     entries,
-    pendingEntries,
     loading: entriesLoading,
     loadEntries,
     addEntry,
@@ -108,9 +107,8 @@ export default function SchedulePage() {
   const allProviderNames = useMemo(() => {
     const names = new Set<string>();
     entries.forEach(entry => names.add(entry.provider_name));
-    pendingEntries.forEach(entry => names.add(entry.provider_name));
     return Array.from(names);
-  }, [entries, pendingEntries]);
+  }, [entries]);
 
   const { getProviderColors } = useColorMapping(allProviderNames);
 
@@ -359,10 +357,23 @@ export default function SchedulePage() {
     }
 
     const dateStr = toLocalISODate(info.date);
+    // Only allow adding in the main visible month
+    const api = calendarRef.current?.getApi();
+    if (api) {
+      const visibleMonth = api.view.currentStart;
+      if (
+        info.date.getMonth() !== visibleMonth.getMonth() ||
+        info.date.getFullYear() !== visibleMonth.getFullYear()
+      ) {
+        toast.error("You can only add events for the current visible month. Move to that month to add events.");
+        info.jsEvent?.preventDefault?.();
+        return;
+      }
+    }
     // Only allow one entry per day: block if an entry exists for this date
     const alreadyExists = entries.some(e => e.on_call_date === dateStr);
     if (alreadyExists) {
-      toast.error("Only one entry per day is allowed. Click the event to edit.");
+      info.jsEvent?.preventDefault?.();
       return;
     }
     setSelectedModalDate(dateStr);
@@ -571,17 +582,8 @@ export default function SchedulePage() {
 
   // Handle save changes (commit pending additions only - deletions are immediate)
   const handleSaveChanges = useCallback(async (source?: "shortcut" | "button") => {
-    if (pendingEntries.length === 0) {
-      toast.success("No changes to save.");
-      return;
-    }
 
     try {
-      // Handle pending entries (already saved via modal, but handle any remaining)
-      if (pendingEntries.length > 0) {
-        // These are typically already saved, but we can add logic here if needed
-        // For now, just clear them
-      }
 
       if (source === "shortcut") {
         toast.success("Saved with ⌘S/Ctrl+S");
@@ -594,7 +596,7 @@ export default function SchedulePage() {
       console.error("Error in handleSaveChanges:", error);
       toast.error("Failed to save changes.");
     }
-  }, [pendingEntries, refreshCalendarVisibleRange]);
+  }, [refreshCalendarVisibleRange]);
 
   // Global keyboard shortcut: Ctrl/Cmd+S to save
   useEffect(() => {
@@ -675,7 +677,7 @@ export default function SchedulePage() {
 
   // Calendar events - format matches original but uses optimized hooks
   const calendarEvents = useMemo(() => {
-    const allEntries = [...entries, ...pendingEntries];
+    const allEntries = [...entries];
 
     return allEntries
       .filter(entry => {
@@ -697,33 +699,39 @@ export default function SchedulePage() {
           borderColor: colors.backgroundColor,
           extendedProps: {
             entry,
-            isPending: pendingEntries.includes(entry as PendingEntry),
           },
         };
       });
-  }, [entries, pendingEntries, getProviderColors, deletingEvents]);
+  }, [entries, getProviderColors, deletingEvents]);
 
   // Event content renderer with delete button
   const renderEventContent = useCallback((eventInfo: EventContentArg) => {
-    const isPending = eventInfo.event.extendedProps.isPending;
     const entry = eventInfo.event.extendedProps.entry;
-    const canEdit = role === "admin" || role === "scheduler";
+    // Only allow editing if user is admin/scheduler AND event is visible in the current calendar grid
+    const api = calendarRef.current?.getApi();
+    let isEventVisible = false;
+    if (api) {
+      const start = api.view.currentStart;
+      const end = api.view.currentEnd;
+      const eventDate = new Date(entry.on_call_date + 'T00:00:00');
+      isEventVisible = eventDate >= start && eventDate < end;
+    }
+    const canEditEvent = canEdit && isEventVisible;
     const currentProvider = eventInfo.event.title.replace(/^Dr\. /, "").replace(/ \(Cover\)$/, "").trim();
     const hasSecondPhone = entry?.show_second_phone && entry?.second_phone_pref !== "auto";
+
 
     return (
       <div
         className={`
           relative flex flex-col w-full px-2 sm:px-3 py-1.5 sm:py-2 rounded-md sm:rounded-lg shadow-sm
-          transition-all duration-150 hover:shadow-md
-          ${isPending ? 'opacity-75 border-2 border-dashed' : 'border border-transparent'}
-        `}
+          transition-all duration-150 hover:shadow-md border border-transparent`}
         style={{
           backgroundColor: eventInfo.backgroundColor,
           color: eventInfo.textColor,
         }}
       >
-        {canEdit && (
+        {canEditEvent && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -768,7 +776,7 @@ export default function SchedulePage() {
         </div>
       </div>
     );
-  }, [role]); if (role === null) {
+  }, [canEdit]); if (role === null) {
     return (
       <LayoutShell>
         <div className="flex items-center justify-center py-12">
@@ -967,12 +975,12 @@ export default function SchedulePage() {
                 Clear Month
               </span>
             </button>
-            <button
+            {/* <button
               onClick={() => handleSaveChanges("button")}
               className="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded text-white bg-green-600 hover:bg-green-700 transition-colors"
             >
               Save Changes
-            </button>
+            </button> */}
           </div>
         )}
 
@@ -1019,7 +1027,6 @@ export default function SchedulePage() {
           selectedAdditionalDays={selectedAdditionalDays}
           miniCalendarDate={miniCalendarDate}
           miniCalendarEvents={miniCalendarEvents}
-          pendingEntries={pendingEntries}
           secondPref={secondPref}
           secondPhone={secondPhone}
           secondSource={secondSource}

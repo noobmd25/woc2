@@ -188,8 +188,8 @@ body {
 }
 
 .mini-calendar-container .fc-daygrid-day {
-  min-height: 2rem !important;
-  height: 2rem !important;
+  min-height: 1.5rem !important;
+  height: 1.5rem !important;
   @apply cursor-pointer transition-all duration-150 ease-in-out bg-white dark:bg-gray-900;
 }
 
@@ -292,38 +292,38 @@ body {
   }
 
   .mini-calendar-container .fc-daygrid-day {
-    min-height: 1.75rem !important;
-    height: 1.75rem !important;
+    min-height: 1.25rem !important;
+    height: 1.25rem !important;
   }
 
   .mini-calendar-container .fc-daygrid-day-number {
-    @apply text-[0.6875rem] p-px;
+    @apply text-[0.6rem] p-px;
   }
 
   .mini-calendar-container .fc-col-header-cell {
-    @apply text-[0.5625rem] py-0.5;
+    @apply text-[0.5rem] py-0.5;
   }
 }
 
 @media (min-width: 641px) and (max-width: 768px) {
   .mini-calendar-container .fc-daygrid-day {
-    min-height: 2.25rem !important;
-    height: 2.25rem !important;
+    min-height: 1.5rem !important;
+    height: 1.5rem !important;
   }
 
   .mini-calendar-container .fc-daygrid-day-number {
-    @apply text-[0.8125rem];
+    @apply text-[0.75rem];
   }
 }
 
 @media (min-width: 769px) {
   .mini-calendar-container .fc-daygrid-day {
-    min-height: 2.5rem !important;
-    height: 2.5rem !important;
+    min-height: 1.75rem !important;
+    height: 1.75rem !important;
   }
 
   .mini-calendar-container .fc-daygrid-day-number {
-    @apply text-sm;
+    @apply text-xs;
   }
 }
 
@@ -515,6 +515,25 @@ body {
   .fc-daygrid-day-frame {
     min-height: 3.5rem !important;
   }
+  /* Mini calendar override for mobile */
+  .mini-calendar-container .fc-daygrid-day-frame {
+    min-height: 1.25rem !important;
+  }
+/* Tablet: adjust .fc-daygrid-day-frame for both FullCalendar and mini calendar */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .fc .fc-daygrid-day-frame {
+    min-height: 2.5rem !important;
+  }
+  .mini-calendar-container .fc-daygrid-day-frame {
+    min-height: 1.5rem !important;
+  }
+}
+/* Desktop: keep default for FullCalendar, but mini calendar slightly larger */
+@media (min-width: 1025px) {
+  .mini-calendar-container .fc-daygrid-day-frame {
+    min-height: 1.75rem !important;
+  }
+}
   
   .fc-event {
     font-size: 0.7rem !important;

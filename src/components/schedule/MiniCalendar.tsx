@@ -3,24 +3,21 @@
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
-import { memo, useMemo, useRef } from "react";
 
 import {
   type MiniCalendarEvent,
-  type PendingEntry,
   toLocalISODate,
 } from "@/lib/schedule-utils";
+import { memo, useCallback, useMemo, useRef } from "react";
 
 interface MiniCalendarProps {
   selectedModalDate: string | null;
   selectedAdditionalDays: string[];
   miniCalendarDate: Date;
   miniCalendarEvents: MiniCalendarEvent[];
-  pendingEntries: PendingEntry[];
-  specialty: string;
-  plan: string | null;
   providerName: string;
   onDateSelect: (dateStr: string) => void;
+  unavailableDates: string[];
 }
 
 const MiniCalendar = memo(
@@ -29,23 +26,25 @@ const MiniCalendar = memo(
     selectedAdditionalDays,
     miniCalendarDate,
     miniCalendarEvents,
-    pendingEntries,
-    specialty,
-    plan,
     providerName,
     onDateSelect,
+    unavailableDates,
   }: MiniCalendarProps) => {
     const miniCalendarRef = useRef<FullCalendar | null>(null);
 
+    // Memoized function to check if a date is unavailable
+    const isUnavailable = useCallback(
+      (dateStr: string) => {
+        return unavailableDates.includes(dateStr);
+      },
+      [unavailableDates]
+    );
+
     // Memoized validRange for mini calendar to prevent re-renders
+    // Remove validRange to allow showing adjacent month dates
     const miniCalendarValidRange = useMemo(() => {
-      if (!selectedModalDate) return undefined;
-      const primaryDate = new Date(selectedModalDate + "T12:00:00");
-      return {
-        start: new Date(primaryDate.getFullYear(), primaryDate.getMonth(), 1),
-        end: new Date(primaryDate.getFullYear(), primaryDate.getMonth() + 1, 0),
-      };
-    }, [selectedModalDate]);
+      return undefined; // Allow all dates to be shown
+    }, []);
 
     const dayCellClassNames = useMemo(
       () => (arg: any) => {
@@ -57,14 +56,6 @@ const MiniCalendar = memo(
         );
         const hasOtherProvider =
           existingEvent && existingEvent.provider !== providerName;
-        const hasPendingEntry = pendingEntries.some(
-          (entry) =>
-            entry.on_call_date === dateStr &&
-            entry.provider_name !== providerName &&
-            entry.specialty === specialty &&
-            (entry.healthcare_plan ?? "") ===
-            (specialty === "Internal Medicine" ? plan || "" : ""),
-        );
 
         // Check if the date is in the same month as the primary date
         const primaryDate = selectedModalDate
@@ -82,7 +73,7 @@ const MiniCalendar = memo(
           classes.push("fc-primary-date");
         } else if (isAdditionalSelected) {
           classes.push("fc-selected-date");
-        } else if (hasOtherProvider || hasPendingEntry) {
+        } else if (hasOtherProvider || isUnavailable(dateStr)) {
           classes.push("fc-unavailable-date");
         } else if (!isSameMonth && selectedModalDate) {
           classes.push("fc-other-month-disabled");
@@ -94,15 +85,13 @@ const MiniCalendar = memo(
         selectedModalDate,
         selectedAdditionalDays,
         miniCalendarEvents,
-        pendingEntries,
-        specialty,
-        plan,
         providerName,
+        isUnavailable,
       ],
     );
 
-    const handleDateClick = useMemo(
-      () => (info: any) => {
+    const handleDateClick = useCallback(
+      (info: any) => {
         const dateStr = toLocalISODate(info.date);
         const isPrimaryDate = dateStr === selectedModalDate;
         const existingEvent = miniCalendarEvents.find(
@@ -110,15 +99,6 @@ const MiniCalendar = memo(
         );
         const hasOtherProvider =
           existingEvent && existingEvent.provider !== providerName;
-        const hasPendingEntry = pendingEntries.some(
-          (entry) =>
-            entry.on_call_date === dateStr &&
-            entry.provider_name !== providerName &&
-            entry.specialty === specialty &&
-            (entry.healthcare_plan ?? "") ===
-            (specialty === "Internal Medicine" ? plan || "" : ""),
-        );
-
         // Check if the date is in the same month as the primary date
         const primaryDate = selectedModalDate
           ? new Date(selectedModalDate + "T12:00:00")
@@ -132,7 +112,7 @@ const MiniCalendar = memo(
         const isClickable =
           !isPrimaryDate &&
           !hasOtherProvider &&
-          !hasPendingEntry &&
+          !isUnavailable(dateStr) &&
           isSameMonth;
 
         if (!isClickable) {
@@ -145,11 +125,9 @@ const MiniCalendar = memo(
       [
         selectedModalDate,
         miniCalendarEvents,
-        pendingEntries,
-        specialty,
-        plan,
         providerName,
         onDateSelect,
+        isUnavailable,
       ],
     );
 
@@ -184,8 +162,8 @@ const MiniCalendar = memo(
               validRange={miniCalendarValidRange}
               dayCellClassNames={dayCellClassNames}
               dateClick={handleDateClick}
-              showNonCurrentDates={false}
-              fixedWeekCount={false}
+              showNonCurrentDates={true}
+              fixedWeekCount={true}
             />
           </div>
 
