@@ -15,6 +15,7 @@ import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
+import { RefreshCcw, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -38,6 +39,8 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 
 
 export default function SchedulePage() {
+  // Track reload state for disabling the reload button
+  const [reloading, setReloading] = useState(false);
   const router = useRouter();
   const role = useUserRole();
 
@@ -337,13 +340,9 @@ export default function SchedulePage() {
 
   // Refresh calendar visible range - simplified since state changes auto-update the calendar
   const refreshCalendarVisibleRange = useCallback(async () => {
-    // Force a re-render of the calendar by updating visible range from current API state
-    const api = calendarRef.current?.getApi();
-    if (!api) return;
-    const start = new Date(api.view.currentStart);
-    const end = new Date(api.view.currentEnd);
-    await loadEntries(start, end, specialty, plan);
-  }, [specialty, plan, loadEntries]);
+    if (!visibleRange) return;
+    await loadEntries(visibleRange.start, visibleRange.end, specialty, plan);
+  }, [specialty, plan, loadEntries, visibleRange]);
 
   // Event handlers
   const handleDateClick = useCallback((info: any) => {
@@ -581,37 +580,34 @@ export default function SchedulePage() {
   }, [eventToDelete, specialty, plan, deleteEntryByDateAndProvider, loadEntries, visibleRange]);
 
   // Handle save changes (commit pending additions only - deletions are immediate)
-  const handleSaveChanges = useCallback(async (source?: "shortcut" | "button") => {
+  const handleReloadCalendar = useCallback(async () => {
 
+    setReloading(true);
     try {
-
-      if (source === "shortcut") {
-        toast.success("Saved with ⌘S/Ctrl+S");
-      } else {
-        toast.success("All changes saved successfully!");
-      }
-
       await refreshCalendarVisibleRange();
+      toast.success("Reload success.");
     } catch (error) {
-      console.error("Error in handleSaveChanges:", error);
+      console.error("Error in handleReloadCalendar:", error);
       toast.error("Failed to save changes.");
+    } finally {
+      setReloading(false);
     }
   }, [refreshCalendarVisibleRange]);
 
-  // Global keyboard shortcut: Ctrl/Cmd+S to save
+  // Global keyboard shortcut: Ctrl/Cmd+R to save
   useEffect(() => {
     const canEdit = role === "admin" || role === "scheduler";
     const onKey = (e: KeyboardEvent) => {
       if (!canEdit) return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
         if (isModalOpen) return;
         e.preventDefault();
-        handleSaveChanges("shortcut");
+        handleReloadCalendar();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSaveChanges, isModalOpen, role]);
+  }, [handleReloadCalendar, isModalOpen, role]);
 
   // Handle clear month confirmation
   const handleClearConfirmed = useCallback(async () => {
@@ -748,7 +744,7 @@ export default function SchedulePage() {
             aria-label="Remove provider from this date"
             className="hidden sm:flex absolute -top-1.5 -right-1.5 w-5 h-5 items-center justify-center text-xs font-bold rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white shadow-md hover:shadow-lg transition-all duration-150 pointer-events-auto cursor-pointer z-10"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
         )}
         <div className="flex flex-col md:flex-col lg:flex-row items-center gap-1 sm:gap-1.5">
@@ -780,7 +776,7 @@ export default function SchedulePage() {
               aria-label="Remove provider from this date"
               className="sm:hidden ml-1 w-5 h-5 flex items-center justify-center text-xs font-bold rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white shadow-md hover:shadow-lg transition-all duration-150 pointer-events-auto cursor-pointer"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -908,16 +904,25 @@ export default function SchedulePage() {
 
         {/* Calendar */}
         <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-lg overflow-hidden relative border border-gray-200 dark:border-gray-700">
-          <div className="p-3 sm:p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white break-words">
-              {resolveDirectorySpecialty(specialty)}
-              {specialty === SPECIALTIES.INTERNAL_MEDICINE && plan && (
-                <span className="text-blue-600 dark:text-blue-400 ml-2 text-base sm:text-lg">({plan})</span>
-              )}
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-2">
-              Click on a date to add a new schedule entry
-            </p>
+          <div className="flex flex-row justify-between items-center p-3 sm:p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+            <div>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white break-words">
+                {resolveDirectorySpecialty(specialty)}
+                {specialty === SPECIALTIES.INTERNAL_MEDICINE && plan && (
+                  <span className="text-blue-600 dark:text-blue-400 ml-2 text-base sm:text-lg">({plan})</span>
+                )}
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-2">
+                Click on a date to add a new schedule entry
+              </p>
+            </div>
+            <button
+              onClick={() => handleReloadCalendar()}
+              className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-105  text-xs sm:text-sm rounded text-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+              disabled={reloading}
+            >
+              <RefreshCcw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} />
+            </button>
           </div>
 
           <div className="p-2 sm:p-4 md:p-6 relative">
@@ -985,12 +990,7 @@ export default function SchedulePage() {
                 Clear Month
               </span>
             </button>
-            {/* <button
-              onClick={() => handleSaveChanges("button")}
-              className="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded text-white bg-green-600 hover:bg-green-700 transition-colors"
-            >
-              Save Changes
-            </button> */}
+
           </div>
         )}
 
