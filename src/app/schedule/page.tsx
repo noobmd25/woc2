@@ -4,7 +4,7 @@ import { useColorMapping } from "@/app/hooks/useColorMapping";
 import { useProviders } from "@/app/hooks/useProviders";
 import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
 import { useSpecialties } from "@/app/hooks/useSpecialties";
-import { MONTH_NAMES, PLANS, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
+import { MONTH_NAMES, PLANS, ROLES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import {
   type MiniCalendarEvent,
   type Provider,
@@ -157,7 +157,7 @@ export default function SchedulePage() {
   const calendarPlugins = useMemo(() => [dayGridPlugin, interactionPlugin], []);
 
   // Computed flags
-  const canEdit = useMemo(() => role === "admin" || role === "scheduler", [role]);
+  const canEdit = useMemo(() => role === ROLES.ADMIN || role === ROLES.SCHEDULER, [role]);
   const isIMWithoutPlan = useMemo(() => specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan, [specialty, plan]);
 
   // Helper to get provider by ID
@@ -596,7 +596,6 @@ export default function SchedulePage() {
 
   // Global keyboard shortcut: Ctrl/Cmd+R to save
   useEffect(() => {
-    const canEdit = role === "admin" || role === "scheduler";
     const onKey = (e: KeyboardEvent) => {
       if (!canEdit) return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "r") {
@@ -607,7 +606,7 @@ export default function SchedulePage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleReloadCalendar, isModalOpen, role]);
+  }, [handleReloadCalendar, isModalOpen, role, canEdit]);
 
   // Handle clear month confirmation
   const handleClearConfirmed = useCallback(async () => {
@@ -793,7 +792,7 @@ export default function SchedulePage() {
     );
   }
 
-  if (role === "viewer") {
+  if (role !== ROLES.ADMIN && role !== ROLES.SCHEDULER) {
     router.push("/unauthorized");
     return null;
   }
@@ -812,7 +811,7 @@ export default function SchedulePage() {
             </p>
           </div>
 
-          {role === "admin" && (
+          {role === ROLES.ADMIN && (
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <button
                 onClick={() => setShowSpecialtyModal(true)}
@@ -839,15 +838,6 @@ export default function SchedulePage() {
                 Admin Panel
               </Link>
             </div>
-          )}
-
-          {role === "scheduler" && (
-            <Link
-              href="/admin"
-              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150 w-fit"
-            >
-              Admin Panel
-            </Link>
           )}
         </div>
 
@@ -976,23 +966,22 @@ export default function SchedulePage() {
         </div>
 
         {/* Action Buttons - Save Changes and Clear Month */}
-        {(role === "admin" || role === "scheduler") && (
-          <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
-            <button
-              onClick={() => setShowClearModal(true)}
-              className="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
-              disabled={!specialty || (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan)}
-            >
-              <span className="hidden sm:inline">
-                Clear {getVisibleMonthLabel()} — {specialty === SPECIALTIES.INTERNAL_MEDICINE ? `IM · ${plan || "Select plan"}` : specialty || "Select specialty"}
-              </span>
-              <span className="sm:hidden">
-                Clear Month
-              </span>
-            </button>
+        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
+          <button
+            onClick={() => setShowClearModal(true)}
+            className="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+            disabled={!specialty || (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan)}
+          >
+            <span className="hidden sm:inline">
+              Clear {getVisibleMonthLabel()} — {specialty === SPECIALTIES.INTERNAL_MEDICINE ? `IM · ${plan || "Select plan"}` : specialty || "Select specialty"}
+            </span>
+            <span className="sm:hidden">
+              Clear Month
+            </span>
+          </button>
 
-          </div>
-        )}
+        </div>
+
 
         {/* Clear Month Confirmation Modal */}
         {showClearModal && (

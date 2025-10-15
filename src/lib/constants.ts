@@ -32,3 +32,9 @@ export type SecondPhonePref = typeof SECOND_PHONE_PREFS[keyof typeof SECOND_PHON
 export const SPECIALTIES = {
     INTERNAL_MEDICINE: "Internal Medicine",
 }
+
+export const ROLES = {
+    ADMIN: "admin",
+    SCHEDULER: "scheduler",
+    VIEWER: "viewer",
+} as const;
