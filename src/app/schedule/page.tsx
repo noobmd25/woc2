@@ -93,7 +93,7 @@ export default function SchedulePage() {
   );
 
   // Custom hooks
-  const { specialties, specialtyEditList, loading: specialtiesLoading, reloadSpecialties } = useSpecialties();
+  const { specialties, loading: specialtiesLoading, reloadSpecialties } = useSpecialties();
   const { providers, allProviders } = useProviders(specialty);
   const {
     entries,
@@ -212,8 +212,7 @@ export default function SchedulePage() {
     }, 50);
 
     return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleRange, specialty, plan]);
+  }, [visibleRange, specialty, plan, loadEntries]);
 
   // Handle window resize for responsive weekday format
   useEffect(() => {
