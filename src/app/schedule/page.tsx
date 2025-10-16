@@ -44,9 +44,13 @@ export default function SchedulePage() {
   const router = useRouter();
   const role = useUserRole();
 
-  // Core state
-  const [specialty, setSpecialty] = useState<string>("");
-  const [plan, setPlan] = useState<string | null>(null);
+  // Core state - initialize from sessionStorage immediately
+  const [specialty, setSpecialty] = useState<string>(
+    typeof window !== 'undefined' ? sessionStorage.getItem("specialty") || "" : ""
+  );
+  const [plan, setPlan] = useState<string | null>(
+    typeof window !== 'undefined' ? sessionStorage.getItem("plan") || null : null
+  );
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -169,14 +173,6 @@ export default function SchedulePage() {
   const getProviderByName = useCallback((name: string) => {
     return allProviders.find(p => p.name === name);
   }, [allProviders]);
-
-  // Session storage: restore on mount
-  useEffect(() => {
-    const storedSpecialty = sessionStorage.getItem("specialty");
-    const storedPlan = sessionStorage.getItem("plan");
-    if (storedSpecialty) setSpecialty(storedSpecialty);
-    if (storedPlan) setPlan(storedPlan);
-  }, []);
 
   // Session storage: save specialty changes
   useEffect(() => {
