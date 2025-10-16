@@ -778,7 +778,7 @@ export default function SchedulePage() {
                 );
               }}
               aria-label="Remove provider from this date"
-              className="sm:hidden ml-1 w-5 h-5 flex items-center justify-center text-xs font-bold rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white shadow-md hover:shadow-lg transition-all duration-150 pointer-events-auto cursor-pointer"
+              className="sm:hidden ml-1 w-5 h-5 flex items-center justify-center text-xs font-bold rounded-full bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-red-500 hover:text-white shadow-md hover:shadow-lg transition-all duration-150 pointer-events-auto cursor-pointer !z-30 relative"
             >
               <X className="w-3.5 h-3.5" />
             </button>
