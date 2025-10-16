@@ -174,9 +174,15 @@ export default function SchedulePage() {
   useEffect(() => {
     const storedSpecialty = sessionStorage.getItem("specialty");
     const storedPlan = sessionStorage.getItem("plan");
-    if (storedSpecialty) setSpecialty(storedSpecialty);
+    if (storedSpecialty) {
+      setSpecialty(storedSpecialty)
+    }
+    else {
+      setSpecialty(specialties[0] || "");
+    }
     if (storedPlan) setPlan(storedPlan);
-  }, []);
+  }, [specialties]);
+
 
   // Session storage: save specialty changes
   useEffect(() => {
