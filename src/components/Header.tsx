@@ -9,8 +9,6 @@ import { toast } from "react-hot-toast";
 import useUserRole from "@/app/hooks/useUserRole";
 import { getBrowserClient } from "@/lib/supabase/client";
 
-const supabase = getBrowserClient();
-
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const router = useRouter();
@@ -21,6 +19,13 @@ export default function Header() {
     if (signingOut) return;
     setSigningOut(true);
 
+    const supabase = getBrowserClient();
+    if (!supabase) {
+      toast.error("Supabase client not available");
+      setSigningOut(false);
+      return;
+    }
+
     const clearSupabaseAuthStorage = () => {
       try {
         const keys: string[] = [];
@@ -29,7 +34,7 @@ export default function Header() {
           if (k && k.startsWith("sb-")) keys.push(k);
         }
         keys.forEach((k) => localStorage.removeItem(k));
-      } catch {}
+      } catch { }
       try {
         const cookies = document.cookie.split(";");
         cookies.forEach((raw) => {
@@ -42,7 +47,7 @@ export default function Header() {
             document.cookie = `${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
           }
         });
-      } catch {}
+      } catch { }
     };
 
     const withTimeout = <T,>(p: Promise<T>, label: string, ms = 1500) => {
@@ -86,7 +91,7 @@ export default function Header() {
       setSigningOut(false);
       try {
         router.replace("/");
-      } catch {}
+      } catch { }
       if (typeof window !== "undefined") {
         setTimeout(() => {
           if (window.location.pathname !== "/") window.location.assign("/");
@@ -131,9 +136,8 @@ export default function Header() {
       </div>
 
       <div
-        className={`transition-all duration-500 ease-in-out overflow-hidden px-6 ${
-          menuOpen ? "max-h-40 opacity-100 pb-4" : "max-h-0 opacity-0"
-        }`}
+        className={`transition-all duration-500 ease-in-out overflow-hidden px-6 ${menuOpen ? "max-h-40 opacity-100 pb-4" : "max-h-0 opacity-0"
+          }`}
       >
         <div className="transition-opacity duration-500 ease-in-out">
           <nav>

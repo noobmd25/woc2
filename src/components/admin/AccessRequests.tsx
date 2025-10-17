@@ -159,7 +159,7 @@ export default function AccessRequests() {
         return;
       }
       // fallthrough to client-side if RPC missing or errored
-    } catch (_) {}
+    } catch (_) { }
 
     // Fallback: client-side count using two queries
     const [
@@ -460,7 +460,7 @@ export default function AccessRequests() {
       try {
         const data = await res.json();
         emailUsed = data?.email ?? null;
-      } catch {}
+      } catch { }
 
       // Removed: password reset email (user already set password at signup)
 
@@ -692,9 +692,9 @@ export default function AccessRequests() {
                             onChange={(e) =>
                               setEditRole(
                                 e.target.value as
-                                  | "viewer"
-                                  | "scheduler"
-                                  | "admin",
+                                | "viewer"
+                                | "scheduler"
+                                | "admin",
                               )
                             }
                           >
@@ -1019,7 +1019,7 @@ export default function AccessRequests() {
                                     .catch(() => ({}));
                                   throw new Error(
                                     data?.error ||
-                                      `Reset failed (${res.status})`,
+                                    `Reset failed (${res.status})`,
                                   );
                                 }
                                 addToast(
