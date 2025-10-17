@@ -17,6 +17,7 @@ import {
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { type SecondPhonePref } from "@/lib/constants";
 import {
   type MiniCalendarEvent,
   type Provider
@@ -32,7 +33,7 @@ interface ScheduleModalProps {
   selectedAdditionalDays: string[];
   miniCalendarDate: Date;
   miniCalendarEvents: MiniCalendarEvent[];
-  secondPref: "none" | "residency" | "pa";
+  secondPref: SecondPhonePref;
   secondPhone?: string;
   secondSource?: string | null;
   coverEnabled: boolean;
@@ -43,7 +44,7 @@ interface ScheduleModalProps {
   onClose: () => void;
   onProviderSelect: (provider: Provider) => void;
   onDateSelect: (dateStr: string) => void;
-  onSecondPrefChange: (pref: "none" | "residency" | "pa") => void;
+  onSecondPrefChange: (pref: SecondPhonePref) => void;
   onCoverEnabledChange: (enabled: boolean) => void;
   onProviderIdChange: (id: string) => void;
   coveringProviderId: string;
