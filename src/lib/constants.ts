@@ -38,3 +38,18 @@ export const ROLES = {
     SCHEDULER: "scheduler",
     VIEWER: "viewer",
 } as const;
+
+// Directory constants
+export const DIRECTORY_SORT_FIELDS = {
+    NAME: "provider_name",
+    SPECIALTY: "specialty",
+    PHONE: "phone_number",
+} as const;
+
+export const SORT_DIRECTIONS = {
+    ASC: "asc",
+    DESC: "desc",
+} as const;
+
+export type SortField = typeof DIRECTORY_SORT_FIELDS[keyof typeof DIRECTORY_SORT_FIELDS];
+export type SortDirection = typeof SORT_DIRECTIONS[keyof typeof SORT_DIRECTIONS];
