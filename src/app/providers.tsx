@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -31,52 +32,69 @@ function isProtectedPath(pathname: string) {
 }
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === "undefined") return;
+
     let cancelled = false;
 
-    const check = async (attempt = 1) => {
-      const supabase = getBrowserClient();
+    const initializeAuth = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (cancelled) return;
+        const supabase = getBrowserClient();
+
+        // Wait for Supabase to initialize properly
+        const { data: { session }, error } = await supabase.auth.getSession(); if (cancelled) return;
+
         const pathname = window.location.pathname;
-        if (!isProtectedPath(pathname)) return; // no gating for public
-        if (!user) {
-          if (attempt < 3) {
-            setTimeout(() => {
-              if (!cancelled) check(attempt + 1);
-            }, attempt * 350);
+
+        // Only check auth for protected paths
+        if (isProtectedPath(pathname)) {
+          if (error || !session?.user) {
+            toast.error("Please sign in");
+            router.replace("/login");
             return;
           }
-          toast.error("Please sign in");
-          window.location.href =
-            "/?showSignIn=true&next=" + encodeURIComponent(pathname);
+
+          // Verify user profile status
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("status")
+            .eq("id", session.user.id)
+            .maybeSingle();
+
+          const status = profile?.status || session.user.user_metadata?.status;
+          const allowedStatus = ["approved", "active"];
+
+          if (!allowedStatus.includes(status)) {
+            await supabase.auth.signOut();
+            toast("Your account is pending admin approval.");
+            router.replace("/auth/pending");
+            return;
+          }
         }
-      } catch {
+
+      } catch (error) {
+        console.error("Auth initialization error:", error);
         if (cancelled) return;
+
         const pathname = window.location.pathname;
-        if (!isProtectedPath(pathname)) return;
-        if (attempt < 3) {
-          setTimeout(() => {
-            if (!cancelled) check(attempt + 1);
-          }, attempt * 350);
-          return;
+        if (isProtectedPath(pathname)) {
+          toast.error("Authentication error. Please sign in again.");
+          router.replace("/login");
         }
-        toast.error("Please sign in");
-        window.location.href =
-          "/?showSignIn=true&next=" + encodeURIComponent(pathname);
       }
     };
 
-    check();
+    // Small delay to ensure client hydration
+    const timer = setTimeout(initializeAuth, 100);
+
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, []);
-
-  return (
+  }, [router]); return (
     <>
       <Toaster />
       {children}
