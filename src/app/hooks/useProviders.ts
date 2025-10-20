@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
-import { type Provider } from "@/lib/schedule-utils";
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { type DirectoryProvider } from "@/lib/types/directory";
+import { type Provider } from "@/lib/types/provider";
 
 const supabase = getBrowserClient();
 
 export const useProviders = (specialty: string) => {
-  //TODO: What is the difference between providers and allProviders?  
+  // Providers are the filtered list excluding Residency and PA Phone
   const [providers, setProviders] = useState<Provider[]>([]);
+  // All providers include all specialties
   const [allProviders, setAllProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -39,8 +41,8 @@ export const useProviders = (specialty: string) => {
         setProviders([]);
         setAllProviders([]);
       } else {
-        // Map database fields to Provider interface
-        const mappedProviders: Provider[] = (data || []).map((item) => ({
+
+        const mappedProviders: Provider[] = (data as DirectoryProvider[] || []).map((item: DirectoryProvider) => ({
           id: item.id,
           name: item.provider_name,
           phone_1: item.phone_number,

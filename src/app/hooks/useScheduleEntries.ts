@@ -5,10 +5,10 @@ import { toast } from "react-hot-toast";
 
 import { SPECIALTIES } from "@/lib/constants";
 import {
-  type ScheduleEntry,
   toLocalISODate,
 } from "@/lib/schedule-utils";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { type ScheduleEntry } from "@/lib/types/schedule";
 
 const supabase = getBrowserClient();
 

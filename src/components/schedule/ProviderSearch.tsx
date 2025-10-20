@@ -2,7 +2,8 @@
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { type Provider, scoreName } from "@/lib/schedule-utils";
+import { scoreName } from "@/lib/schedule-utils";
+import { type Provider } from "@/lib/types/provider";
 
 interface ProviderSearchProps {
   providers: Provider[];

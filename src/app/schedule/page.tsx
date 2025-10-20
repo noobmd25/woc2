@@ -6,11 +6,13 @@ import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
 import { useSpecialties } from "@/app/hooks/useSpecialties";
 import { MONTH_NAMES, PLANS, ROLES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import {
-  type MiniCalendarEvent,
-  type Provider,
   toLocalISODate
 } from "@/lib/schedule-utils";
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
+import { type Provider } from "@/lib/types/provider";
+import {
+  type MiniCalendarEvent,
+} from "@/lib/types/schedule";
 import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";

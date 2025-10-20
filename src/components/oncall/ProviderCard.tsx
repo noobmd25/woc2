@@ -114,9 +114,10 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                             <Phone className="w-4 h-4" />
                             {secondPhoneLabel} Phone
                         </h4>
-                        <span className="text-sm font-mono text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
-                            {formatPhoneDisplay(provider.second_phone)}
-                        </span>
+
+                    </div>
+                    <div className="flex justify-center text-lg font-mono text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
+                        {formatPhoneDisplay(provider.second_phone)}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <Button
@@ -128,7 +129,10 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                             <Copy className="w-4 h-4" />
                             <span className="hidden sm:inline">Copy</span>
                         </Button>
-                        <a href={`tel:${provider.second_phone}`} className="block">
+                        <a
+                            href={`tel:${provider.second_phone}`}
+                            className="block"
+                        >
                             <Button
                                 variant="outline"
                                 size="sm"

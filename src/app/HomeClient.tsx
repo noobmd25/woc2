@@ -68,8 +68,16 @@ export default function HomeClient() {
 
   const _refreshSession = useCallback(async () => {
     try {
-      await supabase.auth.getUser();
-    } catch { }
+      // Better session refresh - get the actual session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Session refresh error:", error);
+      }
+      return session;
+    } catch (error) {
+      console.error("Session refresh failed:", error);
+      return null;
+    }
   }, [supabase]);
 
   usePageRefresh(null); // full reload on pull-to-refresh
@@ -212,40 +220,54 @@ export default function HomeClient() {
     const email = (form.elements.namedItem("email") as HTMLInputElement)?.value;
     const password = (form.elements.namedItem("password") as HTMLInputElement)
       ?.value;
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      toast.error("Incorrect email or password");
+
+    if (!email || !password) {
+      toast.error("Email and password are required");
       return;
     }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("status")
-        .eq("id", user.id)
-        .maybeSingle();
-      const status = (profile as any)?.status || user.user_metadata?.status;
-      const allowedStatus = ["approved", "active"];
-      if (!allowedStatus.includes(status)) {
-        await supabase.auth.signOut();
-        toast("Your account is pending admin approval.");
-        router.replace("/auth/pending");
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast.error("Incorrect email or password");
         return;
       }
+
+      const user = data.user;
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("status")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const status = (profile as any)?.status || user.user_metadata?.status;
+        const allowedStatus = ["approved", "active"];
+
+        if (!allowedStatus.includes(status)) {
+          await supabase.auth.signOut();
+          toast("Your account is pending admin approval.");
+          router.replace("/auth/pending");
+          return;
+        }
+      }
+
+      // Close modal and navigate immediately
+      setShowLogin(false);
+
+      const nextParam = search?.get("next");
+      const redirectTo =
+        nextParam && nextParam.startsWith("/") ? nextParam : "/oncall";
+      router.replace(redirectTo);
+
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast.error("Login failed. Please try again.");
     }
-
-    // Close modal and navigate immediately
-    setShowLogin(false);
-
-    const nextParam = search?.get("next");
-    const redirectTo =
-      nextParam && nextParam.startsWith("/") ? nextParam : "/oncall";
-    router.replace(redirectTo);
   };
 
   return (

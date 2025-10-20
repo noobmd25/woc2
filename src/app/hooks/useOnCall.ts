@@ -5,9 +5,9 @@ import { toast } from "react-hot-toast";
 
 import { ERROR_MESSAGES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import { effectiveOnCallDate, toYMD } from "@/lib/oncall-utils";
-import type { ScheduleEntry } from "@/lib/schedule-utils";
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
 import { getBrowserClient } from "@/lib/supabase/client";
+import type { ScheduleEntry } from "@/lib/types/schedule";
 
 const supabase = getBrowserClient();
 
@@ -118,7 +118,7 @@ export const useOnCall = (specialty: string, plan: string, currentDate: Date) =>
                     const { data: paData } = await supabase
                         .from("directory")
                         .select("phone_number")
-                        .eq("provider_name", "PA Phone")
+                        .ilike("provider_name", "%PA Phone%")
                         .eq("specialty", baseSpec);
 
                     if (paData?.[0]?.phone_number) {
@@ -131,7 +131,7 @@ export const useOnCall = (specialty: string, plan: string, currentDate: Date) =>
                     const { data: resData } = await supabase
                         .from("directory")
                         .select("phone_number")
-                        .eq("provider_name", "Residency")
+                        .ilike("provider_name", "%Residency%")
                         .eq("specialty", baseSpec);
 
                     if (resData?.[0]?.phone_number) {
