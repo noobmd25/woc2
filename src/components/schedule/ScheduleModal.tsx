@@ -17,10 +17,10 @@ import {
 
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { type Provider } from "@/lib/types/provider";
 import {
   type MiniCalendarEvent,
-  type Provider
-} from "@/lib/schedule-utils";
+} from "@/lib/types/schedule";
 
 interface ScheduleModalProps {
   isOpen: boolean;

@@ -121,7 +121,17 @@ export interface Database {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      approve_role_request: {
+        Args: {
+          p_request_id: string;
+          p_decider: string;
+          p_role: "viewer" | "scheduler" | "admin";
+          p_reason: string | null;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {};
     CompositeTypes: {};
   };

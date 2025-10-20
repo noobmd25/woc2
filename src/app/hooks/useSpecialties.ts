@@ -3,8 +3,8 @@
 import { useCallback, useState } from "react";
 import { toast } from "react-hot-toast";
 
-import { type Specialty } from "@/lib/schedule-utils";
 import { getBrowserClient } from "@/lib/supabase/client";
+import { type Specialty } from "@/lib/types/specialty";
 
 const supabase = getBrowserClient();
 
@@ -28,13 +28,14 @@ export const useSpecialties = () => {
         setSpecialtyEditList([]);
         toast.error("Failed to load specialties");
       } else {
-        const activeNames = data
-          ?.filter((s) => s.show_oncall)
-          .map((s) => s.name ?? "")
+
+        const activeNames = (data as Specialty[] | null)
+          ?.filter((s: Specialty) => s.show_oncall)
+          .map((s: Specialty) => s.name ?? "")
           .filter(Boolean) as string[];
         setSpecialties(activeNames);
         setSpecialtyEditList(
-          (data ?? []).map((s) => ({
+          (data ?? []).map((s: Specialty) => ({
             id: s.id as string,
             name: (s.name ?? "") as string,
             show_oncall: !!s.show_oncall,

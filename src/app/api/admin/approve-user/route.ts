@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     let targetUserId: string | null = null;
     let email: string | null = null;
     let fullName: string | null = null;
-    let role: string | null = null;
+    let role: "viewer" | "scheduler" | "admin" | null = null;
 
     if (requestId) {
       // Load role request
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
       // Update profile directly
       const { error: updErr } = await supabase
         .from("profiles")
-        .update({ status: "approved", role })
+        .update({ status: "approved", role: role as "viewer" | "scheduler" | "admin" | null })
         .eq("id", userId);
       if (updErr) {
         const res = NextResponse.json(
@@ -230,9 +230,9 @@ export async function POST(req: Request) {
                   mode: "react",
                   from: fromAddress,
                   rawFrom,
-                },
+                } as any,
               });
-            } catch {}
+            } catch { }
           } else {
             emailStatus = "sent";
             // Optional: record success (low severity)
@@ -245,9 +245,9 @@ export async function POST(req: Request) {
                   provider: "resend",
                   id: sendData?.id || null,
                   from: fromAddress,
-                },
+                } as any,
               });
-            } catch {}
+            } catch { }
           }
         } catch (err: any) {
           emailStatus = "error";
@@ -265,9 +265,9 @@ export async function POST(req: Request) {
                 mode: "react",
                 from: fromAddress,
                 rawFrom,
-              },
+              } as any,
             });
-          } catch {}
+          } catch { }
         }
       } else if (!fromAddress) {
         emailStatus = "skipped";
@@ -280,7 +280,7 @@ export async function POST(req: Request) {
             error_text: msg,
             context: { stage: "approval_email", provider: "resend" },
           });
-        } catch {}
+        } catch { }
       } else {
         emailStatus = "skipped";
         if (process.env.NODE_ENV !== "production")
@@ -291,7 +291,7 @@ export async function POST(req: Request) {
             error_text: "approval_email_skipped: missing RESEND_API_KEY",
             context: { stage: "approval_email", provider: "resend" },
           });
-        } catch {}
+        } catch { }
       }
     }
 

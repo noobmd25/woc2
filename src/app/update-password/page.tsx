@@ -60,7 +60,7 @@ export default function UpdatePasswordPage() {
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, _session) => {
+      (_event: any, _session: any) => {
         setReady(true);
       },
     );

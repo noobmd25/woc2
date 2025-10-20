@@ -13,20 +13,22 @@ export async function getServerSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
     // Fallback to anon key for local development if service key not provided
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_KEY ||
-      "",
+    process.env.NEXT_PUBLIC_SUPABASE_KEY ||
+    "",
     {
       cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value;
+        getAll() {
+          return cookieStore.getAll().map(cookie => ({
+            name: cookie.name,
+            value: cookie.value,
+            options: {} // Options will be handled by Supabase when setting
+          }));
         },
-        // (Optional) If you later need to write cookies, add set/remove as supported by your Next version:
-        // set(name: string, value: string, options?: any) {
-        //   cookieStore.set({ name, value, ...options });
-        // },
-        // remove(name: string, options?: any) {
-        //   cookieStore.set({ name, value: "", ...options });
-        // },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        },
       },
     },
   );

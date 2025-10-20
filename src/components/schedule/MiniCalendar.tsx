@@ -5,9 +5,11 @@ import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
 
 import {
-  type MiniCalendarEvent,
   toLocalISODate,
 } from "@/lib/schedule-utils";
+import {
+  type MiniCalendarEvent,
+} from "@/lib/types/schedule";
 import { memo, useCallback, useMemo, useRef } from "react";
 
 interface MiniCalendarProps {
