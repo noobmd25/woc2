@@ -1,6 +1,8 @@
-import { NextResponse } from "next/server";
-
+import { db } from "@/db";
+import { profiles } from "@/db/schema";
 import { getServerSupabase } from "@/lib/supabase/server";
+import { and, asc, desc, eq, gt, ilike, lt, or } from "drizzle-orm";
+import { NextResponse } from "next/server";
 
 // GET /api/users
 export async function GET(req: Request) {
@@ -17,11 +19,12 @@ export async function GET(req: Request) {
       return res;
     }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
+    // Use Drizzle db for profile lookup
+    const profileRows = await db
+      .select({ role: profiles.role })
+      .from(profiles)
+      .where(eq(profiles.id, session.user.id));
+    const profile = profileRows[0];
 
     if (!profile || profile.role !== "admin") {
       const res = new NextResponse("Forbidden", { status: 403 });
@@ -38,17 +41,14 @@ export async function GET(req: Request) {
     const sortDir = (qp.get("sortDir") ?? "asc") === "asc" ? "asc" : "desc";
     const search = (qp.get("search") ?? "").trim();
 
-    const allowedSort: Record<string, string> = {
-      full_name: "full_name",
-      email: "email",
-      role: "role",
-      created_at: "created_at",
-      id: "id",
+    const allowedSort: Record<string, any> = {
+      full_name: profiles.fullName,
+      email: profiles.email,
+      role: profiles.role,
+      created_at: profiles.createdAt,
+      id: profiles.id,
     };
-    const sortBy = allowedSort[rawSortBy] ?? "full_name";
-
-    const selectCols =
-      "id, email, full_name, role, status, created_at, updated_at";
+    const sortBy = allowedSort[rawSortBy] ?? profiles.fullName;
 
     if (cursor) {
       let lastId: string | null = null;
@@ -60,36 +60,37 @@ export async function GET(req: Request) {
         lastId = null;
       }
 
-      let q = supabase
-        .from("profiles")
-        .select(selectCols)
-        .order(sortBy, { ascending: sortDir === "asc" })
-        .limit(limit + 1);
-
+      // Build where clause
+      let whereClause: any = undefined;
       if (search) {
         const like = `%${search.replace(/%/g, "\\%")}%`;
-        q = q.or(`full_name.ilike.${like},email.ilike.${like}`);
+        whereClause = or(
+          ilike(profiles.fullName, like),
+          ilike(profiles.email, like)
+        );
       }
-
       if (lastId) {
-        if (sortDir === "asc") {
-          q = q.gt("id", lastId);
-        } else {
-          q = q.lt("id", lastId);
-        }
+        const idCond = sortDir === "asc"
+          ? gt(profiles.id, lastId)
+          : lt(profiles.id, lastId);
+        whereClause = whereClause ? and(whereClause, idCond) : idCond;
       }
 
-      const { data, error } = await q;
-      if (error) {
-        console.error("[api/users] cursor query error", error);
-        const res = new NextResponse(error.message ?? "Query failed", {
-          status: 500,
-        });
-        commit(res);
-        return res;
-      }
+      const rows = await db
+        .select({
+          id: profiles.id,
+          email: profiles.email,
+          full_name: profiles.fullName,
+          role: profiles.role,
+          status: profiles.status,
+          created_at: profiles.createdAt,
+          updated_at: profiles.updatedAt,
+        })
+        .from(profiles)
+        .where(whereClause)
+        .orderBy(sortDir === "asc" ? asc(sortBy) : desc(sortBy))
+        .limit(limit + 1);
 
-      const rows = (data ?? []) as any[];
       let nextCursor: string | null = null;
       if (rows.length > limit) {
         const nextRow = rows[limit];
@@ -110,32 +111,47 @@ export async function GET(req: Request) {
     }
 
     const offset = (page - 1) * limit;
-
-    let base = supabase
-      .from("profiles")
-      .select(selectCols, { count: "exact" })
-      .order(sortBy, { ascending: sortDir === "asc" })
-      .range(offset, offset + limit - 1);
-
+    let whereClause: any = undefined;
     if (search) {
       const like = `%${search.replace(/%/g, "\\%")}%`;
-      base = base.or(`full_name.ilike.${like},email.ilike.${like}`);
+      whereClause = or(
+        ilike(profiles.fullName, like),
+        ilike(profiles.email, like)
+      );
     }
 
-    const { data, error, count } = await base;
-    if (error) {
-      console.error("[api/users] offset query error", error);
-      const res = new NextResponse(error.message ?? "Query failed", {
-        status: 500,
-      });
-      commit(res);
-      return res;
+    const rows = await db
+      .select({
+        id: profiles.id,
+        email: profiles.email,
+        full_name: profiles.fullName,
+        role: profiles.role,
+        status: profiles.status,
+        created_at: profiles.createdAt,
+        updated_at: profiles.updatedAt,
+      })
+      .from(profiles)
+      .where(whereClause)
+      .orderBy(sortDir === "asc" ? asc(sortBy) : desc(sortBy))
+      .offset(offset)
+      .limit(limit);
+
+    // Get total count
+    let count: number | null = null;
+    try {
+      const countRows = await db
+        .select({ count: profiles.id })
+        .from(profiles)
+        .where(whereClause);
+      count = countRows.length;
+    } catch {
+      count = null;
     }
 
     const res = NextResponse.json({
-      rows: data ?? [],
+      rows: rows ?? [],
       nextCursor: null,
-      count: typeof count === "number" ? count : null,
+      count,
     });
     commit(res);
     return res;

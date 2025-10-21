@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Edit, Eye, Phone, Plus, Search, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useDirectory } from "@/app/hooks/useDirectory";
 import useUserRole from "@/app/hooks/useUserRole";
@@ -76,8 +76,8 @@ export default function DirectoryPage() {
   const [providerToDelete, setProviderToDelete] = useState<DirectoryProvider | null>(null);
 
   // Permission checks
-  const canEdit = role === ROLES.ADMIN;
-  const canView = role ? [ROLES.ADMIN, ROLES.SCHEDULER, ROLES.VIEWER].includes(role) : false;
+  const canEdit = useMemo(() => role === ROLES.ADMIN, [role]);
+  const canView = useMemo(() => role ? [ROLES.ADMIN, ROLES.SCHEDULER, ROLES.VIEWER].includes(role) : false, [role]);
 
   // Modal handlers
   const handleAddProvider = () => {

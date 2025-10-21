@@ -4,13 +4,7 @@ import { useCallback, useState } from "react";
 import { toast } from "react-hot-toast";
 
 import { SPECIALTIES } from "@/lib/constants";
-import {
-  toLocalISODate,
-} from "@/lib/schedule-utils";
-import { getBrowserClient } from "@/lib/supabase/client";
 import { type ScheduleEntry } from "@/lib/types/schedule";
-
-const supabase = getBrowserClient();
 
 export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
@@ -29,27 +23,37 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
 
     setLoading(true);
     try {
-      let query = supabase
-        .from("schedules")
-        .select("*")
-        .eq("specialty", specialty);
+      const params = new URLSearchParams({ specialty });
 
       // Add plan filter for Internal Medicine
       if (specialty === SPECIALTIES.INTERNAL_MEDICINE && plan) {
-        query = query.eq("healthcare_plan", plan);
+        params.append('plan', plan);
       }
 
-      const { data, error } = await query.order("on_call_date", {
-        ascending: true,
-      });
+      const response = await fetch(`/api/schedules?${params.toString()}`);
 
-      if (error) {
-        console.error("Error fetching schedule entries:", error);
+      if (!response.ok) {
+        console.error("Error fetching schedule entries:", response.statusText);
         toast.error("Failed to load schedule entries");
         setEntries([]);
-      } else {
-        setEntries(data || []);
+        return;
       }
+
+      const { data } = await response.json();
+
+      // Map camelCase to snake_case for ScheduleEntry interface
+      const mappedData = data?.map((item: any) => ({
+        on_call_date: item.onCallDate,
+        specialty: item.specialty,
+        provider_name: item.providerName,
+        show_second_phone: item.showSecondPhone,
+        healthcare_plan: item.healthcarePlan,
+        second_phone_pref: item.secondPhonePref,
+        cover: item.cover,
+        covering_provider: item.coveringProvider,
+      })) || [];
+
+      setEntries(mappedData);
     } catch (error) {
       console.error("Error in reloadCurrentEntries:", error);
       toast.error("Failed to load schedule entries");
@@ -59,51 +63,55 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
     }
   }, [specialty, plan]);
 
-  // Load schedule entries from database with optional date range
-  // Takes specialty and plan as parameters to avoid recreating the callback
+  // Load entries for a specific date range
   const loadEntries = useCallback(
-    async (startDate: Date, endDate: Date, spec: string, plan: string | null) => {
-      if (!spec) {
+    async (startDate: string, endDate: string, specialty: string, plan: string | null) => {
+
+      if (!specialty) {
         return; // Don't call setEntries to avoid unnecessary re-renders
       }
 
       // For Internal Medicine, require a plan to be selected
-      if (spec === SPECIALTIES.INTERNAL_MEDICINE && !plan) {
+      if (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan) {
         return; // Don't call setEntries to avoid unnecessary re-renders
       }
 
       setLoading(true);
+
       try {
-        let query = supabase
-          .from("schedules")
-          .select("*")
-          .eq("specialty", spec);
-
-        // Add plan filter for Internal Medicine
-        if (spec === SPECIALTIES.INTERNAL_MEDICINE && plan) {
-          query = query.eq("healthcare_plan", plan);
-        }
-
-        // Add date range
-        query = query
-          .gte("on_call_date", toLocalISODate(startDate))
-          .lte("on_call_date", toLocalISODate(endDate));
-
-        const { data, error } = await query.order("on_call_date", {
-          ascending: true,
+        // Build query parameters
+        const params = new URLSearchParams({
+          startDate,
+          endDate,
+          specialty,
+          plan: plan ?? "",
         });
 
-        if (error) {
-          console.error("Error fetching schedule entries:", error);
-          toast.error("Failed to load schedule entries");
-          setEntries([]);
-        } else {
-          setEntries(data || []);
+        const response = await fetch(`/api/schedules?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to load schedule entries");
         }
+
+        const { data } = await response.json();
+
+        // Map from camelCase API response to snake_case interface
+        // Only mapping fields that exist in ScheduleEntry interface
+        const mappedData = data.map((entry: any) => ({
+          on_call_date: entry.onCallDate,
+          provider_name: entry.providerName,
+          specialty: entry.specialty,
+          healthcare_plan: entry.healthcarePlan,
+          show_second_phone: entry.showSecondPhone,
+          second_phone_pref: entry.secondPhonePref,
+          cover: entry.cover,
+          covering_provider: entry.coveringProvider,
+        }));
+
+        setEntries(mappedData);
       } catch (error) {
-        console.error("Error in loadEntries:", error);
+        console.error("Failed to load entries:", error);
         toast.error("Failed to load schedule entries");
-        setEntries([]);
       } finally {
         setLoading(false);
       }
@@ -115,17 +123,32 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const addEntry = useCallback(
     async (entry: Omit<ScheduleEntry, "id">) => {
       try {
-        const { error } = await supabase.from("schedules").insert([entry]);
+        // Map from snake_case interface to camelCase API
+        // Only include fields that exist in both ScheduleEntry interface and schedules schema
+        const apiEntry = {
+          onCallDate: entry.on_call_date,
+          providerName: entry.provider_name,
+          specialty: entry.specialty,
+          healthcarePlan: entry.healthcare_plan,
+          showSecondPhone: entry.show_second_phone,
+          secondPhonePref: entry.second_phone_pref,
+          cover: entry.cover,
+          coveringProvider: entry.covering_provider,
+        };
 
-        if (error) {
-          console.error("Failed to add schedule entry:", error);
-          toast.error("Failed to add schedule entry");
-          return false;
-        } else {
-          toast.success("Schedule entry added successfully");
-          await reloadCurrentEntries(); // Reload entries
-          return true;
+        const response = await fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(apiEntry),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to add schedule entry");
         }
+
+        toast.success("Schedule entry added successfully");
+        await reloadCurrentEntries(); // Reload entries
+        return true;
       } catch (error) {
         console.error("Error in addEntry:", error);
         toast.error("Failed to add schedule entry");
@@ -139,20 +162,30 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const updateEntry = useCallback(
     async (id: string, updates: Partial<ScheduleEntry>) => {
       try {
-        const { error } = await supabase
-          .from("schedules")
-          .update(updates)
-          .eq("id", id);
+        // Map from snake_case interface to camelCase API
+        const apiUpdates: any = {};
+        if (updates.on_call_date !== undefined) apiUpdates.onCallDate = updates.on_call_date;
+        if (updates.provider_name !== undefined) apiUpdates.providerName = updates.provider_name;
+        if (updates.specialty !== undefined) apiUpdates.specialty = updates.specialty;
+        if (updates.healthcare_plan !== undefined) apiUpdates.healthcarePlan = updates.healthcare_plan;
+        if (updates.show_second_phone !== undefined) apiUpdates.showSecondPhone = updates.show_second_phone;
+        if (updates.second_phone_pref !== undefined) apiUpdates.secondPhonePref = updates.second_phone_pref;
+        if (updates.cover !== undefined) apiUpdates.cover = updates.cover;
+        if (updates.covering_provider !== undefined) apiUpdates.coveringProvider = updates.covering_provider;
 
-        if (error) {
-          console.error("Failed to update schedule entry:", error);
-          toast.error("Failed to update schedule entry");
-          return false;
-        } else {
-          toast.success("Schedule entry updated successfully");
-          await reloadCurrentEntries(); // Reload entries
-          return true;
+        const response = await fetch("/api/schedules", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, ...apiUpdates }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to update schedule entry");
         }
+
+        toast.success("Schedule entry updated successfully");
+        await reloadCurrentEntries(); // Reload entries
+        return true;
       } catch (error) {
         console.error("Error in updateEntry:", error);
         toast.error("Failed to update schedule entry");
@@ -166,20 +199,17 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const deleteEntry = useCallback(
     async (id: string) => {
       try {
-        const { error } = await supabase
-          .from("schedules")
-          .delete()
-          .eq("id", id);
+        const response = await fetch(`/api/schedules?id=${id}`, {
+          method: "DELETE",
+        });
 
-        if (error) {
-          console.error("Failed to delete schedule entry:", error);
-          toast.error("Failed to delete schedule entry");
-          return false;
-        } else {
-          toast.success("Schedule entry deleted successfully");
-          await reloadCurrentEntries(); // Reload entries
-          return true;
+        if (!response.ok) {
+          throw new Error("Failed to delete schedule entry");
         }
+
+        toast.success("Schedule entry deleted successfully");
+        await reloadCurrentEntries(); // Reload entries
+        return true;
       } catch (error) {
         console.error("Error in deleteEntry:", error);
         toast.error("Failed to delete schedule entry");
@@ -193,31 +223,32 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const deleteEntryByDateAndProvider = useCallback(
     async (date: string, providerName: string, spec: string, hp: string | null) => {
       try {
-        let deleteQuery = supabase
-          .from("schedules")
-          .delete()
-          .eq("on_call_date", date)
-          .eq("specialty", spec)
-          .eq("provider_name", providerName.replace(/^Dr\. /, "").trim());
+        // Build query parameters for complex delete
+        const params = new URLSearchParams({
+          date,
+          specialty: spec,
+          providerName: providerName.replace(/^Dr\. /, "").trim(),
+        });
 
+        // Add healthcare plan condition for Internal Medicine
         if (spec === SPECIALTIES.INTERNAL_MEDICINE) {
           if (hp) {
-            deleteQuery = deleteQuery.eq("healthcare_plan", hp);
+            params.append("plan", hp);
           } else {
-            deleteQuery = deleteQuery.is("healthcare_plan", null);
+            params.append("plan", ""); // Empty string means null
           }
         }
 
-        const { error } = await deleteQuery;
+        const response = await fetch(`/api/schedules?${params.toString()}`, {
+          method: "DELETE",
+        });
 
-        if (error) {
-          console.error("Failed to delete schedule entry:", error);
-          toast.error("Failed to delete entry");
-          return false;
-        } else {
-          toast.success("Entry deleted successfully");
-          return true;
+        if (!response.ok) {
+          throw new Error("Failed to delete schedule entry");
         }
+
+        toast.success("Entry deleted successfully");
+        return true;
       } catch (error) {
         console.error("Error in deleteEntryByDateAndProvider:", error);
         toast.error("Failed to delete entry");
@@ -231,26 +262,29 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
   const clearMonth = useCallback(
     async (startOfMonth: string, startOfNextMonth: string, spec: string, plan: string | null) => {
       try {
-        let deleteQuery = supabase
-          .from("schedules")
-          .delete({ count: "exact" })
-          .eq("specialty", spec)
-          .gte("on_call_date", startOfMonth)
-          .lt("on_call_date", startOfNextMonth);
+        // Build query parameters for bulk delete
+        const params = new URLSearchParams({
+          startDate: startOfMonth,
+          endDate: startOfNextMonth,
+          specialty: spec,
+        });
 
+        // Add plan filter for Internal Medicine
         if (spec === SPECIALTIES.INTERNAL_MEDICINE && plan) {
-          deleteQuery = deleteQuery.eq("healthcare_plan", plan);
+          params.append("plan", plan);
         }
 
-        const { error, count } = await deleteQuery;
+        const response = await fetch(`/api/schedules?${params.toString()}`, {
+          method: "DELETE",
+        });
 
-        if (error) {
-          console.error("Error clearing month:", error);
-          toast.error("Failed to clear the month.");
-          return { success: false, count: 0 };
-        } else {
-          return { success: true, count: count ?? 0 };
+        if (!response.ok) {
+          throw new Error("Failed to clear the month");
         }
+
+        const { count } = await response.json();
+
+        return { success: true, count: count ?? 0 };
       } catch (error) {
         console.error("Error in clearMonth:", error);
         toast.error("Failed to clear the month.");
@@ -266,19 +300,33 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
       if (entries.length === 0) return true;
 
       try {
-        const { error } = await supabase.from("schedules").insert(entries);
+        // Map from snake_case interface to camelCase API
+        const apiEntries = entries.map((entry) => ({
+          onCallDate: entry.on_call_date,
+          providerName: entry.provider_name,
+          specialty: entry.specialty,
+          healthcarePlan: entry.healthcare_plan,
+          showSecondPhone: entry.show_second_phone,
+          secondPhonePref: entry.second_phone_pref,
+          cover: entry.cover,
+          coveringProvider: entry.covering_provider,
+        }));
 
-        if (error) {
-          console.error("Failed to add multiple schedule entries:", error);
-          toast.error("Failed to add schedule entries");
-          return false;
-        } else {
-          toast.success(
-            `${entries.length} schedule entries added successfully`,
-          );
-          await reloadCurrentEntries(); // Reload entries
-          return true;
+        const response = await fetch("/api/schedules", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(apiEntries),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to add schedule entries");
         }
+
+        toast.success(
+          `${entries.length} schedule entries added successfully`,
+        );
+        await reloadCurrentEntries(); // Reload entries
+        return true;
       } catch (error) {
         console.error("Error in addMultipleEntries:", error);
         toast.error("Failed to add schedule entries");

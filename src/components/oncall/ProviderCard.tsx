@@ -7,7 +7,7 @@ import type { OnCallProvider } from "@/app/hooks/useOnCall";
 import { Button } from "@/components/ui/button";
 import { SUCCESS_MESSAGES } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/directory-utils";
-import { copyToClipboard, getProviderDirectoryLink, getSecondPhoneLabel, toWhatsAppNumber } from "@/lib/oncall-utils";
+import { copyToClipboard, getSecondPhoneLabel, toWhatsAppNumber } from "@/lib/oncall-utils";
 interface ProviderCardProps {
     provider: OnCallProvider;
 }
@@ -28,7 +28,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
     };
 
     const secondPhoneLabel = getSecondPhoneLabel(provider._second_phone_source);
-    const directoryLink = getProviderDirectoryLink(provider.provider_name);
+    // const directoryLink = getProviderDirectoryLink(provider.provider_name);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200">

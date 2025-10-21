@@ -5,11 +5,6 @@ import { toast } from "react-hot-toast";
 
 import { ERROR_MESSAGES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import { effectiveOnCallDate, toYMD } from "@/lib/oncall-utils";
-import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
-import { getBrowserClient } from "@/lib/supabase/client";
-import type { ScheduleEntry } from "@/lib/types/schedule";
-
-const supabase = getBrowserClient();
 
 export interface OnCallProvider {
     // Schedule data
@@ -63,106 +58,66 @@ export const useOnCall = (specialty: string, plan: string, currentDate: Date) =>
         setLoading(true);
 
         try {
-            // Build schedule query
-            let query = supabase
-                .from("schedules")
-                .select("*")
-                .eq("on_call_date", dateString)
-                .eq("specialty", specialty);
+            // Build API query parameters
+            const params = new URLSearchParams({
+                date: dateString,
+                specialty: specialty,
+                includeSecondPhone: "true",
+                includeCover: "true",
+            });
 
-            if (specialty === SPECIALTIES.INTERNAL_MEDICINE) {
-                query = query.eq("healthcare_plan", plan);
-            } else {
-                query = query.is("healthcare_plan", null);
+            if (specialty === SPECIALTIES.INTERNAL_MEDICINE && plan) {
+                params.append("plan", plan);
             }
 
-            const { data: scheduleData, error: scheduleError } = await query;
+            // Fetch from Drizzle API
+            const response = await fetch(`/api/oncall?${params.toString()}`);
 
-            if (scheduleError) {
-                toast.error(ERROR_MESSAGES.SCHEDULE_FETCH_ERROR + ": " + scheduleError.message);
+            if (!response.ok) {
+                if (response.status === 404) {
+                    // No provider found
+                    setProviderData(null);
+                    setDebugInfo({
+                        criteria: `specialty=${specialty}, plan=${specialty === SPECIALTIES.INTERNAL_MEDICINE ? plan || "—" : "n/a"}, date=${dateString}`,
+                        rows: 0,
+                    });
+                    return;
+                }
+
+                const errorData = await response.json();
+                toast.error(ERROR_MESSAGES.SCHEDULE_FETCH_ERROR + ": " + (errorData.error || "Unknown error"));
                 setProviderData(null);
                 setDebugInfo(null);
                 return;
             }
 
-            const rows = Array.isArray(scheduleData) ? scheduleData.length : 0;
+            const { data } = await response.json();
+
             setDebugInfo({
                 criteria: `specialty=${specialty}, plan=${specialty === SPECIALTIES.INTERNAL_MEDICINE ? plan || "—" : "n/a"}, date=${dateString}`,
-                rows,
+                rows: data ? 1 : 0,
             });
 
-            if (!scheduleData || scheduleData.length === 0) {
-                // toast.error(ERROR_MESSAGES.NO_PROVIDER_FOUND);
+            if (!data) {
                 setProviderData(null);
                 return;
             }
 
-            const record = scheduleData[0] as ScheduleEntry;
-
-            // Get provider phone from directory
-            const { data: directoryList } = await supabase
-                .from("directory")
-                .select("phone_number")
-                .eq("provider_name", record.provider_name);
-
-            const directoryData = Array.isArray(directoryList) ? directoryList[0] : null;
-
-            // Get second phone if enabled
-            let secondPhone = null;
-            let secondSource: string | null = null;
-            if (record.show_second_phone) {
-                const pref = (record.second_phone_pref as SecondPhonePref) ?? SECOND_PHONE_PREFS.AUTO;
-                const baseSpec = resolveDirectorySpecialty(specialty);
-
-                if (pref === SECOND_PHONE_PREFS.PA || pref === SECOND_PHONE_PREFS.AUTO) {
-                    const { data: paData } = await supabase
-                        .from("directory")
-                        .select("phone_number")
-                        .ilike("provider_name", "%PA Phone%")
-                        .eq("specialty", baseSpec);
-
-                    if (paData?.[0]?.phone_number) {
-                        secondPhone = paData[0].phone_number;
-                        secondSource = "PA Phone";
-                    }
-                }
-
-                if (!secondPhone && (pref === SECOND_PHONE_PREFS.RESIDENCY || pref === SECOND_PHONE_PREFS.AUTO)) {
-                    const { data: resData } = await supabase
-                        .from("directory")
-                        .select("phone_number")
-                        .ilike("provider_name", "%Residency%")
-                        .eq("specialty", baseSpec);
-
-                    if (resData?.[0]?.phone_number) {
-                        secondPhone = resData[0].phone_number;
-                        secondSource = "Residency";
-                    }
-                }
-            }
-
-            // Get cover provider phone if cover is enabled
-            let coverPhone: string | null = null;
-            let coverProviderName: string | null = null;
-            if (record?.cover && record?.covering_provider) {
-                const { data: coverData } = await supabase
-                    .from("directory")
-                    .select("phone_number")
-                    .eq("provider_name", record.covering_provider);
-
-                if (coverData?.[0]?.phone_number) {
-                    coverPhone = coverData[0].phone_number;
-                    coverProviderName = record.covering_provider;
-                }
-            }
-
+            // Map the camelCase API response to snake_case interface
             setProviderData({
-                ...record,
-                phone_number: directoryData?.phone_number || null,
-                second_phone: secondPhone,
-                _second_phone_source: secondSource,
-                cover_phone: coverPhone,
-                cover_provider_name: coverProviderName,
+                provider_name: data.providerName || "",
+                specialty: data.specialty || "",
+                healthcare_plan: data.healthcarePlan || null,
+                on_call_date: data.onCallDate || "",
+                show_second_phone: data.showSecondPhone || false,
+                second_phone_pref: (data.secondPhonePref as SecondPhonePref) || SECOND_PHONE_PREFS.AUTO,
+                cover: data.cover || false,
+                covering_provider: data.coveringProvider || null,
+                phone_number: data.phone_number || null,
+                second_phone: data.second_phone || null,
+                _second_phone_source: data._second_phone_source || null,
+                cover_phone: data.cover_phone || null,
+                cover_provider_name: data.cover_provider_name || null,
             });
 
         } catch (error) {

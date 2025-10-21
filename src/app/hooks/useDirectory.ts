@@ -11,10 +11,7 @@ import {
     sortProviders,
     validateProvider
 } from "@/lib/directory-utils";
-import { getBrowserClient } from "@/lib/supabase/client";
 import type { DirectoryProvider, DirectorySpecialty } from "@/lib/types/directory";
-
-const supabase = getBrowserClient();
 
 interface UseDirectoryState {
     // Data
@@ -62,19 +59,26 @@ export const useDirectory = (initialPageSize = 10) => {
     const loadProviders = useCallback(async () => {
         setState(prev => ({ ...prev, loading: true }));
         try {
-            const { data, error } = await supabase
-                .from("directory")
-                .select("id, provider_name, specialty, phone_number")
-                .order("provider_name", { ascending: true });
+            const response = await fetch('/api/directory');
 
-            if (error) {
-                console.error("Error fetching providers:", error);
+            if (!response.ok) {
+                console.error("Error fetching providers:", response.statusText);
                 toast.error("Failed to load providers");
                 setState(prev => ({ ...prev, providers: [], loading: false }));
                 return;
             }
 
-            setState(prev => ({ ...prev, providers: data || [], loading: false }));
+            const { data } = await response.json();
+
+            // Map camelCase API response to snake_case for compatibility
+            const mappedData = data?.map((item: any) => ({
+                id: item.id,
+                provider_name: item.providerName,
+                specialty: item.specialty,
+                phone_number: item.phoneNumber,
+            })) || [];
+
+            setState(prev => ({ ...prev, providers: mappedData, loading: false }));
         } catch (error) {
             console.error("Error in loadProviders:", error);
             toast.error("Failed to load providers");
@@ -85,17 +89,15 @@ export const useDirectory = (initialPageSize = 10) => {
     // Load specialties from database
     const loadSpecialties = useCallback(async () => {
         try {
-            const { data, error } = await supabase
-                .from("specialties")
-                .select("id, name")
-                .order("name", { ascending: true });
+            const response = await fetch('/api/specialties');
 
-            if (error) {
-                console.error("Error fetching specialties:", error);
+            if (!response.ok) {
+                console.error("Error fetching specialties:", response.statusText);
                 toast.error("Failed to load specialties");
                 return;
             }
 
+            const { data } = await response.json();
             setState(prev => ({ ...prev, specialties: data || [] }));
         } catch (error) {
             console.error("Error in loadSpecialties:", error);
@@ -114,13 +116,22 @@ export const useDirectory = (initialPageSize = 10) => {
         setState(prev => ({ ...prev, actionLoading: { ...prev.actionLoading, add: true } }));
 
         try {
-            // TODO: review the policies
-            const { error } = await supabase
-                .from("directory")
-                .insert(providerData);
+            // Map snake_case to camelCase for API
+            const apiData = {
+                providerName: providerData.provider_name,
+                specialty: providerData.specialty,
+                phoneNumber: providerData.phone_number,
+            };
 
-            if (error) {
-                console.error("Error adding provider:", error.message);
+            const response = await fetch('/api/directory', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(apiData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Error adding provider:", errorData.error);
                 toast.error("Failed to add provider");
                 return false;
             }
@@ -157,13 +168,23 @@ export const useDirectory = (initialPageSize = 10) => {
         }));
 
         try {
-            const { error } = await supabase
-                .from("directory")
-                .update(providerData)
-                .eq("id", id);
+            // Map snake_case to camelCase for API
+            const apiData = {
+                id,
+                providerName: providerData.provider_name,
+                specialty: providerData.specialty,
+                phoneNumber: providerData.phone_number,
+            };
 
-            if (error) {
-                console.error("Error updating provider:", error);
+            const response = await fetch('/api/directory', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(apiData),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Error updating provider:", errorData.error);
                 toast.error("Failed to update provider");
                 return false;
             }
@@ -191,13 +212,13 @@ export const useDirectory = (initialPageSize = 10) => {
         }));
 
         try {
-            const { error } = await supabase
-                .from("directory")
-                .delete()
-                .eq("id", id);
+            const response = await fetch(`/api/directory?id=${id}`, {
+                method: 'DELETE',
+            });
 
-            if (error) {
-                console.error("Error deleting provider:", error);
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Error deleting provider:", errorData.error);
                 toast.error("Failed to delete provider");
                 return false;
             }

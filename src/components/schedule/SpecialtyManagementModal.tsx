@@ -118,7 +118,7 @@ const SpecialtyManagementModal = memo(
                 // If the currently selected specialty was deleted, switch to another
                 if (currentSpecialty === name) {
                     const next = specialtyEditList.find(
-                        (s) => s.show_oncall && s.name !== name
+                        (s) => s.showOncall && s.name !== name
                     );
                     if (next) onSpecialtyChange(next.name);
                 }
@@ -138,7 +138,6 @@ const SpecialtyManagementModal = memo(
             async (id: string, currentValue: boolean) => {
                 try {
                     await toggleShowOnCall(id, currentValue);
-                    toast.success(`On-call ${!currentValue ? "enabled" : "disabled"}.`);
                 } catch (error) {
                     toast.error(`Failed to update specialty.`);
                 }
@@ -261,9 +260,9 @@ const SpecialtyManagementModal = memo(
                                                 </span>
                                                 <div className="flex items-center gap-2.5">
                                                     <Switch
-                                                        checked={spec.show_oncall}
+                                                        checked={spec.showOncall}
                                                         disabled={actionLoading[`toggle-${spec.id}`]}
-                                                        onCheckedChange={() => handleToggleShowOnCall(spec.id, spec.show_oncall)}
+                                                        onCheckedChange={() => handleToggleShowOnCall(spec.id, spec.showOncall)}
                                                         aria-label="Toggle show on-call"
                                                     />
                                                     {actionLoading[`toggle-${spec.id}`] ? (
@@ -271,11 +270,11 @@ const SpecialtyManagementModal = memo(
                                                     ) : (
                                                         <span className={
                                                             `text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ` +
-                                                            (spec.show_oncall
+                                                            (spec.showOncall
                                                                 ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
                                                                 : "bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400")
                                                         }>
-                                                            {spec.show_oncall ? "Active" : "Inactive"}
+                                                            {spec.showOncall ? "Active" : "Inactive"}
                                                         </span>
                                                     )}
                                                 </div>
