@@ -108,6 +108,24 @@ pnpm db:seed
 
 Edit `src/db/seed.ts` to customize the seed data.
 
+### Backup Database 
+To backup the database data
+
+```bash
+pnpm dotenv -e .env -- pnpm db:backup; 
+```
+
+### Restore Database 
+To restore the database data from backup
+
+```bash
+pg_restore --dbname=postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT.supabase.co:5432/postgres --clean --if-exists backup_20241021_153000.dump
+```
+
+```bash
+pg_restore --dbname=postgresql://postgres:postgres@localhost:5432/oncall_dev --clean --if-exists path/to/your_prod_backup.dump
+```
+
 ### Drizzle Studio
 
 Open Drizzle Studio to visually explore and edit your database:

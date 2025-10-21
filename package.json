@@ -22,7 +22,8 @@
     "db:local:start": "podman run --name oncall-postgres -e POSTGRES_DB=oncall_dev -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -v oncall-db-data:/var/lib/postgresql/data -d docker.io/library/postgres:15-alpine",
     "db:local:stop": "podman stop oncall-postgres",
     "db:local:remove": "podman rm oncall-postgres",
-    "db:local:purge": "podman volume rm oncall-db-data"
+    "db:local:purge": "podman volume rm oncall-db-data",
+    "db:backup": "pg_dump --dbname=$DATABASE_URL --format=custom --no-owner --no-privileges --file=backup_$(date +\"%Y%m%d_%H%M%S\").dump"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.18",
