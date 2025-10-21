@@ -3,10 +3,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "react-hot-toast";
 
-import { getBrowserClient } from "@/lib/supabase/client";
 import { type Specialty } from "@/lib/types/specialty";
-
-const supabase = getBrowserClient();
 
 export const useSpecialties = () => {
   const [specialties, setSpecialties] = useState<string[]>([]);
@@ -17,31 +14,30 @@ export const useSpecialties = () => {
   const reloadSpecialties = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("specialties")
-        .select("id, name, show_oncall")
-        .order("name", { ascending: true });
+      const response = await fetch('/api/specialties');
 
-      if (error) {
-        console.error("Error fetching specialties:", error);
+      if (!response.ok) {
+        console.error("Error fetching specialties:", response.statusText);
         setSpecialties([]);
         setSpecialtyEditList([]);
         toast.error("Failed to load specialties");
-      } else {
-
-        const activeNames = (data as Specialty[] | null)
-          ?.filter((s: Specialty) => s.show_oncall)
-          .map((s: Specialty) => s.name ?? "")
-          .filter(Boolean) as string[];
-        setSpecialties(activeNames);
-        setSpecialtyEditList(
-          (data ?? []).map((s: Specialty) => ({
-            id: s.id as string,
-            name: (s.name ?? "") as string,
-            show_oncall: !!s.show_oncall,
-          })),
-        );
+        return;
       }
+
+      const { data } = await response.json();
+
+      const activeNames = (data as Specialty[] | null)
+        ?.filter((s: Specialty) => s.showOncall)
+        .map((s: Specialty) => s.name ?? "")
+        .filter(Boolean) as string[];
+      setSpecialties(activeNames);
+      setSpecialtyEditList(
+        (data ?? []).map((s: Specialty) => ({
+          id: s.id as string,
+          name: (s.name ?? "") as string,
+          showOncall: s.showOncall,
+        })),
+      );
     } catch (error) {
       console.error("Error in reloadSpecialties:", error);
       toast.error("Failed to load specialties");
@@ -66,19 +62,22 @@ export const useSpecialties = () => {
 
       setActionLoading(prev => ({ ...prev, add: true }));
       try {
-        const { error } = await supabase
-          .from("specialties")
-          .insert({ name: trimmedName, show_oncall: true });
+        const response = await fetch('/api/specialties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: trimmedName, showOncall: true }),
+        });
 
-        if (error) {
-          console.error("Failed to add specialty:", error);
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Failed to add specialty:", errorData.error);
           toast.error("Failed to add specialty.");
           return false;
-        } else {
-          toast.success("Specialty added.");
-          await reloadSpecialties();
-          return true;
         }
+
+        toast.success("Specialty added.");
+        await reloadSpecialties();
+        return true;
       } catch (error) {
         console.error("Error in addSpecialty:", error);
         toast.error("Failed to add specialty.");
@@ -109,41 +108,43 @@ export const useSpecialties = () => {
 
       setActionLoading(prev => ({ ...prev, [id]: true }));
       try {
-        const updates: any = { name: trimmedName };
+        const updates: any = { id, name: trimmedName };
         if (showOncall !== undefined) {
-          updates.show_oncall = showOncall;
+          updates.showOncall = showOncall;
         }
 
-        const { error } = await supabase
-          .from("specialties")
-          .update(updates)
-          .eq("id", id);
+        const response = await fetch('/api/specialties', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
 
-        if (error) {
-          console.error("Failed to update specialty:", error);
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Failed to update specialty:", errorData.error);
           toast.error("Failed to update specialty.");
           return false;
-        } else {
-          toast.success("Specialty updated.");
-          // Optimistically update local state instead of reloading
-          setSpecialtyEditList(prev =>
-            prev.map(s => s.id === id ? { ...s, name: trimmedName, ...(showOncall !== undefined && { show_oncall: showOncall }) } : s)
-          );
-          // Update active specialties list if show_oncall changed
-          if (showOncall !== undefined) {
-            setSpecialties(prev => {
-              const updated = specialtyEditList.find(s => s.id === id);
-              if (!updated) return prev;
-              if (showOncall && !prev.includes(trimmedName)) {
-                return [...prev, trimmedName].sort();
-              } else if (!showOncall && prev.includes(updated.name)) {
-                return prev.filter(name => name !== updated.name);
-              }
-              return prev;
-            });
-          }
-          return true;
         }
+
+        toast.success("Specialty updated.");
+        // Optimistically update local state instead of reloading
+        setSpecialtyEditList(prev =>
+          prev.map(s => s.id === id ? { ...s, name: trimmedName, ...(showOncall !== undefined && { showOncall: showOncall }) } : s)
+        );
+        // Update active specialties list if showOncall changed
+        if (showOncall !== undefined) {
+          setSpecialties(prev => {
+            const updated = specialtyEditList.find(s => s.id === id);
+            if (!updated) return prev;
+            if (showOncall && !prev.includes(trimmedName)) {
+              return [...prev, trimmedName].sort();
+            } else if (!showOncall && prev.includes(updated.name)) {
+              return prev.filter(name => name !== updated.name);
+            }
+            return prev;
+          });
+        }
+        return true;
       } catch (error) {
         console.error("Error in updateSpecialty:", error);
         toast.error("Failed to update specialty.");
@@ -159,20 +160,20 @@ export const useSpecialties = () => {
     async (id: string) => {
       setActionLoading(prev => ({ ...prev, [`delete-${id}`]: true }));
       try {
-        const { error } = await supabase
-          .from("specialties")
-          .delete()
-          .eq("id", id);
+        const response = await fetch(`/api/specialties?id=${id}`, {
+          method: 'DELETE',
+        });
 
-        if (error) {
-          console.error("Failed to delete specialty:", error);
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Failed to delete specialty:", errorData.error);
           toast.error("Failed to delete specialty.");
           return false;
-        } else {
-          toast.success("Specialty deleted.");
-          await reloadSpecialties();
-          return true;
         }
+
+        toast.success("Specialty deleted.");
+        await reloadSpecialties();
+        return true;
       } catch (error) {
         console.error("Error in deleteSpecialty:", error);
         toast.error("Failed to delete specialty.");
@@ -184,33 +185,36 @@ export const useSpecialties = () => {
     [reloadSpecialties],
   );
 
-  // Toggle show_oncall
+  // Toggle showOncall
   const toggleShowOnCall = useCallback(
     async (id: string, currentValue: boolean) => {
       setActionLoading(prev => ({ ...prev, [`toggle-${id}`]: true }));
       try {
-        const { error } = await supabase
-          .from("specialties")
-          .update({ show_oncall: !currentValue })
-          .eq("id", id);
+        const response = await fetch('/api/specialties', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, showOncall: !currentValue }),
+        });
 
-        if (error) {
-          console.error("Failed to toggle show_oncall:", error);
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error("Failed to toggle showOncall:", errorData.error);
           toast.error("Failed to update specialty.");
-        } else {
-          toast.success("Specialty updated.");
-          // Optimistically update local state
-          const specialty = specialtyEditList.find(s => s.id === id);
-          if (specialty) {
-            setSpecialtyEditList(prev =>
-              prev.map(s => s.id === id ? { ...s, show_oncall: !currentValue } : s)
-            );
-            // Update active specialties list
-            if (!currentValue && !specialties.includes(specialty.name)) {
-              setSpecialties(prev => [...prev, specialty.name].sort());
-            } else if (currentValue) {
-              setSpecialties(prev => prev.filter(name => name !== specialty.name));
-            }
+          return;
+        }
+
+        toast.success("Specialty updated.");
+        // Optimistically update local state
+        const specialty = specialtyEditList.find(s => s.id === id);
+        if (specialty) {
+          setSpecialtyEditList(prev =>
+            prev.map(s => s.id === id ? { ...s, showOncall: !currentValue } : s)
+          );
+          // Update active specialties list
+          if (!currentValue && !specialties.includes(specialty.name)) {
+            setSpecialties(prev => [...prev, specialty.name].sort());
+          } else if (currentValue) {
+            setSpecialties(prev => prev.filter(name => name !== specialty.name));
           }
         }
       } catch (error) {

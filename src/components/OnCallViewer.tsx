@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useOnCall } from "@/app/hooks/useOnCall";
@@ -107,6 +108,20 @@ export default function OnCallViewer() {
             onSpecialtyChange={handleSpecialtyChange}
             onPlanChange={handlePlanChange}
           />
+          <div className="flex justify-center gap-4">
+            <Link
+              href="/lookup/mmm-pcp"
+              className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#009c94] hover:bg-[#007F77] rounded shadow-sm"
+            >
+              MMM Group Lookup
+            </Link>
+            <Link
+              href="/lookup/vital-groups"
+              className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#5c5ca2] hover:bg-[#4a4a88] rounded shadow-sm"
+            >
+              Vital Group Lookup
+            </Link>
+          </div>
           {onCallLoading ? (
             <div className="flex justify-center py-8">
               <LoadingSpinner />

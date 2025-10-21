@@ -24,13 +24,25 @@ export default function useUserRole() {
           setRole(null);
           return;
         }
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-        if (!error && data) setRole(data.role || null);
-      } catch {
+
+        // Migrate database query to API route
+        const response = await fetch(`/api/profiles?id=${user.id}`);
+
+        if (!response.ok) {
+          console.error("Failed to fetch user profile:", response.statusText);
+          setRole(null);
+          return;
+        }
+
+        const { data } = await response.json();
+
+        if (data && data.length > 0) {
+          setRole(data[0].role || null);
+        } else {
+          setRole(null);
+        }
+      } catch (error) {
+        console.error("Error fetching user role:", error);
         setRole(null);
       }
     };

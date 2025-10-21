@@ -213,7 +213,7 @@ export default function SchedulePage() {
 
     const myKey = ++loadKeyRef.current;
     const timeoutId = setTimeout(() => {
-      loadEntries(visibleRange.start, visibleRange.end, specialty, plan).then(() => {
+      loadEntries(toLocalISODate(visibleRange.start), toLocalISODate(visibleRange.end), specialty, plan).then(() => {
         // Only update if this is still the latest request
         if (loadKeyRef.current !== myKey) return;
       });
@@ -348,7 +348,7 @@ export default function SchedulePage() {
   // Refresh calendar visible range - simplified since state changes auto-update the calendar
   const refreshCalendarVisibleRange = useCallback(async () => {
     if (!visibleRange) return;
-    await loadEntries(visibleRange.start, visibleRange.end, specialty, plan);
+    await loadEntries(toLocalISODate(visibleRange.start), toLocalISODate(visibleRange.end), specialty, plan);
   }, [specialty, plan, loadEntries, visibleRange]);
 
   // Event handlers
@@ -562,7 +562,7 @@ export default function SchedulePage() {
       if (success) {
         // Reload entries to reflect the change
         if (visibleRange) {
-          await loadEntries(visibleRange.start, visibleRange.end, specialty, plan);
+          await loadEntries(toLocalISODate(visibleRange.start), toLocalISODate(visibleRange.end), specialty, plan);
         }
       }
 
