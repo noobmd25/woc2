@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import { ERROR_MESSAGES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import { effectiveOnCallDate, toYMD } from "@/lib/oncall-utils";

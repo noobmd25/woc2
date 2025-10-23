@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp, Edit, Eye, Phone, Plus, Search, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useDirectory } from "@/app/hooks/useDirectory";
 import useUserRole from "@/app/hooks/useUserRole";
@@ -44,6 +44,7 @@ const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function DirectoryPage() {
   const role = useUserRole();
+
   const {
     providers,
     specialties,
@@ -80,22 +81,22 @@ export default function DirectoryPage() {
   const canView = useMemo(() => role ? [ROLES.ADMIN, ROLES.SCHEDULER, ROLES.VIEWER].includes(role) : false, [role]);
 
   // Modal handlers
-  const handleAddProvider = () => {
+  const handleAddProvider = useCallback(() => {
     setEditingProvider(null);
     setAddEditModalOpen(true);
-  };
+  }, []);
 
-  const handleEditProvider = (provider: DirectoryProvider) => {
+  const handleEditProvider = useCallback((provider: DirectoryProvider) => {
     setEditingProvider(provider);
     setAddEditModalOpen(true);
-  };
+  }, []);
 
-  const handleDeleteProvider = (provider: DirectoryProvider) => {
+  const handleDeleteProvider = useCallback((provider: DirectoryProvider) => {
     setProviderToDelete(provider);
     setDeleteDialogOpen(true);
-  };
+  }, []);
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useCallback(async () => {
     if (!providerToDelete) return;
 
     const success = await deleteProvider(providerToDelete.id);
@@ -103,33 +104,42 @@ export default function DirectoryPage() {
       setDeleteDialogOpen(false);
       setProviderToDelete(null);
     }
-  };
+  }, [providerToDelete, deleteProvider]);
 
-  const handlePhoneAction = (provider: DirectoryProvider) => {
+  const handlePhoneAction = useCallback((provider: DirectoryProvider) => {
     setSelectedPhoneProvider(provider);
     setPhoneModalOpen(true);
-  };
+  }, []);
 
-  const handleSubmitProvider = async (data: Omit<DirectoryProvider, "id">) => {
-    if (editingProvider) {
-      return await updateProvider(editingProvider.id, data);
-    } else {
-      return await addProvider(data);
-    }
-  };
+  const handleSubmitProvider = useCallback(
+    async (data: Omit<DirectoryProvider, "id">) => {
+      if (editingProvider) {
+        return await updateProvider(editingProvider.id, data);
+      } else {
+        return await addProvider(data);
+      }
+    },
+    [editingProvider, updateProvider, addProvider]
+  );
 
   // Sorting handler
-  const handleSort = (field: typeof DIRECTORY_SORT_FIELDS[keyof typeof DIRECTORY_SORT_FIELDS]) => {
-    setSorting(field);
-  };
+  const handleSort = useCallback(
+    (field: typeof DIRECTORY_SORT_FIELDS[keyof typeof DIRECTORY_SORT_FIELDS]) => {
+      setSorting(field);
+    },
+    [setSorting]
+  );
 
   // Render sort icon
-  const renderSortIcon = (field: string) => {
-    if (sortField !== field) return null;
-    return sortDirection === SORT_DIRECTIONS.ASC ?
-      <ChevronUp className="ml-1 h-4 w-4 inline" /> :
-      <ChevronDown className="ml-1 h-4 w-4 inline" />;
-  };
+  const renderSortIcon = useCallback(
+    (field: string) => {
+      if (sortField !== field) return null;
+      return sortDirection === SORT_DIRECTIONS.ASC ?
+        <ChevronUp className="ml-1 h-4 w-4 inline" /> :
+        <ChevronDown className="ml-1 h-4 w-4 inline" />;
+    },
+    [sortField, sortDirection]
+  );
 
   // Loading state
   if (role === null) {
@@ -157,7 +167,7 @@ export default function DirectoryPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-7xl">
+    <div className="container mx-auto px-2 py-6 max-w-4xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>

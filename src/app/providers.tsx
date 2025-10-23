@@ -1,14 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { Toaster, toast } from "react-hot-toast";
+import { AuthProvider, AuthUser } from "@/components/AuthProvider";
+import { ThemeProvider } from "@/components/theme-provider";
+import { usePathname, useRouter } from "next/navigation";
+import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
+import { Toaster, toast } from "sonner";
 
-import { getBrowserClient } from "@/lib/supabase/client";
 
 const PUBLIC_PATHS = [
   "/",
   "/home",
+  "/auth/login",
   "/auth/pending",
   "/auth/signup",
   "/auth/check-email",
@@ -26,78 +29,61 @@ function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.includes(pathname);
 }
 function isProtectedPath(pathname: string) {
-  return (
-    !isPublicPath(pathname) && PROTECTED_REGEX.some((r) => r.test(pathname))
-  );
+  return !isPublicPath(pathname) && PROTECTED_REGEX.some((r) => r.test(pathname));
 }
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({
+  children,
+  initialUser,
+}: {
+  children: ReactNode;
+  initialUser: AuthUser | null;
+}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const mountedRef = useRef(true); // Track if component is mounted
+
 
   useEffect(() => {
-    // Only run on client side
-    if (typeof window === "undefined") return;
+    if (!mountedRef.current) return; // Prevent execution if unmounted
 
-    let cancelled = false;
+    // If the user is authenticated and try to go to login/register, redirect to home
+    if (isPublicPath(pathname) && initialUser) {
+      router.push("/oncall");
+      return;
+    }
 
-    const initializeAuth = async () => {
-      try {
-        const supabase = getBrowserClient();
-
-        // Wait for Supabase to initialize properly
-        const { data: { session }, error } = await supabase.auth.getSession(); if (cancelled) return;
-
-        const pathname = window.location.pathname;
-
-        // Only check auth for protected paths
-        if (isProtectedPath(pathname)) {
-          if (error || !session?.user) {
-            toast.error("Please sign in");
-            router.replace("/login");
-            return;
-          }
-
-          // Verify user profile status
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("status")
-            .eq("id", session.user.id)
-            .maybeSingle();
-
-          const status = profile?.status || session.user.user_metadata?.status;
-          const allowedStatus = ["approved", "active"];
-
-          if (!allowedStatus.includes(status)) {
-            await supabase.auth.signOut();
-            toast("Your account is pending admin approval.");
-            router.replace("/auth/pending");
-            return;
-          }
-        }
-
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (cancelled) return;
-
-        const pathname = window.location.pathname;
-        if (isProtectedPath(pathname)) {
-          toast.error("Authentication error. Please sign in again.");
-          router.replace("/login");
-        }
+    if (isProtectedPath(pathname)) {
+      if (!initialUser) {
+        toast.error("Please sign in");
+        router.push("/auth/login");
+        return;
       }
-    };
 
-    // Small delay to ensure client hydration
-    const timer = setTimeout(initializeAuth, 100);
+      // Use status from server-provided user metadata if available
+      const status = (initialUser as any)?.profile?.status as string | undefined;
+      const allowedStatus = ["approved", "active"]; // adjust to your needs
 
+      if (status && !allowedStatus.includes(status)) {
+        toast.error("Your account is pending admin approval.");
+        router.push("/auth/login");
+        return;
+      }
+    }
+  }, [router, initialUser, pathname]);
+
+  useEffect(() => {
     return () => {
-      cancelled = true;
-      clearTimeout(timer);
+      mountedRef.current = false; // Cleanup on unmount
     };
-  }, [router]); return (
-    <>
-      <Toaster />
-      {children}
-    </>
+  }, []);
+
+  return (
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+      <AuthProvider initialUser={initialUser}>
+        <Toaster position="top-center" />
+        {children}
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

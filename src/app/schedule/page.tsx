@@ -21,10 +21,10 @@ import { RefreshCcw, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
-import useUserRole from "@/app/hooks/useUserRole";
-import LayoutShell from "@/components/LayoutShell";
+// import LayoutShell from "@/components/LayoutShell";
+import { useAuth } from "@/components/AuthProvider";
 import ScheduleModal from "@/components/schedule/ScheduleModal";
 import SpecialtyManagementModal from "@/components/schedule/SpecialtyManagementModal";
 import {
@@ -44,7 +44,8 @@ export default function SchedulePage() {
   // Track reload state for disabling the reload button
   const [reloading, setReloading] = useState(false);
   const router = useRouter();
-  const role = useUserRole();
+  const { user } = useAuth();
+  const role = useMemo(() => user?.profile?.role, [user]);
 
   // Core state
   const [specialty, setSpecialty] = useState<string>("");
@@ -790,12 +791,10 @@ export default function SchedulePage() {
     );
   }, [canEdit]); if (role === null) {
     return (
-      <LayoutShell>
-        <div className="flex items-center justify-center py-12">
-          <LoadingSpinner size="lg" />
-          <span className="ml-3">Loading...</span>
-        </div>
-      </LayoutShell>
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner size="lg" />
+        <span className="ml-3">Loading...</span>
+      </div>
     );
   }
 
@@ -805,297 +804,295 @@ export default function SchedulePage() {
   }
 
   return (
-    <LayoutShell>
-      <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6 max-w-full overflow-x-hidden">
-        {/* Header */}
-        <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-              Schedule Management
-            </h1>
-            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-              Manage on-call schedules by specialty
-            </p>
-          </div>
-
-          {role === ROLES.ADMIN && (
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <button
-                onClick={() => setShowSpecialtyModal(true)}
-                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
-              >
-                Edit Specialties
-              </button>
-              <Link
-                href="/schedule/mmm-medical-groups"
-                className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
-              >
-                MMM Medical Groups
-              </Link>
-              <Link
-                href="/schedule/vital-medical-groups"
-                className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
-              >
-                Vital Medical Groups
-              </Link>
-              <Link
-                href="/admin"
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
-              >
-                Admin Panel
-              </Link>
-            </div>
-          )}
+    <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6 max-w-4xl overflow-x-hidden">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+            Schedule Management
+          </h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
+            Manage on-call schedules by specialty
+          </p>
         </div>
 
-        {/* Specialty and Plan Selection - Original Dropdown UI */}
-        <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="w-full">
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-              Specialty
-            </label>
-            {specialtiesLoading ? (
-              <div className="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-                <LoadingSpinner size="sm" />
-                <span className="ml-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">Loading specialties...</span>
-              </div>
-            ) : (
-              <select
-                value={specialty}
-                onChange={(e) => setSpecialty(e.target.value)}
-                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
-              >
-                {specialties.map((spec) => (
-                  <option key={spec} value={spec}>
-                    {spec}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {specialty === SPECIALTIES.INTERNAL_MEDICINE && (
-            <div className="w-full">
-              <label
-                htmlFor="healthcare-plan"
-                className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-              >
-                Healthcare Plan
-              </label>
-              <select
-                id="healthcare-plan"
-                value={plan || ""}
-                onChange={(e) => setPlan(e.target.value)}
-                className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
-              >
-                <option value="">-- Select a Plan --</option>
-                {PLANS.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* Calendar */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-lg overflow-hidden relative border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-row justify-between items-center p-3 sm:p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-            <div>
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white break-words">
-                {resolveDirectorySpecialty(specialty)}
-                {specialty === SPECIALTIES.INTERNAL_MEDICINE && plan && (
-                  <span className="text-blue-600 dark:text-blue-400 ml-2 text-base sm:text-lg">({plan})</span>
-                )}
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-2">
-                Click on a date to add a new schedule entry
-              </p>
-            </div>
+        {role === ROLES.ADMIN && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
-              onClick={() => handleReloadCalendar()}
-              className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-105  text-xs sm:text-sm rounded text-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-              disabled={reloading}
+              onClick={() => setShowSpecialtyModal(true)}
+              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
             >
-              <RefreshCcw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} />
+              Edit Specialties
             </button>
-          </div>
-
-          <div className="p-2 sm:p-4 md:p-6 relative">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={calendarPlugins}
-              initialView="dayGridMonth"
-              timeZone="local"
-              headerToolbar={headerToolbar}
-              titleFormat={{ year: 'numeric', month: isMobileView ? 'short' : 'long' }}
-              customButtons={customButtons}
-              dayCellClassNames={dayCellClassNames}
-              events={calendarEvents}
-              dateClick={handleDateClick}
-              eventClick={handleEventClick}
-              eventContent={renderEventContent}
-              height="auto"
-              dayMaxEvents={1}
-              moreLinkClick="popover"
-              datesSet={onDatesSet}
-              dayHeaderFormat={{ weekday: isMobileView ? 'narrow' : 'short' }}
-              dayHeaderClassNames="fc-day-header-responsive"
-            />
-            {entriesLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg z-10">
-                <LoadingSpinner size="lg" />
-                <span className="mt-3 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium">Loading schedule...</span>
-              </div>
-            )}
-          </div>
-
-          {/* IM Plan Gating Overlay */}
-          {isIMWithoutPlan && (
-            <div
-              onClick={() =>
-                toast.error(
-                  "Please select healthcare plan group before adding providers on call"
-                )
-              }
-              className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md cursor-not-allowed text-center px-4 sm:px-6 py-6 sm:py-8 pointer-events-auto"
-              role="presentation"
+            <Link
+              href="/schedule/mmm-medical-groups"
+              className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
             >
-              <p className="text-gray-800 dark:text-gray-100 font-semibold text-xs sm:text-sm md:text-base mb-2">
-                Select a healthcare plan group before adding providers on call.
-              </p>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 max-w-md">
-                The Internal Medicine calendar is inactive until a plan is chosen.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons - Save Changes and Clear Month */}
-        <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
-          <button
-            onClick={() => setShowClearModal(true)}
-            className="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
-            disabled={!specialty || (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan)}
-          >
-            <span className="hidden sm:inline">
-              Clear {getVisibleMonthLabel()} — {specialty === SPECIALTIES.INTERNAL_MEDICINE ? `IM · ${plan || "Select plan"}` : specialty || "Select specialty"}
-            </span>
-            <span className="sm:hidden">
-              Clear Month
-            </span>
-          </button>
-
-        </div>
-
-
-        {/* Clear Month Confirmation Modal */}
-        {showClearModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-            <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md max-w-sm w-full mx-2">
-              <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-800 dark:text-white">
-                Confirm Deletion
-              </h2>
-              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-4 sm:mb-6">
-                Are you sure you want to clear all on-call entries for{" "}
-                <strong>{specialty}</strong>
-                {specialty === SPECIALTIES.INTERNAL_MEDICINE && plan ? ` · ${plan}` : ""} for{" "}
-                <strong>{getVisibleMonthLabel()}</strong>?
-              </p>
-              <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
-                <button
-                  onClick={() => setShowClearModal(false)}
-                  className="px-3 sm:px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-xs sm:text-sm rounded order-2 sm:order-1"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleClearConfirmed}
-                  className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm rounded order-1 sm:order-2"
-                >
-                  Confirm
-                </button>
-              </div>
-            </div>
+              MMM Medical Groups
+            </Link>
+            <Link
+              href="/schedule/vital-medical-groups"
+              className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
+            >
+              Vital Medical Groups
+            </Link>
+            <Link
+              href="/admin"
+              className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
+            >
+              Admin Panel
+            </Link>
           </div>
         )}
-
-
-        {/* Schedule Modal */}
-        <ScheduleModal
-          isOpen={isModalOpen}
-          isEditing={!!editingEntry}
-          selectedModalDate={selectedModalDate}
-          specialty={specialty}
-          plan={plan}
-          providers={providers}
-          selectedAdditionalDays={selectedAdditionalDays}
-          miniCalendarDate={miniCalendarDate}
-          miniCalendarEvents={miniCalendarEvents}
-          secondPref={secondPref}
-          secondPhone={secondPhone}
-          secondSource={secondSource}
-          coverEnabled={coverEnabled}
-          editingEntry={editingEntry}
-          currentProviderId={currentProviderId}
-          loading={modalLoading}
-          onClose={handleModalClose}
-          onProviderSelect={handleProviderSelect}
-          onDateSelect={handleDateSelect}
-          onSecondPrefChange={setSecondPref}
-          onCoverEnabledChange={setCoverEnabled}
-          onProviderIdChange={setCurrentProviderId}
-          coveringProviderId={coveringProviderId}
-          onCoveringProviderIdChange={setCoveringProviderId}
-          onSubmit={handleModalSubmit}
-        />
-
-        {/* Specialty Management Modal */}
-        <SpecialtyManagementModal
-          isOpen={showSpecialtyModal}
-          currentSpecialty={specialty}
-          onClose={() => setShowSpecialtyModal(false)}
-          onSpecialtyChange={setSpecialty}
-        />
-
-        {/* Delete Confirmation Dialog */}
-        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete Schedule Entry</AlertDialogTitle>
-              <AlertDialogDescription>
-                {eventToDelete && (
-                  <>
-                    Are you sure you want to remove <strong>{eventToDelete.provider}</strong> from{" "}
-                    <strong>
-                      {new Date(eventToDelete.date + 'T12:00:00').toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </strong>?
-                    <br />
-                    <br />
-                    This action cannot be undone.
-                  </>
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setEventToDelete(null)}>
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleConfirmedDelete}
-                className="bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white"
-              >
-                Delete Entry
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
-    </LayoutShell>
+
+      {/* Specialty and Plan Selection - Original Dropdown UI */}
+      <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="w-full">
+          <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
+            Specialty
+          </label>
+          {specialtiesLoading ? (
+            <div className="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+              <LoadingSpinner size="sm" />
+              <span className="ml-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">Loading specialties...</span>
+            </div>
+          ) : (
+            <select
+              value={specialty}
+              onChange={(e) => setSpecialty(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
+            >
+              {specialties.map((spec) => (
+                <option key={spec} value={spec}>
+                  {spec}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {specialty === SPECIALTIES.INTERNAL_MEDICINE && (
+          <div className="w-full">
+            <label
+              htmlFor="healthcare-plan"
+              className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
+            >
+              Healthcare Plan
+            </label>
+            <select
+              id="healthcare-plan"
+              value={plan || ""}
+              onChange={(e) => setPlan(e.target.value)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
+            >
+              <option value="">-- Select a Plan --</option>
+              {PLANS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Calendar */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-lg overflow-hidden relative border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-row justify-between items-center p-3 sm:p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
+          <div>
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 dark:text-white break-words">
+              {resolveDirectorySpecialty(specialty)}
+              {specialty === SPECIALTIES.INTERNAL_MEDICINE && plan && (
+                <span className="text-blue-600 dark:text-blue-400 ml-2 text-base sm:text-lg">({plan})</span>
+              )}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 sm:mt-2">
+              Click on a date to add a new schedule entry
+            </p>
+          </div>
+          <button
+            onClick={() => handleReloadCalendar()}
+            className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-105  text-xs sm:text-sm rounded text-black transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+            disabled={reloading}
+          >
+            <RefreshCcw className={`w-4 h-4 ${reloading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
+
+        <div className="p-2 sm:p-4 md:p-6 relative">
+          <FullCalendar
+            ref={calendarRef}
+            plugins={calendarPlugins}
+            initialView="dayGridMonth"
+            timeZone="local"
+            headerToolbar={headerToolbar}
+            titleFormat={{ year: 'numeric', month: isMobileView ? 'short' : 'long' }}
+            customButtons={customButtons}
+            dayCellClassNames={dayCellClassNames}
+            events={calendarEvents}
+            dateClick={handleDateClick}
+            eventClick={handleEventClick}
+            eventContent={renderEventContent}
+            height="auto"
+            dayMaxEvents={1}
+            moreLinkClick="popover"
+            datesSet={onDatesSet}
+            dayHeaderFormat={{ weekday: isMobileView ? 'narrow' : 'short' }}
+            dayHeaderClassNames="fc-day-header-responsive"
+          />
+          {entriesLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg z-10">
+              <LoadingSpinner size="lg" />
+              <span className="mt-3 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium">Loading schedule...</span>
+            </div>
+          )}
+        </div>
+
+        {/* IM Plan Gating Overlay */}
+        {isIMWithoutPlan && (
+          <div
+            onClick={() =>
+              toast.error(
+                "Please select healthcare plan group before adding providers on call"
+              )
+            }
+            className="absolute inset-0 z-50 flex flex-col items-center justify-center rounded-lg border border-gray-300 dark:border-gray-700 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md cursor-not-allowed text-center px-4 sm:px-6 py-6 sm:py-8 pointer-events-auto"
+            role="presentation"
+          >
+            <p className="text-gray-800 dark:text-gray-100 font-semibold text-xs sm:text-sm md:text-base mb-2">
+              Select a healthcare plan group before adding providers on call.
+            </p>
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 max-w-md">
+              The Internal Medicine calendar is inactive until a plan is chosen.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Action Buttons - Save Changes and Clear Month */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-4 mt-3 sm:mt-4">
+        <button
+          onClick={() => setShowClearModal(true)}
+          className="px-3 sm:px-4 py-2 text-xs sm:text-sm rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 transition-colors"
+          disabled={!specialty || (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan)}
+        >
+          <span className="hidden sm:inline">
+            Clear {getVisibleMonthLabel()} — {specialty === SPECIALTIES.INTERNAL_MEDICINE ? `IM · ${plan || "Select plan"}` : specialty || "Select specialty"}
+          </span>
+          <span className="sm:hidden">
+            Clear Month
+          </span>
+        </button>
+
+      </div>
+
+
+      {/* Clear Month Confirmation Modal */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+          <div className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md max-w-sm w-full mx-2">
+            <h2 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 text-gray-800 dark:text-white">
+              Confirm Deletion
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-4 sm:mb-6">
+              Are you sure you want to clear all on-call entries for{" "}
+              <strong>{specialty}</strong>
+              {specialty === SPECIALTIES.INTERNAL_MEDICINE && plan ? ` · ${plan}` : ""} for{" "}
+              <strong>{getVisibleMonthLabel()}</strong>?
+            </p>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+              <button
+                onClick={() => setShowClearModal(false)}
+                className="px-3 sm:px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-white text-xs sm:text-sm rounded order-2 sm:order-1"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearConfirmed}
+                className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm rounded order-1 sm:order-2"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Schedule Modal */}
+      <ScheduleModal
+        isOpen={isModalOpen}
+        isEditing={!!editingEntry}
+        selectedModalDate={selectedModalDate}
+        specialty={specialty}
+        plan={plan}
+        providers={providers}
+        selectedAdditionalDays={selectedAdditionalDays}
+        miniCalendarDate={miniCalendarDate}
+        miniCalendarEvents={miniCalendarEvents}
+        secondPref={secondPref}
+        secondPhone={secondPhone}
+        secondSource={secondSource}
+        coverEnabled={coverEnabled}
+        editingEntry={editingEntry}
+        currentProviderId={currentProviderId}
+        loading={modalLoading}
+        onClose={handleModalClose}
+        onProviderSelect={handleProviderSelect}
+        onDateSelect={handleDateSelect}
+        onSecondPrefChange={setSecondPref}
+        onCoverEnabledChange={setCoverEnabled}
+        onProviderIdChange={setCurrentProviderId}
+        coveringProviderId={coveringProviderId}
+        onCoveringProviderIdChange={setCoveringProviderId}
+        onSubmit={handleModalSubmit}
+      />
+
+      {/* Specialty Management Modal */}
+      <SpecialtyManagementModal
+        isOpen={showSpecialtyModal}
+        currentSpecialty={specialty}
+        onClose={() => setShowSpecialtyModal(false)}
+        onSpecialtyChange={setSpecialty}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Schedule Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              {eventToDelete && (
+                <>
+                  Are you sure you want to remove <strong>{eventToDelete.provider}</strong> from{" "}
+                  <strong>
+                    {new Date(eventToDelete.date + 'T12:00:00').toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </strong>?
+                  <br />
+                  <br />
+                  This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEventToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmedDelete}
+              className="bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700 text-white"
+            >
+              Delete Entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

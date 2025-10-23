@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, MessageCircle, Phone, User } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import type { OnCallProvider } from "@/app/hooks/useOnCall";
 import { Button } from "@/components/ui/button";

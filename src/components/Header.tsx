@@ -1,198 +1,166 @@
 "use client";
 
-import Image from "next/image";
+import { ModeToggle } from "@/components/mode-toggle";
+import UserMenu from "@/components/user-menu";
+import { Menu } from "lucide-react"; // Importing a hamburger icon
+import Image from 'next/image';
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "react-hot-toast";
+import { usePathname } from "next/navigation"; // Add this import
+import { useEffect, useMemo, useState } from "react";
+import logoSrc from '../../public/woc-logo-transparent.svg';
+import { useAuth } from "./AuthProvider";
 
-import useUserRole from "@/app/hooks/useUserRole";
-import { getBrowserClient } from "@/lib/supabase/client";
+
+type NavigationItem = {
+  to: string;
+  label: string;
+  requireAuth?: boolean;
+  canView?: string[];
+};
 
 export default function Header() {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const router = useRouter();
-  const [signingOut, setSigningOut] = useState(false);
-  const role = useUserRole();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const { user } = useAuth();
+  const userRole = user?.profile?.role || null; // Get role directly
+  const isAuthenticated = !!user;
+  const currentPath = usePathname();
 
-  const handleLogout = async () => {
-    if (signingOut) return;
-    setSigningOut(true);
 
-    const supabase = getBrowserClient();
-    if (!supabase) {
-      toast.error("Supabase client not available");
-      setSigningOut(false);
-      return;
-    }
+  const links = useMemo(() => {
+    const allLinks: NavigationItem[] = [
+      { to: "/oncall", label: "On Call", requireAuth: true, canView: ['admin', 'scheduler', 'viewer'] },
+      { to: "/directory", label: "Directory", requireAuth: true, canView: ['admin', 'scheduler', 'viewer'] },
+      { to: "/schedule", label: "Schedule", requireAuth: true, canView: ['admin', 'scheduler'] },
+      { to: "/admin", label: "Admin", canView: ['admin'] },
+    ];
+    return allLinks.filter((link) => {
+      if (link.requireAuth && !isAuthenticated) return false;
+      if (link.canView && (!userRole || !link.canView.includes(userRole))) return false;
+      return true;
+    });
+  }, [isAuthenticated, userRole]);
 
-    const clearSupabaseAuthStorage = () => {
-      try {
-        const keys: string[] = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith("sb-")) keys.push(k);
-        }
-        keys.forEach((k) => localStorage.removeItem(k));
-      } catch { }
-      try {
-        const cookies = document.cookie.split(";");
-        cookies.forEach((raw) => {
-          const name = raw.split("=")[0]?.trim();
-          if (!name) return;
-          if (
-            name.startsWith("sb-") ||
-            name.toLowerCase().startsWith("supabase")
-          ) {
-            document.cookie = `${name}=; Max-Age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-          }
-        });
-      } catch { }
+  // Handle scroll effect for sticky navbar
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
     };
 
-    const withTimeout = <T,>(p: Promise<T>, label: string, ms = 1500) => {
-      return Promise.race([
-        p,
-        new Promise<T>((_r, reject) =>
-          setTimeout(
-            () => reject(new Error(`[timeout] ${label} after ${ms}ms`)),
-            ms,
-          ),
-        ),
-      ]);
-    };
-
-    const trySignOut = async () => {
-      // @ts-ignore optional scope
-      return withTimeout(
-        supabase.auth.signOut({ scope: "global" }).catch(async () => {
-          return supabase.auth.signOut();
-        }),
-        "supabase.auth.signOut()",
-      );
-    };
-
-    try {
-      await trySignOut();
-      const sessionRes = await withTimeout(
-        supabase.auth.getUser(),
-        "supabase.auth.getUser()",
-      );
-      const user = (sessionRes as any)?.data?.user;
-      if (user) {
-        await trySignOut();
-      }
-      toast.success("Signed out");
-    } catch (e: any) {
-      toast.error("Could not complete sign out. Clearing session…");
-    } finally {
-      clearSupabaseAuthStorage();
-      setMenuOpen(false);
-      setSigningOut(false);
-      try {
-        router.replace("/");
-      } catch { }
-      if (typeof window !== "undefined") {
-        setTimeout(() => {
-          if (window.location.pathname !== "/") window.location.assign("/");
-        }, 50);
-      }
-    }
-  };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <header className="z-50 bg-blue-600 dark:bg-[#001f3f] text-white shadow">
-      <div className="flex justify-between items-center px-6 py-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="text-white text-2xl focus:outline-none cursor-pointer hover:ring-2 hover:ring-white hover:rounded-md hover:opacity-80"
-            aria-label="Toggle menu"
-          >
-            ☰
-          </button>
-          <Link
-            href="/"
-            prefetch={false}
-            className="w-40 h-auto block"
-            onClick={() => setMenuOpen(false)}
-          >
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={160}
-              height={40}
-              className="w-full h-auto"
-            />
-          </Link>
-        </div>
-        <button
-          onClick={handleLogout}
-          disabled={signingOut}
-          className="bg-white text-blue-600 px-4 py-1 rounded hover:ring-2 hover:ring-white hover:opacity-80 disabled:opacity-60"
+    <header className={"sticky top-0 z-50 transition-all duration-300"}>
+      <div className="mx-auto w-full max-w-full px-3 py-3 sm:px-4 sm:py-4 xl:max-w-7xl xl:px-6">
+        <div
+          className={`w-full max-w-full overflow-hidden rounded-2xl bg-header-bg px-3 py-3 backdrop-blur-md transition-all duration-300 sm:rounded-3xl sm:px-4 sm:py-4 xl:px-6 ${isScrolled ? "shadow-lg" : "shadow-sm"
+            }`}
         >
-          {signingOut ? "Signing out…" : "Logout"}
-        </button>
-      </div>
+          <div className="flex w-full max-w-full items-center justify-between">
+            {/* Left side: Hamburger on mobile, Logo on desktop */}
+            <div className="flex min-w-0 flex-1 items-center justify-start md:flex-none">
+              {/* Mobile menu button */}
+              <button
+                className="rounded-md p-1 hover:bg-muted md:hidden"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                type="button"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
 
-      <div
-        className={`transition-all duration-500 ease-in-out overflow-hidden px-6 ${menuOpen ? "max-h-40 opacity-100 pb-4" : "max-h-0 opacity-0"
-          }`}
-      >
-        <div className="transition-opacity duration-500 ease-in-out">
-          <nav>
-            <ul className="space-y-2 pt-2">
-              {/* Visible to all roles: Directory & On Call */}
-              <li>
-                <Link
-                  href="/oncall"
-                  prefetch={false}
-                  className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  On Call
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/directory"
-                  prefetch={false}
-                  className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  Directory
-                </Link>
-              </li>
+              {/* Logo for desktop */}
+              <div className="hidden md:block">
+                <Image src={logoSrc} alt="Logo" width={40} height={40} />
+              </div>
+            </div>
+            {/* Center: Logo on mobile, Nav on desktop */}
+            <div className="flex min-w-0 flex-1 items-center justify-center md:flex-none md:justify-start xl:px-10">
+              {/* Logo for mobile */}
+              <div className="md:hidden">
+                <Image src={logoSrc} alt="Logo" width={40} height={40} />
+              </div>
 
-              {/* Scheduler: visible to admin & scheduler */}
-              {(role === "admin" || role === "scheduler") && (
-                <li>
-                  <Link
-                    href="/schedule"
-                    prefetch={false}
-                    className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    Scheduler
-                  </Link>
-                </li>
+              {/* Desktop Navigation */}
+              <nav className="hidden items-center space-x-4 md:flex lg:space-x-6 xl:space-x-10">
+                {links.map(({ to, label }) => {
+                  const isActive = currentPath === to;
+                  return (
+                    <Link
+
+                      className={`text-base transition-colors hover:text-primary ${isActive
+                        ? "font-bold text-foreground underline decoration-2 underline-offset-4"
+                        : "font-normal text-foreground"
+                        }`}
+                      key={to}
+                      href={to}
+                    >
+                      {label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Right side: Controls */}
+            <div className="flex min-w-0 flex-1 items-center justify-end md:flex-none">
+              <div className="hidden items-center space-x-1 md:flex lg:space-x-2">
+                <ModeToggle />
+              </div>
+              {isAuthenticated && (
+                <div className="ml-1 md:ml-2">
+                  <UserMenu />
+                </div>
               )}
+            </div>
+          </div>
 
-              {/* Admin-only link */}
-              {role === "admin" && (
-                <li>
+          {/* Mobile Navigation */}
+          {isMenuOpen && (
+            <nav className="mt-3 flex w-full max-w-full flex-col space-y-1 border-border/20 border-t pt-3 md:hidden">
+              {links.map(({ to, label }) => {
+                // Special handling for news tab - should be active for /news and /news/*
+                const isActive =
+                  currentPath === to;
+                return (
                   <Link
-                    href="/admin"
-                    prefetch={false}
-                    className="text-white font-semibold hover:ring-2 hover:ring-white hover:rounded-md"
-                    onClick={() => setMenuOpen(false)}
+                    className={`w-full max-w-full truncate rounded-md px-3 py-2 text-sm transition-colors hover:bg-muted sm:text-base ${isActive
+                      ? "bg-muted font-bold text-foreground"
+                      : "text-foreground"
+                      }`}
+                    key={to}
+                    onClick={() => setIsMenuOpen(false)}
+                    href={to}
                   >
-                    Admin Panel
+                    {label}
                   </Link>
-                </li>
+                );
+              })}
+              {!isAuthenticated && (
+                <div className="flex w-full max-w-full flex-col space-y-2 px-3 pt-4">
+                  <Link
+                    className="w-full rounded-full border border-foreground px-5 py-2.5 text-center font-medium text-base text-foreground transition-colors hover:bg-foreground hover:text-background dark:border-white dark:text-white"
+                    onClick={() => setIsMenuOpen(false)}
+                    href={"/auth/login"}
+                  >
+                    Log In
+                  </Link>
+                  <Link
+                    className="w-full rounded-full bg-info px-5 py-2.5 text-center font-medium text-base text-white transition-colors hover:bg-info/90"
+                    onClick={() => setIsMenuOpen(false)}
+                    href={"/auth/sign-up"}
+                  >
+                    Sign Up
+                  </Link>
+                </div>
               )}
-            </ul>
-          </nav>
+              {/* Mobile controls */}
+              <div className="flex w-full max-w-full items-center space-x-2 px-3 pt-2">
+                <ModeToggle />
+              </div>
+            </nav>
+          )}
         </div>
       </div>
     </header>

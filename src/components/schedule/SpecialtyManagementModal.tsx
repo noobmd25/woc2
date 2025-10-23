@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Edit2, Plus, Power, Save, Trash2, X } from "lucide-react";
 import { memo, useCallback, useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import { useSpecialties } from "@/app/hooks/useSpecialties";
 import {

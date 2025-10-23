@@ -477,41 +477,41 @@ body {
   .fc .fc-toolbar {
     @apply flex-row gap-2 py-2;
   }
-  
+
   .fc .fc-toolbar-chunk {
     @apply flex flex-col items-center justify-center w-full;
   }
-  
+
   .fc .fc-button-group {
     @apply gap-1;
   }
-  
+
   .fc .fc-button {
     @apply py-1.5 px-2.5 text-xs leading-none min-w-0;
   }
-  
+
   /* Hide text in prev/next buttons on mobile, keep icons only */
   .fc .fc-prev-button .fc-icon,
   .fc .fc-next-button .fc-icon {
     margin: 0 !important;
   }
-  
+
   .fc .fc-toolbar-title {
     @apply text-base leading-5 font-semibold;
   }
-  
+
   .fc .fc-col-header-cell {
     @apply py-1.5 px-0.5 text-xs font-semibold;
   }
-  
+
   .fc .fc-col-header-cell-cushion {
     @apply py-1 uppercase;
   }
-  
+
   .fc-daygrid-day-number {
     @apply p-1 text-xs font-medium;
   }
-  
+
   .fc-daygrid-day-frame {
     min-height: 3.5rem !important;
   }
@@ -534,13 +534,13 @@ body {
     min-height: 1.75rem !important;
   }
 }
-  
+
   .fc-event {
     font-size: 0.7rem !important;
     margin: 1px !important;
     padding: 1px 2px !important;
   }
-  
+
   .fc .fc-more-link {
     @apply text-[0.7rem] p-0.5;
   }
@@ -551,15 +551,15 @@ body {
   .fc .fc-toolbar {
     @apply py-3;
   }
-  
+
   .fc .fc-button {
     @apply py-2 px-3.5 text-sm;
   }
-  
+
   .fc .fc-toolbar-title {
     @apply text-xl font-semibold;
   }
-  
+
   .fc .fc-col-header-cell {
     @apply py-2 px-1 text-sm;
   }
@@ -570,5 +570,29 @@ body {
   .fc .fc-col-header-cell {
     @apply font-semibold;
     font-size: 0.9rem;
+  }
+}
+
+@layer base {
+  :root {
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+  }
+
+  .dark {
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.439 0 0);
   }
 }

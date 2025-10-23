@@ -4,8 +4,6 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
-import Header from "@/components/Header";
-import { usePageRefresh } from "@/components/PullToRefresh";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const AccessRequests = dynamic(
@@ -108,8 +106,6 @@ function PageContent() {
       clearInterval(id);
     };
   }, [supabase]);
-
-  usePageRefresh(null); // full reload on pull-to-refresh (counts rehydrated after reload)
 
   // Helper to validate a tab value
   const isValidTab = (t: string | null): t is TabKey =>
@@ -266,7 +262,6 @@ function PageContent() {
 
   return (
     <>
-      <Header />
       <div className="p-4 sm:p-6 lg:p-8">
         <nav
           className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-4 sm:mx-0 px-4"
@@ -279,11 +274,10 @@ function PageContent() {
               <li key={tab.key} className="shrink-0 snap-start">
                 <button
                   role="tab"
-                  className={`inline-block p-4 border-b-2 ${
-                    activeTab === tab.key
-                      ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                      : "border-transparent hover:text-gray-800 dark:hover:text-gray-100"
-                  }`}
+                  className={`inline-block p-4 border-b-2 ${activeTab === tab.key
+                    ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
+                    : "border-transparent hover:text-gray-800 dark:hover:text-gray-100"
+                    }`}
                   aria-selected={activeTab === tab.key}
                   onClick={() => setActiveTab(tab.key)}
                 >

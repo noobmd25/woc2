@@ -1,4 +1,5 @@
 // src/lib/access.ts
+import { profileQueries } from "@/db/queries";
 import { getServerSupabase } from "@/lib/supabase/server";
 
 export async function getUserAndProfile() {
@@ -6,13 +7,10 @@ export async function getUserAndProfile() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return { user: null, profile: null };
+  if (!user) return { user: null };
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("status, role, full_name")
-    .eq("id", user.id)
-    .maybeSingle();
+  const profile = (await profileQueries.findById(user.id))[0];
 
-  return { user, profile };
+  return { user: { ...user, profile } };
+  // return { user };
 }

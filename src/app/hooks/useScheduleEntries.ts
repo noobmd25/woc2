@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import { SPECIALTIES } from "@/lib/constants";
 import { type ScheduleEntry } from "@/lib/types/schedule";
