@@ -105,7 +105,7 @@ export default function Header() {
 
             {/* Right side: Controls */}
             <div className="flex min-w-0 flex-1 items-center justify-end md:flex-none">
-              <div className="hidden items-center space-x-1 md:flex lg:space-x-2">
+              <div className="flex items-center space-x-1 md:flex lg:space-x-2">
                 <ModeToggle />
               </div>
               {isAuthenticated && (
@@ -155,10 +155,7 @@ export default function Header() {
                   </Link>
                 </div>
               )}
-              {/* Mobile controls */}
-              <div className="flex w-full max-w-full items-center space-x-2 px-3 pt-2">
-                <ModeToggle />
-              </div>
+
             </nav>
           )}
         </div>
