@@ -260,7 +260,7 @@ export default function MMGLookupModal(
                             <a
                                 className="cursor-pointer text-sm text-gray-600 dark:text-gray-400"
                                 onClick={() => handleSelectItem("/unattached")}>
-                                See <span className="underline">Unattached</span> groups
+                                See <span className="underline text-blue-600 font-bold">Unattached</span> groups
                             </a>)
                         }
                     </div>
