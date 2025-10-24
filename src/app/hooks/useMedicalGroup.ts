@@ -8,7 +8,7 @@ export interface MedicalGroupResult {
     medicalGroup: string;
 }
 
-export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialPage = 1, initialPageSize = 50, initialSearch = "") {
+export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialPage = 1, initialPageSize = 25, initialSearch = "") {
     const [results, setResults] = useState<MedicalGroupResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(initialPage);
