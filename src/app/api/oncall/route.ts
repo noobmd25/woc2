@@ -1,5 +1,6 @@
 import { db } from "@/db";
 import { directory, schedules } from "@/db/schema";
+import { SECOND_PHONE_PREFS } from "@/lib/constants";
 import { and, eq, ilike, isNull } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -10,9 +11,6 @@ import { NextRequest, NextResponse } from "next/server";
  * - date: on_call_date (required)
  * - specialty: specialty filter (required)
  * - plan: healthcare_plan filter (optional)
- * - includeSecondPhone: whether to fetch second phone (optional, default: false)
- * - secondPhonePref: preference for second phone (pa, residency, auto)
- * - includeCover: whether to fetch cover provider phone (optional, default: false)
  */
 export async function GET(req: NextRequest) {
     try {
@@ -20,9 +18,7 @@ export async function GET(req: NextRequest) {
         const date = searchParams.get("date");
         const specialty = searchParams.get("specialty");
         const plan = searchParams.get("plan");
-        const includeSecondPhone = searchParams.get("includeSecondPhone") === "true";
-        const secondPhonePref = searchParams.get("secondPhonePref") || "auto";
-        const includeCover = searchParams.get("includeCover") === "true";
+
 
         if (!date || !specialty) {
             return NextResponse.json(
@@ -59,6 +55,9 @@ export async function GET(req: NextRequest) {
 
         const record = scheduleData[0];
 
+        const secondPhonePref = record.secondPhonePref || SECOND_PHONE_PREFS.AUTO;
+        const includeSecondPhone = record.showSecondPhone;
+        const includeCover = record.cover || false;
         // Get provider phone from directory
         const directoryData = await db
             .select({ phoneNumber: directory.phoneNumber })
@@ -71,10 +70,9 @@ export async function GET(req: NextRequest) {
         let secondPhone = null;
         let secondPhoneSource: string | null = null;
         if (includeSecondPhone) {
-            const pref = secondPhonePref;
 
             // Try PA Phone first
-            if (pref === "pa" || pref === "auto") {
+            if (secondPhonePref === SECOND_PHONE_PREFS.PA || secondPhonePref === SECOND_PHONE_PREFS.AUTO) {
                 const paData = await db
                     .select({ phoneNumber: directory.phoneNumber })
                     .from(directory)
@@ -92,7 +90,7 @@ export async function GET(req: NextRequest) {
             }
 
             // Try Residency if PA not found
-            if (!secondPhone && (pref === "residency" || pref === "auto")) {
+            if (!secondPhone && (secondPhonePref === SECOND_PHONE_PREFS.RESIDENCY || secondPhonePref === SECOND_PHONE_PREFS.AUTO)) {
                 const resData = await db
                     .select({ phoneNumber: directory.phoneNumber })
                     .from(directory)
@@ -128,11 +126,11 @@ export async function GET(req: NextRequest) {
         // Return combined data
         const response = {
             ...record,
-            phone_number: phoneNumber,
-            second_phone: secondPhone,
-            _second_phone_source: secondPhoneSource,
-            cover_phone: coverPhone,
-            cover_provider_name: coverProviderName,
+            phoneNumber,
+            secondPhone,
+            secondPhoneSource,
+            coverPhone,
+            coverProviderName,
         };
 
         return NextResponse.json({ data: response });

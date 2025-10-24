@@ -8,21 +8,21 @@ import { effectiveOnCallDate, toYMD } from "@/lib/oncall-utils";
 
 export interface OnCallProvider {
     // Schedule data
-    provider_name: string;
+    providerName: string;
     specialty: string;
-    healthcare_plan: string | null;
-    on_call_date: string;
-    show_second_phone: boolean;
-    second_phone_pref: SecondPhonePref;
+    healthcarePlan: string | null;
+    onCallDate: string;
+    showSecondPhone: boolean;
+    secondPhonePref: SecondPhonePref;
     cover: boolean;
-    covering_provider: string | null;
+    coveringProvider: string | null;
 
     // Phone data
-    phone_number: string | null;
-    second_phone: string | null;
-    _second_phone_source: string | null;
-    cover_phone: string | null;
-    cover_provider_name: string | null;
+    phoneNumber: string | null;
+    secondPhone: string | null;
+    secondPhoneSource: string | null;
+    coverPhone: string | null;
+    coverProviderName: string | null;
 }
 
 export interface OnCallDebugInfo {
@@ -62,8 +62,6 @@ export const useOnCall = (specialty: string, plan: string, currentDate: Date) =>
             const params = new URLSearchParams({
                 date: dateString,
                 specialty: specialty,
-                includeSecondPhone: "true",
-                includeCover: "true",
             });
 
             if (specialty === SPECIALTIES.INTERNAL_MEDICINE && plan) {
@@ -105,19 +103,19 @@ export const useOnCall = (specialty: string, plan: string, currentDate: Date) =>
 
             // Map the camelCase API response to snake_case interface
             setProviderData({
-                provider_name: data.providerName || "",
+                providerName: data.providerName || "",
                 specialty: data.specialty || "",
-                healthcare_plan: data.healthcarePlan || null,
-                on_call_date: data.onCallDate || "",
-                show_second_phone: data.showSecondPhone || false,
-                second_phone_pref: (data.secondPhonePref as SecondPhonePref) || SECOND_PHONE_PREFS.AUTO,
+                healthcarePlan: data.healthcarePlan || null,
+                onCallDate: data.onCallDate || "",
+                showSecondPhone: data.showSecondPhone || false,
+                secondPhonePref: (data.secondPhonePref as SecondPhonePref) || SECOND_PHONE_PREFS.AUTO,
                 cover: data.cover || false,
-                covering_provider: data.coveringProvider || null,
-                phone_number: data.phone_number || null,
-                second_phone: data.second_phone || null,
-                _second_phone_source: data._second_phone_source || null,
-                cover_phone: data.cover_phone || null,
-                cover_provider_name: data.cover_provider_name || null,
+                coveringProvider: data.coveringProvider || null,
+                phoneNumber: data.phoneNumber || null,
+                secondPhone: data.secondPhone || null,
+                secondPhoneSource: data.secondPhoneSource || null,
+                coverPhone: data.coverPhone || null,
+                coverProviderName: data.coverProviderName || null,
             });
 
         } catch (error) {
