@@ -1,6 +1,7 @@
 "use client";
 import { useMedicalGroup } from "@/app/hooks/useMedicalGroup";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MEDICAL_GROUP, type MedicalGroup, PLANS } from "@/lib/constants";
@@ -129,14 +130,16 @@ export default function MMGLookupModal(
                 style={{ minWidth: 0 }}
                 showCloseButton={false}
             >
-                <button
+                <Button
                     aria-label={"Close"}
                     className="absolute top-4 right-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                     onClick={handleOnClose}
                     type="button"
+                    variant={"ghost"}
+                    size={"icon"}
                 >
                     <X className="h-4 w-4" />
-                </button>
+                </Button>
 
                 <DialogHeader className="pointer-events-none flex flex-col items-start mb-2 w-full">
                     <div className="space-y-6 text-center w-full">
