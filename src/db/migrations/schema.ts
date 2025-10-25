@@ -88,7 +88,7 @@ export const specialties = pgTable("specialties", {
 	});
 
 export const mmmMedicalGroups = pgTable("mmm_medical_groups", {
-	id: bigserial("id", { mode: "bigint" }).primaryKey().notNull(),
+	id: bigserial("id", { mode: "number" }).primaryKey().notNull(),
 	name: text("name").notNull(),
 	medicalGroup: text("medical_group").notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),

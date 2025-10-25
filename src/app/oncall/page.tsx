@@ -3,22 +3,25 @@
 import { useOnCall } from "@/app/hooks/useOnCall";
 import { useSpecialties } from "@/app/hooks/useSpecialties";
 import { useAuth } from "@/components/AuthProvider";
+import MGLookupModal from "@/components/lookup/MGLookupModal";
 import DateNavigation from "@/components/oncall/DateNavigation";
 import DebugInfo from "@/components/oncall/DebugInfo";
 import ProviderCard from "@/components/oncall/ProviderCard";
 import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { PLANS, SPECIALTIES } from "@/lib/constants";
+import { MEDICAL_GROUP, MedicalGroup, PLANS, SPECIALTIES } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
 
 export default function OnCallPage() {
   const { user, isLoading } = useAuth();
   const [specialty, setSpecialty] = useState(SPECIALTIES.INTERNAL_MEDICINE);
   const [plan, setPlan] = useState(PLANS[0]);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const role = user?.profile?.role || "viewer";
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [medicalGroup, setMedicalGroup] = useState<MedicalGroup>(MEDICAL_GROUP.MMM);
+  const role = useMemo(() => user?.profile?.role || "viewer", [user]);
   // Fetch specialties
   const {
     specialties,
@@ -102,20 +105,35 @@ export default function OnCallPage() {
           onSpecialtyChange={handleSpecialtyChange}
           onPlanChange={handlePlanChange}
         />
-        <div className="flex justify-center gap-4">
-          <Link
-            href="/lookup/mmm-pcp"
-            className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#009c94] hover:bg-[#007F77] rounded shadow-sm"
-          >
-            MMM Group Lookup
-          </Link>
-          <Link
-            href="/lookup/vital-groups"
-            className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#5c5ca2] hover:bg-[#4a4a88] rounded shadow-sm"
-          >
-            Vital Group Lookup
-          </Link>
-        </div>
+        {specialty === SPECIALTIES.INTERNAL_MEDICINE && (
+          <>
+            <div className="flex justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalOpen(true);
+                  setMedicalGroup(MEDICAL_GROUP.MMM);
+                }}
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#009c94] hover:bg-[#007F77] rounded shadow-sm"
+              >
+                MMM Group Lookup
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsModalOpen(true);
+                  setMedicalGroup(MEDICAL_GROUP.VITAL);
+                }}
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-white bg-[#5c5ca2] hover:bg-[#4a4a88] rounded shadow-sm"
+              >
+                Vital Group Lookup
+              </button>
+            </div>
+            <MGLookupModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} medicalGroup={medicalGroup}
+              setPlan={setPlan}
+            />
+          </>
+        )}
         {onCallLoading ? (
           <div className="flex justify-center py-8">
             <LoadingSpinner />

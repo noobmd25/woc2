@@ -241,82 +241,164 @@ export default function DirectoryPage() {
       </div>
 
       {/* Table */}
+      {/* Responsive Table/Card List */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead
-                className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => handleSort(DIRECTORY_SORT_FIELDS.NAME)}
-              >
-                Provider Name
-                {renderSortIcon(DIRECTORY_SORT_FIELDS.NAME)}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => handleSort(DIRECTORY_SORT_FIELDS.SPECIALTY)}
-              >
-                Specialty
-                {renderSortIcon(DIRECTORY_SORT_FIELDS.SPECIALTY)}
-              </TableHead>
-              <TableHead
-                className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700"
-                onClick={() => handleSort(DIRECTORY_SORT_FIELDS.PHONE)}
-              >
-                Phone Number
-                {renderSortIcon(DIRECTORY_SORT_FIELDS.PHONE)}
-              </TableHead>
-              <TableHead className="w-32">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
+        {/* Desktop Table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-center py-12">
-                  <LoadingSpinner size="lg" />
-                  <p className="mt-3 text-gray-600 dark:text-gray-400">Loading providers...</p>
-                </TableCell>
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => handleSort(DIRECTORY_SORT_FIELDS.NAME)}
+                >
+                  Provider Name
+                  {renderSortIcon(DIRECTORY_SORT_FIELDS.NAME)}
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => handleSort(DIRECTORY_SORT_FIELDS.SPECIALTY)}
+                >
+                  Specialty
+                  {renderSortIcon(DIRECTORY_SORT_FIELDS.SPECIALTY)}
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-700"
+                  onClick={() => handleSort(DIRECTORY_SORT_FIELDS.PHONE)}
+                >
+                  Phone Number
+                  {renderSortIcon(DIRECTORY_SORT_FIELDS.PHONE)}
+                </TableHead>
+                <TableHead className="w-32">Actions</TableHead>
               </TableRow>
-            ) : providers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-12">
-                  <div className="text-gray-500 dark:text-gray-400">
-                    {searchTerm || selectedSpecialty !== "all" ? (
-                      <>
-                        <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium mb-2">No providers found</p>
-                        <p>Try adjusting your search or filters.</p>
-                      </>
-                    ) : (
-                      <>
-                        <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p className="text-lg font-medium mb-2">No providers yet</p>
-                        <p>Get started by adding your first provider.</p>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : (
-              providers.map((provider) => (
-                <TableRow key={provider.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <TableCell className="font-medium">
-                    {provider.provider_name}
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-12">
+                    <LoadingSpinner size="lg" />
+                    <p className="mt-3 text-gray-600 dark:text-gray-400">Loading providers...</p>
                   </TableCell>
-                  <TableCell>
-                    {provider.specialty}
+                </TableRow>
+              ) : providers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-12">
+                    <div className="text-gray-500 dark:text-gray-400">
+                      {searchTerm || selectedSpecialty !== "all" ? (
+                        <>
+                          <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p className="text-lg font-medium mb-2">No providers found</p>
+                          <p>Try adjusting your search or filters.</p>
+                        </>
+                      ) : (
+                        <>
+                          <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p className="text-lg font-medium mb-2">No providers yet</p>
+                          <p>Get started by adding your first provider.</p>
+                        </>
+                      )}
+                    </div>
                   </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => handlePhoneAction(provider)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-mono"
-                    >
-                      {formatPhoneDisplay(provider.phone_number)}
-                    </button>
-                  </TableCell>
-                  <TableCell>
+                </TableRow>
+              ) : (
+                providers.map((provider) => (
+                  <TableRow key={provider.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <TableCell className="font-medium">
+                      {provider.provider_name}
+                    </TableCell>
+                    <TableCell>
+                      {provider.specialty}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => handlePhoneAction(provider)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-mono"
+                      >
+                        {formatPhoneDisplay(provider.phone_number)}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {/* Phone Actions */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handlePhoneAction(provider)}
+                          title="Phone actions"
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+
+                        {/* Edit (Admin only) */}
+                        {canEdit && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEditProvider(provider)}
+                              disabled={actionLoading[provider.id]}
+                              title="Edit provider"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+
+                            {/* Delete (Admin only) */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteProvider(provider)}
+                              disabled={actionLoading[`delete-${provider.id}`]}
+                              title="Delete provider"
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                            >
+                              {actionLoading[`delete-${provider.id}`] ? (
+                                <LoadingSpinner size="sm" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        {/* Mobile Card List */}
+        <div className="block md:hidden">
+          {loading ? (
+            <div className="flex flex-col items-center py-8">
+              <LoadingSpinner size="lg" />
+              <p className="mt-3 text-gray-600 dark:text-gray-400">Loading providers...</p>
+            </div>
+          ) : providers.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              {searchTerm || selectedSpecialty !== "all" ? (
+                <>
+                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">No providers found</p>
+                  <p>Try adjusting your search or filters.</p>
+                </>
+              ) : (
+                <>
+                  <Phone className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg font-medium mb-2">No providers yet</p>
+                  <p>Get started by adding your first provider.</p>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 p-2">
+              {providers.map((provider) => (
+                <div key={provider.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm p-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold text-gray-900 dark:text-white text-base">
+                      {provider.provider_name}
+                    </div>
                     <div className="flex items-center gap-2">
-                      {/* Phone Actions */}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -325,8 +407,6 @@ export default function DirectoryPage() {
                       >
                         <Phone className="h-4 w-4" />
                       </Button>
-
-                      {/* Edit (Admin only) */}
                       {canEdit && (
                         <>
                           <Button
@@ -338,8 +418,6 @@ export default function DirectoryPage() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-
-                          {/* Delete (Admin only) */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -357,12 +435,23 @@ export default function DirectoryPage() {
                         </>
                       )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm">
+                    <span className="font-semibold">Specialty:</span> {provider.specialty}
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm">
+                    <span className="font-semibold">Phone:</span> <button
+                      onClick={() => handlePhoneAction(provider)}
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-mono"
+                    >
+                      {formatPhoneDisplay(provider.phone_number)}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pagination */}
@@ -383,7 +472,7 @@ export default function DirectoryPage() {
             </Button>
 
             <div className="flex items-center gap-1">
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                 let pageNum;
                 if (totalPages <= 5) {
                   pageNum = i + 1;

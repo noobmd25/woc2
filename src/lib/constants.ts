@@ -1,6 +1,7 @@
 // src/lib/constants.ts
 // Centralized constants for schedule and provider logic
 
+
 export const MONTH_NAMES = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December",
@@ -18,6 +19,13 @@ export const PLANS = [
     "IPA B",
     "MCS",
 ];
+
+export const MEDICAL_GROUP = {
+    VITAL: "Vital",
+    MMM: "MMM",
+}
+
+export type MedicalGroup = typeof MEDICAL_GROUP[keyof typeof MEDICAL_GROUP];
 
 export const SECOND_PHONE_PREFS = {
     NONE: "none",
