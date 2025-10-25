@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getPlanColors } from "@/lib/colorUtils";
 import { MEDICAL_GROUP } from "@/lib/constants";
 import { Edit, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
 
 export default function MMMGroupsTab() {
   // Use the medical group hook for MMM
@@ -33,25 +35,7 @@ export default function MMMGroupsTab() {
   const [editId, setEditId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogDefaultValues, setDialogDefaultValues] = useState<{ name: string; medicalGroup: string } | null>(null);
-
-  // Color palette for group chips
-  const palette = [
-    "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200",
-    "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-    "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
-    "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200",
-    "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200",
-    "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
-    "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
-    "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
-    "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
-  ];
-  const uniqueGroups = Array.from(new Set(results.map((r: any) => r.medicalGroup))).sort((a, b) => a.localeCompare(b));
-  const groupColors: Record<string, string> = {};
-  uniqueGroups.forEach((g, idx) => {
-    groupColors[g] = palette[idx % palette.length];
-  });
+  const planColors = getPlanColors();
 
   // Sorting
   const sorted = [...results].sort((a, b) => {
@@ -224,7 +208,11 @@ export default function MMMGroupsTab() {
                   <TableRow key={r.id || idx}>
                     <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
                     <TableCell>{r.name}</TableCell>
-                    <TableCell>{r.medicalGroup}</TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-md ${planColors[r.medicalGroup] || "bg-gray-100 text-gray-800"}`}>
+                        {r.medicalGroup}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
                         <Button

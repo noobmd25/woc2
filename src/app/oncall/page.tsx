@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 export default function OnCallPage() {
   const { user, isLoading } = useAuth();
   const [specialty, setSpecialty] = useState(SPECIALTIES.INTERNAL_MEDICINE);
-  const [plan, setPlan] = useState(PLANS[0]);
+  const [plan, setPlan] = useState(PLANS[0].name);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [medicalGroup, setMedicalGroup] = useState<MedicalGroup>(MEDICAL_GROUP.MMM);

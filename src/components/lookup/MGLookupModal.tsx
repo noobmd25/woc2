@@ -4,9 +4,11 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getPlanColors } from "@/lib/colorUtils";
 import { MEDICAL_GROUP, type MedicalGroup, PLANS } from "@/lib/constants";
 import { X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+
 
 export default function MMGLookupModal(
     {
@@ -35,6 +37,8 @@ export default function MMGLookupModal(
         total,
     } = useMedicalGroup(medicalGroup);
 
+    const planColors = getPlanColors();
+
     // Map results to a unified structure for rendering
     const allGroups = results.map((r: any) => {
         if (medicalGroup === MEDICAL_GROUP.VITAL) {
@@ -48,28 +52,6 @@ export default function MMGLookupModal(
         }
         // mmm: { name, medicalGroup }
         return r;
-    });
-
-    // Color palette for group/code chips
-    const palette = [
-        "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200",
-        "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-        "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
-        "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200",
-        "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-200",
-        "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-200",
-        "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-200",
-        "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200",
-        "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
-    ];
-
-    const uniqueGroups = Array.from(new Set(
-        allGroups.map((r) => r.medicalGroup)
-    )).sort((a, b) => a.localeCompare(b));
-    const groupColors: Record<string, string> = {};
-    uniqueGroups.forEach((g, idx) => {
-        groupColors[g] = palette[idx % palette.length];
     });
 
     // Sorting logic
@@ -101,11 +83,11 @@ export default function MMGLookupModal(
         // Normalize for matching: remove slashes and spaces, lowercase
         const normalize = (str: string) => str.replace(/[\s/]+/g, '').toLowerCase();
         const normPlan = normalize(plan);
-        const selectedPlan = PLANS.find(p => normPlan.includes(normalize(p)) || normalize(p).includes(normPlan));
+        const selectedPlan = PLANS.find(p => normPlan.includes(normalize(p.name)) || normalize(p.name).includes(normPlan));
 
         if (medicalGroup === MEDICAL_GROUP.VITAL) {
             if (selectedPlan) {
-                planToSelect = selectedPlan;
+                planToSelect = selectedPlan.name;
             } else {
                 planToSelect = MEDICAL_GROUP.VITAL;
             }
@@ -207,7 +189,8 @@ export default function MMGLookupModal(
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${groupColors[r.medicalGroup] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"} ring-black/0`}>
+                                                {/* TODO: handle vital colors */}
+                                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${planColors[r.medicalGroup] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"} ring-black/0`}>
                                                     {r.medicalGroup}
                                                 </span>
                                             </TableCell>

@@ -13,7 +13,7 @@ import { z } from "zod";
 
 const providerSchema = z.object({
     name: z.string().min(2, "Name required"),
-    medicalGroup: z.enum(PLANS as [string, ...string[]], {
+    medicalGroup: z.enum(PLANS.map(plan => plan.name) as [string, ...string[]], {
         errorMap: () => ({ message: "Select a valid plan" })
     }),
 });
@@ -119,8 +119,8 @@ export default function DialogForm({
                                     </SelectTrigger>
                                     <SelectContent>
                                         {PLANS.map((plan) => (
-                                            <SelectItem key={plan} value={plan}>
-                                                {plan}
+                                            <SelectItem key={plan.name} value={plan.name}>
+                                                {plan.name}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
