@@ -64,7 +64,6 @@ export default function MMGLookupModal(
         "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200",
     ];
 
-    // For MMM, group by medicalGroup; for Vital, group by group_code
     const uniqueGroups = Array.from(new Set(
         allGroups.map((r) => r.medicalGroup)
     )).sort((a, b) => a.localeCompare(b));

@@ -136,6 +136,33 @@ export const medicalGroupQueries = {
     findAllVital: async () => {
         return db.select().from(vitalMedicalGroups).orderBy(asc(vitalMedicalGroups.vitalGroupName));
     },
+
+    /**
+     * Manage MMM medical groups
+     */
+    createMmm: async (group: { name: string; medicalGroup: string }) => {
+        const [newGroup] = await db.insert(mmmMedicalGroups).values({
+            name: group.name,
+            medicalGroup: group.medicalGroup,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        }).returning();
+        return newGroup;
+    },
+
+    updateMmm: async (id: number, group: { name: string; medicalGroup: string }) => {
+        const [updatedGroup] = await db.update(mmmMedicalGroups).set({
+            name: group.name,
+            medicalGroup: group.medicalGroup,
+            updatedAt: new Date().toISOString(),
+        }).where(eq(mmmMedicalGroups.id, id)).returning();
+        return updatedGroup;
+    },
+
+    deleteMmm: async (id: number) => {
+        const result = await db.delete(mmmMedicalGroups).where(eq(mmmMedicalGroups.id, id)).returning();
+        return result.length > 0;
+    },
 };
 
 /**
