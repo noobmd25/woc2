@@ -888,8 +888,8 @@ export default function SchedulePage() {
             >
               <option value="">-- Select a Plan --</option>
               {PLANS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+                <option key={p.name} value={p.name}>
+                  {p.name}
                 </option>
               ))}
             </select>

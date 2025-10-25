@@ -72,8 +72,8 @@ export default function SpecialtyPlanSelector({
                         </SelectTrigger>
                         <SelectContent>
                             {PLANS.map((planOption) => (
-                                <SelectItem key={planOption} value={planOption}>
-                                    {planOption}
+                                <SelectItem key={planOption.name} value={planOption.name}>
+                                    {planOption.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>

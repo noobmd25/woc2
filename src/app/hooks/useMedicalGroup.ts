@@ -4,6 +4,7 @@ import { MEDICAL_GROUP, MedicalGroup } from "@/lib/constants";
 import { useCallback, useEffect, useState } from "react";
 
 export interface MedicalGroupResult {
+    id: number;
     name: string;
     medicalGroup: string;
 }
@@ -56,6 +57,61 @@ export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialP
         fetchMedicalGroups();
     }, [fetchMedicalGroups]);
 
+    // Add group (MMM only)
+    const addGroup = useCallback(async (group: { name: string; medicalGroup: string }) => {
+        if (type !== MEDICAL_GROUP.MMM) return false;
+        try {
+            const res = await fetch('/api/mmm-medical-groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(group),
+            });
+            if (res.ok) {
+                await fetchMedicalGroups();
+                return true;
+            }
+        } catch {
+            return false;
+        }
+        return false;
+    }, [type, fetchMedicalGroups]);
+
+    // Delete group (MMM only)
+    const deleteGroup = useCallback(async (id: number) => {
+        if (type !== MEDICAL_GROUP.MMM) return false;
+        try {
+            const res = await fetch(`/api/mmm-medical-groups?id=${id}`, {
+                method: 'DELETE',
+            });
+            if (res.ok) {
+                await fetchMedicalGroups();
+                return true;
+            }
+        } catch {
+            return false;
+        }
+        return false;
+    }, [type, fetchMedicalGroups]);
+
+    // Update group (MMM only)
+    const updateGroup = useCallback(async (id: number, group: { name: string; medicalGroup: string }) => {
+        if (type !== MEDICAL_GROUP.MMM) return false;
+        try {
+            const res = await fetch(`/api/mmm-medical-groups?id=${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(group),
+            });
+            if (res.ok) {
+                await fetchMedicalGroups();
+                return true;
+            }
+        } catch {
+            return false;
+        }
+        return false;
+    }, [type, fetchMedicalGroups]);
+
     return {
         results,
         loading,
@@ -68,5 +124,8 @@ export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialP
         search,
         setSearch,
         refetch: fetchMedicalGroups,
+        addGroup,
+        deleteGroup,
+        updateGroup,
     };
 }
