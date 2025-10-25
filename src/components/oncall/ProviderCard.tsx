@@ -1,34 +1,34 @@
 "use client";
 
-import { Copy, MessageCircle, Phone, User } from "lucide-react";
-import { toast } from "react-hot-toast";
+import { MessageCircle, Phone, User } from "lucide-react";
+import { toast } from "sonner";
 
 import type { OnCallProvider } from "@/app/hooks/useOnCall";
 import { Button } from "@/components/ui/button";
 import { SUCCESS_MESSAGES } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/directory-utils";
-import { copyToClipboard, getSecondPhoneLabel, toWhatsAppNumber } from "@/lib/oncall-utils";
+import { copyToClipboard, toWhatsAppNumber } from "@/lib/oncall-utils";
 interface ProviderCardProps {
     provider: OnCallProvider;
 }
 
 export default function ProviderCard({ provider }: ProviderCardProps) {
     const handleCopyPrimary = async () => {
-        if (provider.phone_number) {
-            await copyToClipboard(provider.phone_number);
+        if (provider.phoneNumber) {
+            await copyToClipboard(provider.phoneNumber);
             toast.success(SUCCESS_MESSAGES.PRIMARY_PHONE_COPIED);
         }
     };
 
     const handleCopySecondary = async () => {
-        if (provider.second_phone) {
-            await copyToClipboard(provider.second_phone);
+        if (provider.secondPhone) {
+            await copyToClipboard(provider.secondPhone);
             toast.success(SUCCESS_MESSAGES.SECONDARY_PHONE_COPIED);
         }
     };
 
-    const secondPhoneLabel = getSecondPhoneLabel(provider._second_phone_source);
-    // const directoryLink = getProviderDirectoryLink(provider.provider_name);
+    // const secondPhoneLabel = getSecondPhoneLabel(provider.secondPhoneSource);
+    // const directoryLink = getProviderDirectoryLink(provider.providerName);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200">
@@ -38,21 +38,21 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                     <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
-                    {provider.provider_name}
+                    {provider.providerName}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                     {provider.specialty}
-                    {provider.healthcare_plan && (
+                    {provider.healthcarePlan && (
                         <>
                             <span className="mx-2 text-gray-400">•</span>
-                            <span className="font-medium">{provider.healthcare_plan}</span>
+                            <span className="font-medium">{provider.healthcarePlan}</span>
                         </>
                     )}
                 </p>
             </div>
 
             {/* Phone Actions */}
-            {provider.phone_number && (
+            {provider.phoneNumber && (
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -61,44 +61,68 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                         </h4>
 
                     </div>
-                    <div className="flex justify-center text-lg font-mono text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
-                        {formatPhoneDisplay(provider.phone_number)}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCopyPrimary}
-                            className="flex items-center gap-2"
-                        >
-                            <Copy className="w-4 h-4" />
-                            <span className="hidden sm:inline">Copy</span>
-                        </Button>
+                    <div
+                        className="flex justify-center"
+                    >
                         <a
-                            href={`tel:${provider.phone_number}`}
+                            className="text-black text-lg font-mono dark:text-white px-2 py-1 rounded cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors select-all"
+                            onClick={handleCopyPrimary}
+                            title="Click to copy"
+                            tabIndex={0}
+                            role="button"
+                            aria-label="Copy primary phone number"
+                            onKeyDown={async (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    handleCopyPrimary();
+                                }
+                            }}
+                        >{formatPhoneDisplay(provider.phoneNumber)}</a>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <a
+                            href={`tel:${provider.phoneNumber}`}
                             className="block"
                         >
                             <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full flex items-center gap-2"
+                                variant="default"
+                                size="lg"
+                                className="w-full flex items-center justify-center gap-2 py-4 text-base sm:text-sm sm:py-2 rounded-xl sm:rounded-md"
+                                aria-label="Call Primary Phone"
                             >
-                                <Phone className="w-4 h-4" />
+                                <Phone className="w-7 h-7 sm:w-4 sm:h-4" />
+                                <span className="sm:hidden">Call</span>
                                 <span className="hidden sm:inline">Call</span>
                             </Button>
                         </a>
                         <a
-                            href={`https://wa.me/${toWhatsAppNumber(provider.phone_number)}`}
+                            href={`sms:${provider.phoneNumber}`}
+                            className="block"
+                        >
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="w-full flex items-center justify-center gap-2 py-4 text-base sm:text-sm sm:py-2 rounded-xl sm:rounded-md"
+                                aria-label="Send SMS to Primary Phone"
+                            >
+                                <MessageCircle className="w-7 h-7 sm:w-4 sm:h-4" />
+                                <span className="sm:hidden">Text</span>
+                                <span className="hidden sm:inline">Text</span>
+                            </Button>
+                        </a>
+                        <a
+                            href={`https://wa.me/${toWhatsAppNumber(provider.phoneNumber)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block"
                         >
                             <Button
                                 variant="outline"
-                                size="sm"
-                                className="w-full flex items-center gap-2"
+                                size="lg"
+                                className="w-full flex items-center justify-center gap-2 py-4 text-base sm:text-sm sm:py-2 rounded-xl sm:rounded-md"
+                                aria-label="WhatsApp Primary Phone"
                             >
-                                <MessageCircle className="w-4 h-4" />
+                                <MessageCircle className="w-7 h-7 sm:w-4 sm:h-4" />
+                                <span className="sm:hidden">WhatsApp</span>
                                 <span className="hidden sm:inline">WhatsApp</span>
                             </Button>
                         </a>
@@ -107,53 +131,78 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             )}
 
             {/* Second Phone */}
-            {provider.second_phone && (
+            {provider.showSecondPhone && provider.secondPhone && (
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                             <Phone className="w-4 h-4" />
-                            {secondPhoneLabel} Phone
+                            {provider.secondPhoneSource}
                         </h4>
 
                     </div>
-                    <div className="flex justify-center text-lg font-mono text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
-                        {formatPhoneDisplay(provider.second_phone)}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
+                    <div
+                        className="flex justify-center"
+
+                    >
+                        <a className="text-lg font-mono text-black dark:text-white px-2 py-1 rounded cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors select-all"
                             onClick={handleCopySecondary}
-                            className="flex items-center gap-2"
-                        >
-                            <Copy className="w-4 h-4" />
-                            <span className="hidden sm:inline">Copy</span>
-                        </Button>
+                            title="Click to copy"
+                            tabIndex={0}
+                            role="button"
+                            aria-label="Copy secondary phone number"
+                            onKeyDown={async (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    handleCopySecondary();
+                                }
+                            }}
+                        >{formatPhoneDisplay(provider.secondPhone)}</a>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
                         <a
-                            href={`tel:${provider.second_phone}`}
+                            href={`tel:${provider.secondPhone}`}
                             className="block"
                         >
                             <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full flex items-center gap-2"
+                                variant="default"
+                                size="lg"
+                                className="w-full flex items-center justify-center gap-2 py-4 text-base sm:text-sm sm:py-2 rounded-xl sm:rounded-md"
+                                aria-label="Call Secondary Phone"
                             >
-                                <Phone className="w-4 h-4" />
+                                <Phone className="w-7 h-7 sm:w-4 sm:h-4" />
+                                <span className="sm:hidden">Call</span>
                                 <span className="hidden sm:inline">Call</span>
                             </Button>
                         </a>
                         <a
-                            href={`https://wa.me/${toWhatsAppNumber(provider.second_phone)}`}
+                            href={`sms:${provider.secondPhone}`}
+                            className="block"
+                        >
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="w-full flex items-center justify-center gap-2 py-4 text-base sm:text-sm sm:py-2 rounded-xl sm:rounded-md"
+                                aria-label="Send SMS to Secondary Phone"
+                            >
+                                <MessageCircle className="w-7 h-7 sm:w-4 sm:h-4" />
+                                <span className="sm:hidden">Text</span>
+                                <span className="hidden sm:inline">Text</span>
+                            </Button>
+                        </a>
+                        <a
+                            href={`https://wa.me/${toWhatsAppNumber(provider.secondPhone)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block"
                         >
                             <Button
                                 variant="outline"
-                                size="sm"
-                                className="w-full flex items-center gap-2"
+                                size="lg"
+                                className="w-full flex items-center justify-center gap-2 py-4 text-base sm:text-sm sm:py-2 rounded-xl sm:rounded-md"
+                                aria-label="WhatsApp Secondary Phone"
                             >
-                                <MessageCircle className="w-4 h-4" />
+                                <MessageCircle className="w-7 h-7 sm:w-4 sm:h-4" />
+                                <span className="sm:hidden">WhatsApp</span>
                                 <span className="hidden sm:inline">WhatsApp</span>
                             </Button>
                         </a>
@@ -162,22 +211,22 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             )}
 
             {/* Cover Provider */}
-            {provider.cover && provider.cover_provider_name && (
+            {provider.cover && provider.coverProviderName && (
                 <div className="space-y-3 border-t border-gray-200 dark:border-gray-600 pt-4">
                     <div className="flex items-center justify-between">
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
                             <User className="w-4 h-4" />
-                            Cover Provider: {provider.cover_provider_name}
+                            Cover Provider: {provider.coverProviderName}
                         </h4>
-                        {provider.cover_phone && (
+                        {provider.coverPhone && (
                             <span className="text-sm font-mono text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded">
-                                {formatPhoneDisplay(provider.cover_phone)}
+                                {formatPhoneDisplay(provider.coverPhone)}
                             </span>
                         )}
                     </div>
-                    {provider.cover_phone && (
+                    {provider.coverPhone && (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            <a href={`tel:${provider.cover_phone}`} className="block">
+                            <a href={`tel:${provider.coverPhone}`} className="block">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -189,7 +238,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                                 </Button>
                             </a>
                             <a
-                                href={`https://wa.me/${toWhatsAppNumber(provider.cover_phone)}`}
+                                href={`https://wa.me/${toWhatsAppNumber(provider.coverPhone)}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="block"

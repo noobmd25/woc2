@@ -2,7 +2,7 @@
 import { getBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 const supabase = getBrowserClient();
 
@@ -37,18 +37,18 @@ export default function UpdatePasswordPage() {
           // Handle PKCE/code flow just in case
           try {
             await supabase.auth.exchangeCodeForSession(code);
-          } catch {}
+          } catch { }
         } else if (access_token && refresh_token) {
           try {
             await supabase.auth.setSession({ access_token, refresh_token });
-          } catch {}
+          } catch { }
         }
 
         // Clean tokens from the URL
         try {
           const cleanUrl = `${url.origin}${url.pathname}`;
           window.history.replaceState({}, document.title, cleanUrl);
-        } catch {}
+        } catch { }
 
         const {
           data: { session },

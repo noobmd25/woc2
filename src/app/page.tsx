@@ -1,15 +1,34 @@
-// src/app/page.tsx (SERVER)
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+"use client";
 
-import { Suspense } from "react";
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { getBrowserClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
-import HomeClient from "./HomeClient";
+export default function HomePage() {
+    const router = useRouter();
 
-export default function Page() {
-  return (
-    <Suspense fallback={<div className="p-4 text-gray-600">Loading…</div>}>
-      <HomeClient />
-    </Suspense>
-  );
+    useEffect(() => {
+        const checkUser = async () => {
+            const supabase = getBrowserClient();
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            if (user) {
+                router.push("/oncall"); // Redirect authenticated users to main app
+            } else {
+                router.push("/auth/login"); // Redirect to login
+            }
+        };
+        checkUser();
+    }, [router]);
+
+    return (
+        <div className="app-container px-4 py-6 max-w-lg mx-auto dark:bg-black">
+            <div className="flex justify-center py-8">
+                <LoadingSpinner />
+            </div>
+        </div>
+    );
 }

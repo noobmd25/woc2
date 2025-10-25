@@ -1,103 +1,70 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { AuthProvider, AuthUser, useAuth } from "@/components/AuthProvider";
+import { ThemeProvider } from "@/components/theme-provider";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Toaster, toast } from "react-hot-toast";
+import { Toaster, toast } from "sonner";
 
-import { getBrowserClient } from "@/lib/supabase/client";
-
-const PUBLIC_PATHS = [
-  "/",
-  "/home",
-  "/auth/pending",
-  "/auth/signup",
-  "/auth/check-email",
-  "/update-password",
-];
-const PROTECTED_REGEX = [
-  /^\/oncall/,
-  /^\/directory/,
-  /^\/schedule/,
-  /^\/admin/,
-  /^\/lookup\//,
-];
+const PUBLIC_PATHS = ["/", "/home", "/auth/login", "/auth/pending", "/auth/signup", "/auth/check-email", "/update-password"];
+const PROTECTED_REGEX = [/^\/oncall/, /^\/directory/, /^\/schedule/, /^\/admin/, /^\/lookup\//];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.includes(pathname);
 }
 function isProtectedPath(pathname: string) {
-  return (
-    !isPublicPath(pathname) && PROTECTED_REGEX.some((r) => r.test(pathname))
-  );
+  return !isPublicPath(pathname) && PROTECTED_REGEX.some(r => r.test(pathname));
 }
 
-export default function Providers({ children }: { children: React.ReactNode }) {
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    // Only run on client side
-    if (typeof window === "undefined") return;
+    if (isLoading) return;
 
-    let cancelled = false;
+    // If authenticated user hits a public page, send them to the default logged‑in page
+    if (isPublicPath(pathname) && user) {
+      router.push("/oncall");
+      return;
+    }
 
-    const initializeAuth = async () => {
-      try {
-        const supabase = getBrowserClient();
+    // If unauthenticated user hits a protected page, send them to login
+    if (isProtectedPath(pathname) && !user) {
+      toast.error("Please sign in");
+      router.push("/auth/login");
+      return;
+    }
 
-        // Wait for Supabase to initialize properly
-        const { data: { session }, error } = await supabase.auth.getSession(); if (cancelled) return;
-
-        const pathname = window.location.pathname;
-
-        // Only check auth for protected paths
-        if (isProtectedPath(pathname)) {
-          if (error || !session?.user) {
-            toast.error("Please sign in");
-            router.replace("/login");
-            return;
-          }
-
-          // Verify user profile status
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("status")
-            .eq("id", session.user.id)
-            .maybeSingle();
-
-          const status = profile?.status || session.user.user_metadata?.status;
-          const allowedStatus = ["approved", "active"];
-
-          if (!allowedStatus.includes(status)) {
-            await supabase.auth.signOut();
-            toast("Your account is pending admin approval.");
-            router.replace("/auth/pending");
-            return;
-          }
-        }
-
-      } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (cancelled) return;
-
-        const pathname = window.location.pathname;
-        if (isProtectedPath(pathname)) {
-          toast.error("Authentication error. Please sign in again.");
-          router.replace("/login");
-        }
+    // If user has a profile status that shouldn’t access the site
+    if (isProtectedPath(pathname) && user) {
+      const status = user.profile?.status;
+      const allowedStatus = ["approved", "active"];
+      if (status && !allowedStatus.includes(status)) {
+        toast.error("Your account is pending admin approval");
+        router.push("/auth/login");
       }
-    };
+    }
+  }, [pathname, user, isLoading, router]);
 
-    // Small delay to ensure client hydration
-    const timer = setTimeout(initializeAuth, 100);
+  return <>{children}</>;
+}
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [router]); return (
-    <>
-      <Toaster />
-      {children}
-    </>
+export function Providers({
+  children,
+  initialUser,
+}: {
+  children: React.ReactNode;
+  initialUser: AuthUser | null;
+}) {
+  return (
+    <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
+      <AuthProvider initialUser={initialUser}>
+        {/* Only one Toaster for your whole app */}
+        <Toaster position="top-center" />
+        <AuthGuard>{children}</AuthGuard>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

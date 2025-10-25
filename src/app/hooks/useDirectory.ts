@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import { DIRECTORY_SORT_FIELDS, SORT_DIRECTIONS, type SortDirection, type SortField } from "@/lib/constants";
 import {

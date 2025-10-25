@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import { resolveDirectorySpecialty } from "@/lib/specialtyMapping";
 import { type Provider } from "@/lib/types/provider";

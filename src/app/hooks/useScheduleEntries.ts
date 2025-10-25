@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 import { SPECIALTIES } from "@/lib/constants";
 import { type ScheduleEntry } from "@/lib/types/schedule";
@@ -43,6 +43,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
 
       // Map camelCase to snake_case for ScheduleEntry interface
       const mappedData = data?.map((item: any) => ({
+        id: item.id,
         on_call_date: item.onCallDate,
         specialty: item.specialty,
         provider_name: item.providerName,
@@ -98,6 +99,7 @@ export const useScheduleEntries = (specialty: string, plan: string | null) => {
         // Map from camelCase API response to snake_case interface
         // Only mapping fields that exist in ScheduleEntry interface
         const mappedData = data.map((entry: any) => ({
+          id: entry.id,
           on_call_date: entry.onCallDate,
           provider_name: entry.providerName,
           specialty: entry.specialty,

@@ -171,7 +171,7 @@ Get complete on-call provider data with phone numbers.
     // Additional phone data
     phone_number: string | null,
     second_phone: string | null,
-    _second_phone_source: string | null,
+    second_phone_source: string | null,
     cover_phone: string | null,
     cover_provider_name: string | null,
   }
