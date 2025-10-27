@@ -1,0 +1,1 @@
+ALTER TABLE "vital_medical_groups" ALTER COLUMN "id" SET DATA TYPE bigint;

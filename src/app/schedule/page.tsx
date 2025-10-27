@@ -44,7 +44,7 @@ export default function SchedulePage() {
   // Track reload state for disabling the reload button
   const [reloading, setReloading] = useState(false);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const role = useMemo(() => user?.profile?.role, [user]);
 
   // Core state
@@ -276,7 +276,7 @@ export default function SchedulePage() {
     }
 
     const baseSpec = resolveDirectorySpecialty(specialty);
-    const targetName = secondPref === "residency"
+    const targetName = secondPref === SECOND_PHONE_PREFS.RESIDENCY
       ? `${baseSpec} Residency`
       : `${baseSpec} PA Phone`;
 
@@ -287,7 +287,7 @@ export default function SchedulePage() {
       setSecondPhone(provider.phone_1);
       setSecondSource(targetName);
     } else {
-      setSecondPhone(`No ${secondPref === "residency" ? "residency" : "PA"} phone registered for this service.`);
+      setSecondPhone(`No ${secondPref === SECOND_PHONE_PREFS.RESIDENCY ? SECOND_PHONE_PREFS.RESIDENCY : SECOND_PHONE_PREFS.PA} phone registered for this service.`);
       setSecondSource(null);
     }
   }, [isModalOpen, secondPref, specialty, allProviders]);
@@ -296,13 +296,7 @@ export default function SchedulePage() {
   useEffect(() => {
     if (isModalOpen && editingEntry) {
       // Prefill second phone preference
-      const pref: "none" | "residency" | "pa" = editingEntry.show_second_phone
-        ? editingEntry.second_phone_pref === "pa"
-          ? "pa"
-          : editingEntry.second_phone_pref === "residency"
-            ? "residency"
-            : "none"
-        : "none";
+      const pref = editingEntry.second_phone_pref;
       setSecondPref(pref);
 
       // Prefill cover state
@@ -388,7 +382,7 @@ export default function SchedulePage() {
     setEditingEntry(null);
     setCurrentProviderId("");
     setSelectedAdditionalDays([]);
-    setSecondPref("none");
+    setSecondPref(SECOND_PHONE_PREFS.NONE);
     setCoverEnabled(false);
   }, [canEdit, isIMWithoutPlan, entries]);
 
@@ -419,7 +413,7 @@ export default function SchedulePage() {
       // Find provider by name and store ID
       const provider = getProviderByName(entry.provider_name);
       setCurrentProviderId(provider?.id || "");
-      setSecondPref(entry.second_phone_pref === "auto" ? "none" : (entry.second_phone_pref as "residency" | "pa") || "none");
+      setSecondPref(entry.second_phone_pref === SECOND_PHONE_PREFS.AUTO ? SECOND_PHONE_PREFS.NONE : (entry.second_phone_pref as SecondPhonePref) || SECOND_PHONE_PREFS.NONE);
       setCoverEnabled(entry.cover || false);
       setEditingEntry(entry);
       // Editing applies to a single day; clear any previously selected additional days
@@ -643,41 +637,6 @@ export default function SchedulePage() {
     setShowClearModal(false);
   }, [getVisibleMonthRange, getVisibleMonthLabel, specialty, plan, clearMonth, refreshCalendarVisibleRange]);
 
-  // Global Escape key handler for modals
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      let handled = false;
-      if (isModalOpen) {
-        setIsModalOpen(false);
-        handled = true;
-      }
-      if (showClearModal) {
-        setShowClearModal(false);
-        handled = true;
-      }
-      if (showSpecialtyModal) {
-        setShowSpecialtyModal(false);
-        handled = true;
-      }
-      if (handled) e.preventDefault();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [isModalOpen, showClearModal, showSpecialtyModal]);
-
-  // Prevent background scroll when modal is open
-  useEffect(() => {
-    const anyOpen = isModalOpen || showClearModal || showSpecialtyModal;
-    const original = document.body.style.overflow;
-    if (anyOpen) {
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.body.style.overflow = original;
-    };
-  }, [isModalOpen, showClearModal, showSpecialtyModal]);
-
   // Calendar events - format matches original but uses optimized hooks
   const calendarEvents = useMemo(() => {
     const allEntries = [...entries];
@@ -761,7 +720,7 @@ export default function SchedulePage() {
           {hasSecondPhone && (
             <span
               className="flex-shrink-0 text-[10px] sm:text-xs"
-              title={`Works with ${entry.second_phone_pref === "residency" ? "Residency" : "PA Phone"}`}
+              title={`Works with ${entry.second_phone_pref === SECOND_PHONE_PREFS.RESIDENCY ? "Residency" : "PA Phone"}`}
             >
               📞
             </span>
@@ -789,7 +748,9 @@ export default function SchedulePage() {
         </div>
       </div>
     );
-  }, [canEdit]); if (role === null) {
+  }, [canEdit]);
+
+  if (isLoading || specialtiesLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />

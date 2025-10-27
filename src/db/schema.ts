@@ -130,10 +130,9 @@ export const attendingRequests = pgTable("attending_requests", {
     });
 
 export const vitalMedicalGroups = pgTable("vital_medical_groups", {
+    id: bigserial("id", { mode: "number" }).primaryKey().notNull(),
     vitalGroupName: text("vital_group_name"),
     groupCode: text("group_code").notNull(),
-    // You can use { mode: "bigint" } if numbers are exceeding js number limitations
-    id: bigint("id", { mode: "number" }).primaryKey().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow(),
 });

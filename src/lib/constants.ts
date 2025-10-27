@@ -8,16 +8,16 @@ export const MONTH_NAMES = [
 ];
 
 export const PLANS = [
-    { name: "Triple S Advantage/Unattached", color: "bg-blue-100 text-blue-800" },
-    { name: "Vital", color: "bg-green-100 text-green-800" },
-    { name: "405/M88", color: "bg-yellow-100 text-yellow-800" },
-    { name: "PAMG", color: "bg-purple-100 text-purple-800" },
-    { name: "REMAS", color: "bg-pink-100 text-pink-800" },
-    { name: "SMA", color: "bg-red-100 text-red-800" },
-    { name: "CSE", color: "bg-teal-100 text-teal-800" },
-    { name: "In Salud", color: "bg-orange-100 text-orange-800" },
-    { name: "IPA B", color: "bg-indigo-100 text-indigo-800" },
-    { name: "MCS", color: "bg-gray-100 text-gray-800" },
+    { name: "Triple S Advantage/Unattached", color: "bg-blue-100 text-blue-800", isIpa: false },
+    { name: "Vital", color: "bg-green-100 text-green-800", isIpa: false },
+    { name: "405/M88", color: "bg-yellow-100 text-yellow-800", isIpa: false },
+    { name: "PAMG", color: "bg-purple-100 text-purple-800", isIpa: true },
+    { name: "REMAS", color: "bg-pink-100 text-pink-800", isIpa: true },
+    { name: "SMA", color: "bg-red-100 text-red-800", isIpa: true },
+    { name: "CSE", color: "bg-teal-100 text-teal-800", isIpa: true },
+    { name: "In Salud", color: "bg-orange-100 text-orange-800", isIpa: true },
+    { name: "IPA B", color: "bg-indigo-100 text-indigo-800", isIpa: true },
+    { name: "MCS", color: "bg-gray-100 text-gray-800", isIpa: false },
 ];
 
 export const MEDICAL_GROUP = {
