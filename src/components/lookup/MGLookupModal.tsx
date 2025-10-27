@@ -242,14 +242,14 @@ export default function MMGLookupModal(
                             <a
                                 className="cursor-pointer text-sm text-gray-600 dark:text-gray-400"
                                 onClick={() => handleSelectItem("/unattached")}>
-                                <span className="underline text-blue-600 font-bold bg-green-500 dark:bg-emerald-700 px-2 py-1 rounded">See Unattached Group Here</span>
+                                <span className="underline dark:text-blue-400 text-blue-600 font-bold bg-green-500 dark:bg-emerald-700 px-2 py-1 rounded">See Unattached Group Here</span>
                             </a>)
                         }
                         {medicalGroup === MEDICAL_GROUP.MMM && (
                             <a
                                 className="cursor-pointer text-sm text-gray-600 dark:text-gray-400"
                                 onClick={() => handleSelectItem("IPA B")}>
-                                <span className="underline text-blue-600 font-bold bg-green-500 dark:bg-emerald-700 px-2 py-1 rounded">See IPA B group Here</span>
+                                <span className="underline dark:text-blue-400 text-blue-600 font-bold bg-green-500 dark:bg-emerald-700 px-2 py-1 rounded">See IPA B group Here</span>
                             </a>)
                         }
                     </div>
