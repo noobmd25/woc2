@@ -254,7 +254,6 @@ export default function MMGLookupModal(
                         }
                     </div>
                 )}
-                s
             </DialogContent>
         </Dialog >
     );
