@@ -17,7 +17,7 @@ export const PLANS = [
     { name: "CSE", color: "bg-teal-100 text-teal-800", isIpa: true },
     { name: "In Salud", color: "bg-orange-100 text-orange-800", isIpa: true },
     { name: "IPA B", color: "bg-indigo-100 text-indigo-800", isIpa: true },
-    { name: "MCS", color: "bg-gray-100 text-gray-800", isIpa: true },
+    { name: "MCS", color: "bg-gray-100 text-gray-800", isIpa: false },
 ];
 
 export const MEDICAL_GROUP = {
