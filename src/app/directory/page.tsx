@@ -188,9 +188,9 @@ export default function DirectoryPage() {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="flex flex-col md:flex-row md:items-end gap-4 mb-6">
         {/* Search */}
-        <div className="space-y-2">
+        <div className="flex-1 space-y-2">
           <Label htmlFor="search">Search Providers</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -205,7 +205,7 @@ export default function DirectoryPage() {
         </div>
 
         {/* Specialty Filter */}
-        <div className="space-y-2">
+        <div className="flex-1 space-y-2">
           <Label htmlFor="specialty-filter">Filter by Specialty</Label>
           <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
             <SelectTrigger>
@@ -223,7 +223,7 @@ export default function DirectoryPage() {
         </div>
 
         {/* Page Size */}
-        <div className="space-y-2">
+        <div className="flex-1 space-y-2">
           <Label htmlFor="page-size">Items per page</Label>
           <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(Number(value))}>
             <SelectTrigger>
