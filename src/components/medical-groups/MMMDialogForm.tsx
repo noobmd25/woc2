@@ -118,7 +118,7 @@ export default function MMMDialogForm({
                                         <SelectValue placeholder="Select a plan" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {PLANS.map((plan) => (
+                                        {PLANS.filter((plan) => plan.isIpa).map((plan) => (
                                             <SelectItem key={plan.name} value={plan.name}>
                                                 {plan.name}
                                             </SelectItem>
