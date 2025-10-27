@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, Edit, Eye, Phone, Plus, Search, Trash2 } from "
 import { useCallback, useMemo, useState } from "react";
 
 import { useDirectory } from "@/app/hooks/useDirectory";
-import useUserRole from "@/app/hooks/useUserRole";
+import { useAuth } from "@/components/AuthProvider";
 import AddEditProviderModal from "@/components/directory/AddEditProviderModal";
 import PhoneActionsModal from "@/components/directory/PhoneActionsModal";
 import {
@@ -43,8 +43,8 @@ import type { DirectoryProvider } from "@/lib/types/directory";
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export default function DirectoryPage() {
-  const role = useUserRole();
-
+  const { user, isLoading } = useAuth();
+  const role = useMemo(() => user?.profile?.role, [user]);
   const {
     providers,
     specialties,
@@ -142,7 +142,7 @@ export default function DirectoryPage() {
   );
 
   // Loading state
-  if (role === null) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
