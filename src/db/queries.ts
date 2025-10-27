@@ -163,6 +163,33 @@ export const medicalGroupQueries = {
         const result = await db.delete(mmmMedicalGroups).where(eq(mmmMedicalGroups.id, id)).returning();
         return result.length > 0;
     },
+
+    /**
+     * Manage Vital medical groups
+     */
+    createVital: async (group: { name: string; medicalGroup: string }) => {
+        const [newGroup] = await db.insert(vitalMedicalGroups).values({
+            vitalGroupName: group.name,
+            groupCode: group.medicalGroup,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        }).returning();
+        return newGroup;
+    },
+
+    updateVital: async (id: number, group: { name: string; groupCode: string }) => {
+        const [updatedGroup] = await db.update(vitalMedicalGroups).set({
+            vitalGroupName: group.name,
+            groupCode: group.groupCode,
+            updatedAt: new Date().toISOString(),
+        }).where(eq(vitalMedicalGroups.id, id)).returning();
+        return updatedGroup;
+    },
+
+    deleteVital: async (id: number) => {
+        const result = await db.delete(vitalMedicalGroups).where(eq(vitalMedicalGroups.id, id)).returning();
+        return result.length > 0;
+    },
 };
 
 /**

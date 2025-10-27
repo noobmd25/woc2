@@ -1,7 +1,7 @@
 "use client";
 
-import { useMedicalGroup } from "@/app/hooks/useMedicalGroup";
-import DialogForm from "@/components/mmm-medical-groups/DialogForm";
+import { MMMMedicalGroup, useMedicalGroup } from "@/app/hooks/useMedicalGroup";
+import DialogForm from "@/components/medical-groups/MMMDialogForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,7 @@ export default function MMMGroupsTab() {
     addGroup,
     deleteGroup,
     updateGroup,
-  } = useMedicalGroup(MEDICAL_GROUP.MMM);
+  } = useMedicalGroup<MMMMedicalGroup>(MEDICAL_GROUP.MMM);
 
   const [searchValue, setSearchValue] = useState("");
   const [sortByGroup, setSortByGroup] = useState(false);
@@ -38,6 +38,7 @@ export default function MMMGroupsTab() {
   const planColors = getPlanColors();
 
   // Sorting
+  // Fix type errors in sorting
   const sorted = [...results].sort((a, b) => {
     const key = sortByGroup ? "medicalGroup" : "name";
     return (a[key] || "").localeCompare(b[key] || "");
@@ -59,6 +60,7 @@ export default function MMMGroupsTab() {
     }
   };
   // Edit provider
+  // Fix type errors in handleEdit
   const handleEdit = (id: number) => async () => {
     const entry = results.find((item) => item.id === id);
     if (entry) {
@@ -194,19 +196,19 @@ export default function MMMGroupsTab() {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-12">
-                    <p className="mt-3 text-gray-600 dark:text-gray-400">Loading groups...</p>
+                    Loading groups...
                   </TableCell>
                 </TableRow>
               ) : results.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center py-12">
-                    <p className="text-gray-500 dark:text-gray-400">No groups found</p>
+                    No groups found
                   </TableCell>
                 </TableRow>
               ) : (
                 sorted.map((r, idx) => (
                   <TableRow key={r.id || idx}>
-                    <TableCell>{(page - 1) * pageSize + idx + 1}</TableCell>
+                    <TableCell>{idx + 1}</TableCell>
                     <TableCell>{r.name}</TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-md ${planColors[r.medicalGroup] || "bg-gray-100 text-gray-800"}`}>
@@ -214,27 +216,20 @@ export default function MMMGroupsTab() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-2">
                         <Button
-                          size="sm"
                           variant="outline"
-                          onClick={() => {
-                            const entry = results.find((item) => item.id === r.id);
-                            if (entry) {
-                              setDialogDefaultValues({ name: entry.name, medicalGroup: entry.medicalGroup });
-                              setEditId(r.id);
-                              setIsDialogOpen(true);
-                            }
-                          }}
+                          size="icon"
+                          onClick={handleEdit(r.id)}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
                         <Button
-                          size="sm"
                           variant="destructive"
+                          size="icon"
                           onClick={() => handleDelete(r.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>

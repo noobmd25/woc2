@@ -18,7 +18,7 @@ const providerSchema = z.object({
     }),
 });
 
-export default function DialogForm({
+export default function MMMDialogForm({
     isOpen,
     onClose,
     onSubmit,
@@ -79,7 +79,7 @@ export default function DialogForm({
                 <DialogHeader className="pointer-events-none flex flex-col items-start mb-2 w-full">
                     <div className="space-y-6 text-center w-full">
                         <DialogTitle className="font-bold font-open-sans text-foreground text-xl leading-[1.36] tracking-tight break-words">
-                            {defaultValues ? "Edit Provider" : "Add New Provider"}
+                            {defaultValues ? "Edit MMM Group" : "Add New MMM Group"}
                         </DialogTitle>
                     </div>
                 </DialogHeader>

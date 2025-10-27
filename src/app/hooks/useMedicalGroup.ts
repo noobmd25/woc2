@@ -8,9 +8,25 @@ export interface MedicalGroupResult {
     name: string;
     medicalGroup: string;
 }
+export interface MMMMedicalGroup {
+    id: number;
+    name: string;
+    medicalGroup: string;
+}
 
-export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialPage = 1, initialPageSize = 25, initialSearch = "") {
-    const [results, setResults] = useState<MedicalGroupResult[]>([]);
+export interface VitalMedicalGroup {
+    id: number;
+    vitalGroupName: string;
+    groupCode: string;
+}
+
+export function useMedicalGroup<T>(
+    type: MedicalGroup,
+    initialPage = 1,
+    initialPageSize = 25,
+    initialSearch = ""
+) {
+    const [results, setResults] = useState<T[]>([]);
     const [loading, setLoading] = useState(false);
     const [page, setPage] = useState(initialPage);
     const [pageSize, setPageSize] = useState(initialPageSize);
@@ -29,13 +45,18 @@ export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialP
     const fetchMedicalGroups = useCallback(async () => {
         setLoading(true);
         try {
-            let url = type === MEDICAL_GROUP.VITAL ? '/api/vital-medical-groups' : '/api/mmm-medical-groups';
             const params = new URLSearchParams({
                 page: String(page),
                 pageSize: String(pageSize),
             });
-            if (debouncedSearch) params.append('search', debouncedSearch);
-            url += `?${params.toString()}`;
+            if (debouncedSearch) params.append("search", debouncedSearch);
+
+            const endpoint =
+                type === MEDICAL_GROUP.VITAL
+                    ? "/api/vital-medical-groups"
+                    : "/api/mmm-medical-groups";
+
+            const url = `${endpoint}?${params.toString()}`;
             const res = await fetch(url);
             if (res.ok) {
                 const json = await res.json();
@@ -57,13 +78,16 @@ export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialP
         fetchMedicalGroups();
     }, [fetchMedicalGroups]);
 
-    // Add group (MMM only)
+    // Add group
     const addGroup = useCallback(async (group: { name: string; medicalGroup: string }) => {
-        if (type !== MEDICAL_GROUP.MMM) return false;
+        const endpoint =
+            type === MEDICAL_GROUP.VITAL
+                ? "/api/vital-medical-groups"
+                : "/api/mmm-medical-groups";
         try {
-            const res = await fetch('/api/mmm-medical-groups', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(group),
             });
             if (res.ok) {
@@ -76,12 +100,15 @@ export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialP
         return false;
     }, [type, fetchMedicalGroups]);
 
-    // Delete group (MMM only)
+    // Delete group
     const deleteGroup = useCallback(async (id: number) => {
-        if (type !== MEDICAL_GROUP.MMM) return false;
+        const endpoint =
+            type === MEDICAL_GROUP.VITAL
+                ? `/api/vital-medical-groups?id=${id}`
+                : `/api/mmm-medical-groups?id=${id}`;
         try {
-            const res = await fetch(`/api/mmm-medical-groups?id=${id}`, {
-                method: 'DELETE',
+            const res = await fetch(endpoint, {
+                method: "DELETE",
             });
             if (res.ok) {
                 await fetchMedicalGroups();
@@ -93,13 +120,16 @@ export function useMedicalGroup(type: MedicalGroup = MEDICAL_GROUP.MMM, initialP
         return false;
     }, [type, fetchMedicalGroups]);
 
-    // Update group (MMM only)
+    // Update group
     const updateGroup = useCallback(async (id: number, group: { name: string; medicalGroup: string }) => {
-        if (type !== MEDICAL_GROUP.MMM) return false;
+        const endpoint =
+            type === MEDICAL_GROUP.VITAL
+                ? `/api/vital-medical-groups?id=${id}`
+                : `/api/mmm-medical-groups?id=${id}`;
         try {
-            const res = await fetch(`/api/mmm-medical-groups?id=${id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch(endpoint, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(group),
             });
             if (res.ok) {

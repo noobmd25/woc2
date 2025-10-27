@@ -8,6 +8,13 @@
       "when": 1761009502529,
       "tag": "0000_modern_enchantress",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1761527275572,
+      "tag": "0001_closed_naoko",
+      "breakpoints": true
     }
   ]
 }
