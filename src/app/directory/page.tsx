@@ -36,6 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import { DIRECTORY_SORT_FIELDS, ROLES, SORT_DIRECTIONS } from "@/lib/constants";
 import { formatPhoneDisplay } from "@/lib/directory-utils";
 import type { DirectoryProvider } from "@/lib/types/directory";
@@ -67,6 +68,13 @@ export default function DirectoryPage() {
     setCurrentPage,
     setPageSize,
   } = useDirectory();
+
+  // Track page analytics
+  usePageAnalytics('directory', {
+    user_role: role || 'anonymous',
+    search_active: searchTerm ? 'yes' : 'no',
+    specialty_filter: selectedSpecialty || 'all',
+  });
 
   // Modal states
   const [addEditModalOpen, setAddEditModalOpen] = useState(false);
