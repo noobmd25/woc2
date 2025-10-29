@@ -1,6 +1,14 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const supabase = getBrowserClient();
@@ -625,64 +633,66 @@ export default function AccessRequests() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="p-4 flex flex-wrap gap-3 items-center justify-between">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-4 flex flex-wrap gap-3 items-center justify-between border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="font-medium">Pending Requests</div>
-            <span className="text-xs px-2 py-1 rounded-full bg-blue-50 text-blue-800 border border-blue-100">
+            <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
               {pendingRequestsCount.toLocaleString()} pending
             </span>
           </div>
           <div className="flex items-center gap-2">
             {missingCount > 0 && (
-              <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+              <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                 {missingCount} pending profile{missingCount === 1 ? "" : "s"}{" "}
                 missing request
               </span>
             )}
             <button
               onClick={load}
-              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors"
             >
               Refresh
             </button>
             <button
               onClick={backfillMissing}
               disabled={backfilling}
-              className="px-3 py-2 rounded border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm disabled:opacity-60"
+              className="px-3 py-2 rounded border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm disabled:opacity-60 transition-colors"
               title="Run server backfill to create role_requests for pending profiles"
             >
               {backfilling ? "Backfilling…" : "Backfill missing requests"}
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500">
-                <th className="py-2 px-4">Name</th>
-                <th className="py-2 px-4">Email</th>
-                <th className="py-2 px-4">Provider Type</th>
-                <th className="py-2 px-4 w-40">Requested Role</th>
-                <th className="py-2 px-4">Justification</th>
-                <th className="py-2 px-4">Created</th>
-                <th className="py-2 px-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+
+        {/* Desktop Table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Provider Type</TableHead>
+                <TableHead className="w-40">Requested Role</TableHead>
+                <TableHead>Justification</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {loading ? (
-                <tr>
-                  <td className="py-4 px-4" colSpan={7}>
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     Loading…
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : rows && rows.length > 0 ? (
                 rows.map((r) => (
-                  <tr
+                  <TableRow
                     key={r.id}
-                    className="border-t border-gray-200 dark:border-gray-700"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
                   >
-                    <td className="py-2 px-4">
+                    <TableCell>
                       {editingId === r.id ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-gray-500">Role:</span>
@@ -739,54 +749,126 @@ export default function AccessRequests() {
                           </button>
                         </div>
                       )}
-                    </td>
-                    <td className="py-2 px-4">{r.email}</td>
-                    <td className="py-2 px-4">{r.provider_type ?? "-"}</td>
-                    <td className="py-2 px-4 capitalize">{r.requested_role}</td>
-                    <td
-                      className="py-2 px-4 max-w-[22rem] truncate"
+                    </TableCell>
+                    <TableCell>{r.email}</TableCell>
+                    <TableCell>{r.provider_type ?? "-"}</TableCell>
+                    <TableCell className="capitalize">{r.requested_role}</TableCell>
+                    <TableCell
+                      className="max-w-[22rem] truncate"
                       title={r.justification ?? ""}
                     >
                       {r.justification ?? "-"}
-                    </td>
-                    <td className="py-2 px-4">
+                    </TableCell>
+                    <TableCell>
                       {new Date(r.created_at).toLocaleString()}
-                    </td>
-                    <td className="py-2 px-4">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
                         <button
                           onClick={() => approve(r)}
                           disabled={actingId === r.id}
-                          className="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60"
+                          className="px-3 py-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 transition-colors"
                         >
                           {actingId === r.id ? "Working…" : "Approve"}
                         </button>
                         <button
                           onClick={() => deny(r)}
                           disabled={actingId === r.id}
-                          className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60"
+                          className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 transition-colors"
                         >
                           Deny
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : (
-                <tr>
-                  <td className="py-6 px-4 text-gray-500" colSpan={7}>
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     No pending requests.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="block md:hidden">
+          {loading ? (
+            <div className="flex flex-col items-center py-8">
+              <div className="text-gray-500">Loading…</div>
+            </div>
+          ) : rows && rows.length > 0 ? (
+            <div className="flex flex-col gap-4 p-4">
+              {rows.map((r) => (
+                <div key={r.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-bold text-gray-900 dark:text-white">
+                        {(() => {
+                          const metaName =
+                            (r as any)?.metadata?.full_name ||
+                            (r as any)?.metadata?.fullName ||
+                            (r as any)?.full_name;
+                          const profName = r.user_id
+                            ? profilesById[r.user_id]?.full_name
+                            : undefined;
+                          return metaName || profName || r.email;
+                        })()}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">{r.email}</div>
+                    </div>
+                    <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 capitalize">
+                      {r.requested_role}
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Provider Type:</span>
+                      <span className="font-medium">{r.provider_type ?? "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Created:</span>
+                      <span className="font-medium">{new Date(r.created_at).toLocaleDateString()}</span>
+                    </div>
+                    {r.justification && (
+                      <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <div className="text-gray-600 dark:text-gray-400 mb-1">Justification:</div>
+                        <div className="text-sm">{r.justification}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => approve(r)}
+                      disabled={actingId === r.id}
+                      className="flex-1 px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 transition-colors text-sm font-medium"
+                    >
+                      {actingId === r.id ? "Working…" : "Approve"}
+                    </button>
+                    <button
+                      onClick={() => deny(r)}
+                      disabled={actingId === r.id}
+                      className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 transition-colors text-sm font-medium"
+                    >
+                      Deny
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No pending requests.
+            </div>
+          )}
         </div>
       </div>
 
       {/* --- New: Current Users management table --- */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div className="p-4 flex items-center justify-between gap-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="p-4 flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-700">
           <div className="font-medium">Current Users</div>
           <div className="flex items-center gap-2 w-full max-w-2xl">
             <input
@@ -802,7 +884,7 @@ export default function AccessRequests() {
                 setDebouncedSearchQ("");
                 setPage(1);
               }}
-              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors"
             >
               Clear
             </button>
@@ -815,18 +897,19 @@ export default function AccessRequests() {
                   sortDir,
                 })
               }
-              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+              className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors"
             >
               Refresh
             </button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500">
-                <th
-                  className="py-2 px-4"
+
+        {/* Desktop Table */}
+        <div className="hidden md:block">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead
                   aria-sort={
                     sortBy === "full_name"
                       ? sortDir === "asc"
@@ -837,20 +920,19 @@ export default function AccessRequests() {
                 >
                   <button
                     type="button"
-                    className="cursor-pointer select-none"
+                    className="cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                     onClick={() => handleSort("full_name")}
                     aria-label={`Sort by Name ${sortBy === "full_name" ? (sortDir === "asc" ? "descending" : "ascending") : "ascending"}`}
                   >
                     Name{" "}
                     {sortBy === "full_name"
                       ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
+                        ? "↑"
+                        : "↓"
                       : ""}
                   </button>
-                </th>
-                <th
-                  className="py-2 px-4"
+                </TableHead>
+                <TableHead
                   aria-sort={
                     sortBy === "email"
                       ? sortDir === "asc"
@@ -861,16 +943,15 @@ export default function AccessRequests() {
                 >
                   <button
                     type="button"
-                    className="cursor-pointer select-none"
+                    className="cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                     onClick={() => handleSort("email")}
                     aria-label={`Sort by Email ${sortBy === "email" ? (sortDir === "asc" ? "descending" : "ascending") : "ascending"}`}
                   >
                     Email{" "}
-                    {sortBy === "email" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    {sortBy === "email" ? (sortDir === "asc" ? "↑" : "↓") : ""}
                   </button>
-                </th>
-                <th
-                  className="py-2 px-4"
+                </TableHead>
+                <TableHead
                   aria-sort={
                     sortBy === "role"
                       ? sortDir === "asc"
@@ -881,17 +962,16 @@ export default function AccessRequests() {
                 >
                   <button
                     type="button"
-                    className="cursor-pointer select-none"
+                    className="cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                     onClick={() => handleSort("role")}
                     aria-label={`Sort by Role ${sortBy === "role" ? (sortDir === "asc" ? "descending" : "ascending") : "ascending"}`}
                   >
                     Role{" "}
-                    {sortBy === "role" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    {sortBy === "role" ? (sortDir === "asc" ? "↑" : "↓") : ""}
                   </button>
-                </th>
-                <th className="py-2 px-4">Status</th>
-                <th
-                  className="py-2 px-4"
+                </TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead
                   aria-sort={
                     sortBy === "created_at"
                       ? sortDir === "asc"
@@ -902,7 +982,7 @@ export default function AccessRequests() {
                 >
                   <button
                     type="button"
-                    className="cursor-pointer select-none"
+                    className="cursor-pointer select-none hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                     onClick={() => handleSort("created_at")}
                     aria-label={`Sort by Created ${sortBy === "created_at" ? (sortDir === "asc" ? "descending" : "ascending") : "descending"}`}
                     title="Sort by Created"
@@ -910,32 +990,32 @@ export default function AccessRequests() {
                     Created{" "}
                     {sortBy === "created_at"
                       ? sortDir === "asc"
-                        ? "▲"
-                        : "▼"
+                        ? "↑"
+                        : "↓"
                       : ""}
                   </button>
-                </th>
-                <th className="py-2 px-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {usersLoading ? (
-                <tr>
-                  <td className="py-4 px-4" colSpan={6}>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     Loading users…
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : users && users.length > 0 ? (
                 users.map((u) => (
-                  <tr
+                  <TableRow
                     key={u.id}
-                    className="border-t border-gray-200 dark:border-gray-700"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50"
                   >
-                    <td className="py-2 px-4">
+                    <TableCell className="font-medium">
                       {u.full_name ?? u.email ?? u.id}
-                    </td>
-                    <td className="py-2 px-4">{u.email ?? "-"}</td>
-                    <td className="py-2 px-4">
+                    </TableCell>
+                    <TableCell>{u.email ?? "-"}</TableCell>
+                    <TableCell>
                       {editingUserId === u.id ? (
                         <div className="flex items-center gap-2">
                           <select
@@ -974,19 +1054,19 @@ export default function AccessRequests() {
                           </button>
                         </div>
                       )}
-                    </td>
-                    <td className="py-2 px-4 capitalize">{u.status ?? "-"}</td>
-                    <td className="py-2 px-4">
+                    </TableCell>
+                    <TableCell className="capitalize">{u.status ?? "-"}</TableCell>
+                    <TableCell>
                       {u.created_at
                         ? new Date(u.created_at).toLocaleString()
                         : "-"}
-                    </td>
-                    <td className="py-2 px-4">
+                    </TableCell>
+                    <TableCell>
                       <div className="flex gap-2">
                         <button
                           onClick={() => revokeAccess(u)}
                           disabled={userActingId === u.id}
-                          className="px-3 py-1.5 rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60"
+                          className="px-3 py-1.5 rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60 transition-colors dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
                         >
                           {userActingId === u.id ? "Working…" : "Revoke"}
                         </button>
@@ -1036,7 +1116,7 @@ export default function AccessRequests() {
                               }
                             }}
                             disabled={userActingId === u.id}
-                            className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-60"
+                            className="px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-60 transition-colors"
                             title="Send password reset email"
                             aria-label={`Send password reset email to ${u.email}`}
                           >
@@ -1044,22 +1124,128 @@ export default function AccessRequests() {
                           </button>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               ) : (
-                <tr>
-                  <td className="py-6 px-4 text-gray-500" colSpan={6}>
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                     No users found.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="block md:hidden">
+          {usersLoading ? (
+            <div className="flex flex-col items-center py-8">
+              <div className="text-gray-500">Loading users…</div>
+            </div>
+          ) : users && users.length > 0 ? (
+            <div className="flex flex-col gap-4 p-4">
+              {users.map((u) => (
+                <div key={u.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-bold text-gray-900 dark:text-white">
+                        {u.full_name ?? u.email ?? u.id}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">{u.email ?? "-"}</div>
+                    </div>
+                    <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 capitalize">
+                      {u.role}
+                    </span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                      <span className="font-medium capitalize">{u.status ?? "-"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Created:</span>
+                      <span className="font-medium">
+                        {u.created_at
+                          ? new Date(u.created_at).toLocaleDateString()
+                          : "-"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      onClick={() => revokeAccess(u)}
+                      disabled={userActingId === u.id}
+                      className="flex-1 px-3 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-60 transition-colors dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20 text-sm font-medium"
+                    >
+                      {userActingId === u.id ? "Working…" : "Revoke"}
+                    </button>
+                    {u.email && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await ensureAdminOrThrow();
+                            if (
+                              !confirm(
+                                `Send password reset email to ${u.email}?`,
+                              )
+                            )
+                              return;
+                            setUserActingId(u.id);
+                            const res = await fetch(
+                              "/api/admin/force-password-reset",
+                              {
+                                method: "POST",
+                                credentials: "include",
+                                headers: {
+                                  "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ email: u.email }),
+                              },
+                            );
+                            if (!res.ok) {
+                              const data = await res
+                                .json()
+                                .catch(() => ({}));
+                              throw new Error(
+                                data?.error ||
+                                `Reset failed (${res.status})`,
+                              );
+                            }
+                            addToast(
+                              `Password reset email sent to ${u.email}`,
+                              "info",
+                            );
+                          } catch (e: any) {
+                            addToast(
+                              e?.message || "Failed to send reset email",
+                              "error",
+                            );
+                          } finally {
+                            setUserActingId(null);
+                          }
+                        }}
+                        disabled={userActingId === u.id}
+                        className="flex-1 px-3 py-2 rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700 disabled:opacity-60 transition-colors text-sm font-medium"
+                        title="Send password reset email"
+                      >
+                        Force Reset
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              No users found.
+            </div>
+          )}
         </div>
 
         {/* Pagination controls */}
-        <div className="p-3 flex items-center justify-between text-sm text-gray-600 flex-wrap gap-3">
+        <div className="p-4 flex items-center justify-between text-sm border-t border-gray-200 dark:border-gray-700 flex-wrap gap-3">
           <div>
             {totalUsers !== null ? (
               <span>

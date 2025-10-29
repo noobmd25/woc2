@@ -9,6 +9,7 @@ import DebugInfo from "@/components/oncall/DebugInfo";
 import ProviderCard from "@/components/oncall/ProviderCard";
 import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import { MEDICAL_GROUP, MedicalGroup, PLANS, SPECIALTIES } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -22,6 +23,14 @@ export default function OnCallPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [medicalGroup, setMedicalGroup] = useState<MedicalGroup>(MEDICAL_GROUP.MMM);
   const role = useMemo(() => user?.profile?.role || "viewer", [user]);
+
+  // Track page analytics
+  usePageAnalytics('oncall', {
+    specialty,
+    plan,
+    user_role: role,
+  });
+
   // Fetch specialties
   const {
     specialties,
