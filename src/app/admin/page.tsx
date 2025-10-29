@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const AccessRequests = dynamic(
@@ -26,8 +27,10 @@ type TabKey =
   | "usage";
 
 function PageContent() {
+  const router = useRouter();
   const supabase = getBrowserClient();
   const [role, setRole] = React.useState<string | undefined>(undefined);
+  const [loading, setLoading] = React.useState(true);
   const [sendingTest, setSendingTest] = React.useState(false);
   const [testResult, setTestResult] = React.useState<string | null>(null);
   const [sendingApproval, setSendingApproval] = React.useState(false);
@@ -45,7 +48,7 @@ function PageContent() {
       } = await supabase.auth.getUser();
       if (!mounted) return;
       if (!user) {
-        setRole(undefined);
+        router.push("/auth/login");
         return;
       }
       const { data: dbProfile } = await supabase
@@ -54,23 +57,27 @@ function PageContent() {
         .eq("id", user.id)
         .single();
       if (!mounted) return;
-      if (dbProfile?.role) {
-        setRole(dbProfile.role as string);
-      } else {
-        const meta: any = user.user_metadata as any;
-        setRole((meta && meta.role) as string | undefined);
+
+      const userRole = dbProfile?.role || (user.user_metadata as any)?.role;
+
+      // Redirect if not admin
+      if (userRole !== "admin") {
+        router.push("/unauthorized");
+        return;
       }
+
+      setRole(userRole as string);
+      setLoading(false);
     })();
     return () => {
       mounted = false;
     };
-  }, [supabase]);
+  }, [supabase, router]);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const router = useRouter();
 
-  const [activeTab, setActiveTab] = React.useState<TabKey>("integrity");
+  const [activeTab, setActiveTab] = React.useState<TabKey>("access");
   const initedFromURLRef = React.useRef(false);
   const lastQSRef = React.useRef<string | null>(null);
 
@@ -125,13 +132,9 @@ function PageContent() {
     lastQSRef.current = null; // reset once
     const t = searchParams.get("tab");
     if (isValidTab(t)) {
-      if (t === "access" && role !== "admin") {
-        setActiveTab("integrity");
-      } else {
-        setActiveTab(t);
-      }
+      setActiveTab(t);
     } else {
-      const defaultTab = role === "admin" ? "access" : "integrity";
+      const defaultTab = "access";
       const q = new URLSearchParams(searchParams.toString());
       q.set("tab", defaultTab);
       const newQS = q.toString();
@@ -147,15 +150,11 @@ function PageContent() {
       setActiveTab(defaultTab);
     }
     initedFromURLRef.current = true;
-  }, [role, searchParams, pathname, router]);
+  }, [searchParams, pathname, router]);
 
   // When activeTab changes, reflect it in the URL only if different
   React.useEffect(() => {
     if (!initedFromURLRef.current) return; // wait for init
-    if (activeTab === "access" && role !== "admin") {
-      setActiveTab("integrity");
-      return;
-    }
     const current =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("tab")
@@ -248,58 +247,65 @@ function PageContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, [testingOpen]);
 
-  const tabs: { key: TabKey; label: string }[] = [];
-  if (role === "admin") {
-    tabs.push({ key: "access", label: "Access Management" });
-  }
-  tabs.push(
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: "access", label: "Access Management" },
     { key: "integrity", label: "Data Integrity" },
     { key: "errors", label: "Error Reports" },
     { key: "audit", label: "Audit Logs" },
     { key: "announcements", label: "Announcements" },
     { key: "usage", label: "Usage Stats" },
-  );
+  ];
+
+  if (loading) {
+    return (
+      <div className="app-container px-4 py-6 max-w-lg mx-auto dark:bg-black">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Admin Dashboard
+          </h1>
+        </div>
+        <div className="flex justify-center py-8">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="p-4 sm:p-6 lg:p-8">
-        <nav
-          className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-4 sm:mx-0 px-4"
-          role="tablist"
-          aria-label="Admin sections"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <ul className="flex -mb-px space-x-6 text-sm font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap snap-x snap-mandatory">
-            {tabs.map((tab) => (
-              <li key={tab.key} className="shrink-0 snap-start">
-                <button
-                  role="tab"
-                  className={`inline-block p-4 border-b-2 ${activeTab === tab.key
-                    ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                    : "border-transparent hover:text-gray-800 dark:hover:text-gray-100"
-                    }`}
-                  aria-selected={activeTab === tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  {tab.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="mt-3 text-xs text-gray-400">
-          Active tab: {activeTab}
+    <div className="app-container px-4 py-6 max-w-6xl mx-auto dark:bg-black">
+      <div className="space-y-6">
+        {/* Title */}
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Admin Dashboard
+          </h1>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 py-4 sm:py-6">
-          {role === "admin" && (
-            <DashboardCard
-              title="Pending Access"
-              value={counts.pendingAccess}
-              onClick={() => setActiveTab("access")}
-            />
-          )}
+        {/* Tabs Navigation */}
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dashboard Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <DashboardCard
+            title="Pending Access"
+            value={counts.pendingAccess}
+            onClick={() => setActiveTab("access")}
+          />
           <DashboardCard
             title="Integrity Issues"
             value={counts.integrityIssues}
@@ -327,22 +333,9 @@ function PageContent() {
           />
         </div>
 
-        {/* Replaced inline test sections with a single Testing button and modal */}
-        {role === "admin" && (
-          <div className="my-4 flex justify-end">
-            <button
-              onClick={() => setTestingOpen(true)}
-              className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm shadow"
-              aria-haspopup="dialog"
-              aria-expanded={testingOpen}
-            >
-              🧪 Testing
-            </button>
-          </div>
-        )}
-
-        <section className="py-6">
-          {role === "admin" && activeTab === "access" && (
+        {/* Tab Content */}
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
+          {activeTab === "access" && (
             <>
               <AccessRequests />
             </>
@@ -352,11 +345,23 @@ function PageContent() {
           {activeTab === "audit" && <AuditStub />}
           {activeTab === "announcements" && <AnnouncementsStub />}
           {activeTab === "usage" && <UsageStub />}
-        </section>
+        </div>
+
+        {/* Testing Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setTestingOpen(true)}
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm shadow"
+            aria-haspopup="dialog"
+            aria-expanded={testingOpen}
+          >
+            🧪 Testing
+          </button>
+        </div>
       </div>
 
       {/* Testing Modal */}
-      {role === "admin" && testingOpen && (
+      {testingOpen && (
         <div
           className="fixed inset-0 z-[1200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
           onClick={() => setTestingOpen(false)}
@@ -434,7 +439,7 @@ function PageContent() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -442,7 +447,18 @@ function PageContent() {
 export default function Page() {
   return (
     <React.Suspense
-      fallback={<div className="p-4 text-gray-600">Loading…</div>}
+      fallback={
+        <div className="app-container px-4 py-6 max-w-lg mx-auto dark:bg-black">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Admin Dashboard
+            </h1>
+          </div>
+          <div className="flex justify-center py-8">
+            <LoadingSpinner />
+          </div>
+        </div>
+      }
     >
       <PageContent />
     </React.Suspense>
