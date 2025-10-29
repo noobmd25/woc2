@@ -5,6 +5,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const AccessRequests = dynamic(
@@ -334,12 +342,8 @@ function PageContent() {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-          {activeTab === "access" && (
-            <>
-              <AccessRequests />
-            </>
-          )}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {activeTab === "access" && <AccessRequests />}
           {activeTab === "integrity" && <IntegrityStub />}
           {activeTab === "errors" && <ErrorsStub />}
           {activeTab === "audit" && <AuditStub />}
@@ -477,12 +481,12 @@ function DashboardCard({
   return (
     <button
       onClick={onClick}
-      className="block w-full text-left rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 sm:p-3 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left w-full"
     >
-      <div className="text-[11px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
+      <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
         {title}
       </div>
-      <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
+      <div className="text-2xl font-bold text-gray-900 dark:text-white">
         {value}
       </div>
     </button>
@@ -490,17 +494,436 @@ function DashboardCard({
 }
 
 function IntegrityStub() {
-  return <div>Data Integrity content</div>;
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Data Integrity Issues</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Monitor and resolve data consistency issues across the system.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Issue Type</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Affected Records</TableHead>
+              <TableHead>Severity</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Missing Data</TableCell>
+              <TableCell>Providers without specialty assignment</TableCell>
+              <TableCell>3</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  Medium
+                </span>
+              </TableCell>
+              <TableCell>Open</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm">
+                  Review
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Duplicate Entries</TableCell>
+              <TableCell>Duplicate schedule entries for same date</TableCell>
+              <TableCell>2</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  High
+                </span>
+              </TableCell>
+              <TableCell>Open</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm">
+                  Review
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Orphaned Records</TableCell>
+              <TableCell>Schedule entries with deleted providers</TableCell>
+              <TableCell>1</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  Medium
+                </span>
+              </TableCell>
+              <TableCell>Resolved</TableCell>
+              <TableCell>
+                <button className="text-gray-400 cursor-not-allowed text-sm">
+                  Resolved
+                </button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Missing Data</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+              Medium
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Providers without specialty assignment
+          </p>
+          <div className="flex justify-between text-sm mb-3">
+            <span className="text-gray-600 dark:text-gray-400">Affected:</span>
+            <span className="font-medium">3 records</span>
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+            Review
+          </button>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Duplicate Entries</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+              High
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Duplicate schedule entries for same date
+          </p>
+          <div className="flex justify-between text-sm mb-3">
+            <span className="text-gray-600 dark:text-gray-400">Affected:</span>
+            <span className="font-medium">2 records</span>
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+            Review
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
+
 function ErrorsStub() {
-  return <div>Error Reports content</div>;
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Error Reports</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Track and monitor system errors and exceptions.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Timestamp</TableHead>
+              <TableHead>Error Type</TableHead>
+              <TableHead>Message</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:32</TableCell>
+              <TableCell>API Error</TableCell>
+              <TableCell className="max-w-xs truncate">Failed to fetch schedule data</TableCell>
+              <TableCell>user@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  Unresolved
+                </span>
+              </TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm">
+                  Details
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:25</TableCell>
+              <TableCell>Validation</TableCell>
+              <TableCell className="max-w-xs truncate">Invalid phone number format</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Resolved
+                </span>
+              </TableCell>
+              <TableCell>
+                <button className="text-gray-400 cursor-not-allowed text-sm">
+                  Resolved
+                </button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">API Error</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+              Unresolved
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Failed to fetch schedule data
+          </p>
+          <div className="space-y-1 text-sm mb-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">User:</span>
+              <span className="font-medium">user@example.com</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Time:</span>
+              <span className="font-medium">2024-01-15 14:32</span>
+            </div>
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+            View Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
+
 function AuditStub() {
-  return <div>Audit Logs content</div>;
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Audit Logs</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Track all administrative actions and system changes.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Timestamp</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>Resource</TableHead>
+              <TableHead>Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:30</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  Update
+                </span>
+              </TableCell>
+              <TableCell>Provider: Dr. Smith</TableCell>
+              <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                Updated specialty
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:25</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Create
+                </span>
+              </TableCell>
+              <TableCell>Schedule Entry</TableCell>
+              <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                Added on-call schedule
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:20</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  Delete
+                </span>
+              </TableCell>
+              <TableCell>Provider: Dr. Jones</TableCell>
+              <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                Removed provider
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Provider Updated</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              Update
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Dr. Smith - Updated specialty
+          </p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">User:</span>
+              <span className="font-medium">admin@example.com</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Time:</span>
+              <span className="font-medium">2024-01-15 14:30</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Schedule Created</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              Create
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Schedule Entry - Added on-call schedule
+          </p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">User:</span>
+              <span className="font-medium">admin@example.com</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Time:</span>
+              <span className="font-medium">2024-01-15 14:25</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
+
 function AnnouncementsStub() {
-  return <div>Announcements content</div>;
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Announcements</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Manage system-wide announcements and notifications.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Expires</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">System Maintenance</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  Info
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Active
+                </span>
+              </TableCell>
+              <TableCell>2024-01-15</TableCell>
+              <TableCell>2024-01-20</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm mr-2">
+                  Edit
+                </button>
+                <button className="text-red-600 hover:text-red-800 dark:text-red-400 text-sm">
+                  Delete
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">New Feature Release</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                  Update
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                  Scheduled
+                </span>
+              </TableCell>
+              <TableCell>2024-01-14</TableCell>
+              <TableCell>2024-01-21</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm mr-2">
+                  Edit
+                </button>
+                <button className="text-red-600 hover:text-red-800 dark:text-red-400 text-sm">
+                  Delete
+                </button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">System Maintenance</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              Active
+            </span>
+          </div>
+          <div className="mb-3">
+            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              Info
+            </span>
+          </div>
+          <div className="space-y-1 text-sm mb-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Created:</span>
+              <span className="font-medium">2024-01-15</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Expires:</span>
+              <span className="font-medium">2024-01-20</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button className="flex-1 px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+              Edit
+            </button>
+            <button className="flex-1 px-3 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20 text-sm">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
+
 function UsageStub() {
   return (
     <div id="usage" className="space-y-4">
