@@ -1,8 +1,9 @@
 "use client";
 
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getBrowserClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 
 export default function RequestPage() {
@@ -15,7 +16,30 @@ export default function RequestPage() {
     const [position, setPosition] = useState<"Resident" | "Attending" | "">("");
     const [pgyYear, setPgyYear] = useState<string>("1");
     const [showPasswordFields, setShowPasswordFields] = useState(false);
+    const [specialties, setSpecialties] = useState<Array<{ id: string; name: string }>>([]);
+    const [loadingSpecialties, setLoadingSpecialties] = useState(true);
+    const [selectedSpecialty, setSelectedSpecialty] = useState("");
 
+    // Fetch specialties from API
+    useEffect(() => {
+        async function fetchSpecialties() {
+            try {
+                const res = await fetch('/api/specialties');
+                if (!res.ok) {
+                    throw new Error('Failed to fetch specialties');
+                }
+                const { data } = await res.json();
+                setSpecialties(data || []);
+            } catch (err) {
+                console.error('Error fetching specialties:', err);
+                toast.error('Failed to load specialties');
+            } finally {
+                setLoadingSpecialties(false);
+            }
+        }
+
+        fetchSpecialties();
+    }, []);
 
     const formatPhone = (value: string) => {
         const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -43,7 +67,7 @@ export default function RequestPage() {
         const specialtyAttending = String(
             formData.get("specialty_attending") || "",
         ).trim();
-        const specialtyResident = String(
+        const specialtyResident = selectedSpecialty || String(
             formData.get("specialty_resident") || "",
         ).trim();
         const pgy = String(formData.get("pgy_year") || pgyYear || "").trim();
@@ -220,11 +244,19 @@ export default function RequestPage() {
                     )}
                     {position === "Resident" && (
                         <>
-                            <input
-                                name="specialty_resident"
-                                placeholder="Residency Specialty (e.g., Internal Medicine)"
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
+                            <div className="flex flex-col text-left">
+                                <label className="text-sm font-medium text-black dark:text-white mb-1">
+                                    Residency Specialty
+                                </label>
+                                <SearchableSelect
+                                    options={specialties}
+                                    value={selectedSpecialty}
+                                    onChange={setSelectedSpecialty}
+                                    placeholder="Type to search specialties..."
+                                    loading={loadingSpecialties}
+                                    name="specialty_resident"
+                                />
+                            </div>
                             <div className="flex items-center space-x-3">
                                 <label className="text-sm font-medium text-black dark:text-white">
                                     Year of Training
