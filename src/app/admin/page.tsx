@@ -4,6 +4,18 @@ import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useEffect, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import {
@@ -929,26 +941,57 @@ function UsageStub() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [range, setRange] = useState<'60m' | '24h' | '7d' | 'custom'>('7d');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [chartType, setChartType] = useState<'line' | 'area'>('area');
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let url = `/api/analytics/usage?range=${range}`;
+
+      if (range === 'custom' && startDate && endDate) {
+        url += `&startDate=${startDate}&endDate=${endDate}`;
+      }
+
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error('Failed to fetch analytics');
+      }
+      const data = await res.json();
+      setStats(data);
+    } catch (err: any) {
+      console.error('Failed to fetch analytics:', err);
+      setError(err.message || 'Failed to load analytics');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchAnalytics() {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/analytics/usage');
-        if (!res.ok) {
-          throw new Error('Failed to fetch analytics');
-        }
-        const data = await res.json();
-        setStats(data);
-      } catch (err: any) {
-        console.error('Failed to fetch analytics:', err);
-        setError(err.message || 'Failed to load analytics');
-      } finally {
-        setLoading(false);
-      }
-    }
     fetchAnalytics();
-  }, []);
+  }, [range]);
+
+  const getRangeLabel = () => {
+    switch (range) {
+      case '60m': return 'Last 60 Minutes';
+      case '24h': return 'Last 24 Hours';
+      case '7d': return 'Last 7 Days';
+      case 'custom': return 'Custom Range';
+    }
+  };
+
+  const formatDuration = (ms: number | undefined): string => {
+    if (!ms) return '0s';
+    const seconds = Math.floor(ms / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
 
   if (loading) {
     return (
@@ -971,86 +1014,329 @@ function UsageStub() {
 
   return (
     <div className="p-6">
-      <h2 className="text-xl font-semibold mb-4">Usage Statistics</h2>
-      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-        Track page views and user engagement across the platform. Data from Vercel Analytics.
-      </p>
-
-      {/* Main Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400">OnCall Page Views</div>
-          <div className="text-2xl font-bold mt-1">{stats?.oncall?.total || 0}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Last 7 days</div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-semibold">Usage Statistics</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Track page views and user engagement across the platform
+          </p>
         </div>
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Directory Page Views</div>
-          <div className="text-2xl font-bold mt-1">{stats?.directory?.total || 0}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Last 7 days</div>
-        </div>
-        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Total Unique Users</div>
-          <div className="text-2xl font-bold mt-1">{stats?.uniqueUsers || 0}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Last 7 days</div>
-        </div>
+        <button
+          onClick={fetchAnalytics}
+          disabled={loading}
+          className="px-3 py-2 rounded border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors disabled:opacity-50"
+        >
+          {loading ? 'Loading...' : 'Refresh'}
+        </button>
       </div>
 
-      {/* Detailed Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="font-semibold mb-3">OnCall Page Analytics</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Total Views:</span>
-              <span className="font-medium">{stats?.oncall?.total || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Unique Users:</span>
-              <span className="font-medium">{stats?.oncall?.uniqueUsers || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Avg. Session Time:</span>
-              <span className="font-medium">{stats?.oncall?.avgSessionTime || 0}s</span>
-            </div>
+      {/* Time Range Selector */}
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <span className="text-sm font-medium">Time Range:</span>
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setRange('60m')}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${range === '60m'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+            >
+              60 Minutes
+            </button>
+            <button
+              onClick={() => setRange('24h')}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${range === '24h'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+            >
+              24 Hours
+            </button>
+            <button
+              onClick={() => setRange('7d')}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${range === '7d'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+            >
+              7 Days
+            </button>
+            <button
+              onClick={() => setRange('custom')}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${range === 'custom'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+            >
+              Custom
+            </button>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <h3 className="font-semibold mb-3">Directory Page Analytics</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Total Views:</span>
-              <span className="font-medium">{stats?.directory?.total || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Unique Users:</span>
-              <span className="font-medium">{stats?.directory?.uniqueUsers || 0}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-400">Avg. Session Time:</span>
-              <span className="font-medium">{stats?.directory?.avgSessionTime || 0}s</span>
-            </div>
+        {/* Chart Type Toggle */}
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-sm font-medium">Chart Type:</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setChartType('area')}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${chartType === 'area'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+            >
+              Area
+            </button>
+            <button
+              onClick={() => setChartType('line')}
+              className={`px-3 py-1.5 rounded text-sm transition-colors ${chartType === 'line'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+            >
+              Line
+            </button>
           </div>
+        </div>
+
+        {/* Custom Date Range Inputs */}
+        {range === 'custom' && (
+          <div className="flex gap-3 items-center flex-wrap">
+            <div>
+              <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                Start Date
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                max={endDate || new Date().toISOString().split('T')[0]}
+                className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">
+                End Date
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                min={startDate}
+                max={new Date().toISOString().split('T')[0]}
+                className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm"
+              />
+            </div>
+            <button
+              onClick={fetchAnalytics}
+              disabled={!startDate || !endDate}
+              className="mt-5 px-4 py-1.5 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Page Views</div>
+          <div className="text-2xl font-bold mt-1">{stats?.totalPageViews?.toLocaleString() || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">{getRangeLabel()}</div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Unique Visitors</div>
+          <div className="text-2xl font-bold mt-1">{stats?.uniqueUsers?.toLocaleString() || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">{getRangeLabel()}</div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">OnCall Page</div>
+          <div className="text-2xl font-bold mt-1">{stats?.oncall?.total?.toLocaleString() || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">{stats?.oncall?.uniqueUsers || 0} users</div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Directory Page</div>
+          <div className="text-2xl font-bold mt-1">{stats?.directory?.total?.toLocaleString() || 0}</div>
+          <div className="text-xs text-gray-500 mt-1">{stats?.directory?.uniqueUsers || 0} users</div>
         </div>
       </div>
 
-      {/* Chart Placeholder */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="font-semibold mb-3">Page Views Trend</h3>
-        <div className="h-48 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
-          Chart visualization - Coming soon
+      {/* Interactive Chart */}
+      {stats?.chartData && stats.chartData.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Page Views Over Time</h3>
+          <ResponsiveContainer width="100%" height={400}>
+            {chartType === 'area' ? (
+              <AreaChart data={stats.chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                <XAxis
+                  dataKey="time"
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                />
+                <YAxis
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--tooltip-bg)',
+                    border: '1px solid var(--tooltip-border)',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="oncall"
+                  stackId="1"
+                  stroke="#3b82f6"
+                  fill="#3b82f6"
+                  fillOpacity={0.6}
+                  name="OnCall"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="directory"
+                  stackId="1"
+                  stroke="#10b981"
+                  fill="#10b981"
+                  fillOpacity={0.6}
+                  name="Directory"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="schedule"
+                  stackId="1"
+                  stroke="#f59e0b"
+                  fill="#f59e0b"
+                  fillOpacity={0.6}
+                  name="Schedule"
+                />
+              </AreaChart>
+            ) : (
+              <LineChart data={stats.chartData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
+                <XAxis
+                  dataKey="time"
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                />
+                <YAxis
+                  className="text-xs"
+                  tick={{ fill: 'currentColor' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'var(--tooltip-bg)',
+                    border: '1px solid var(--tooltip-border)',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="oncall"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  name="OnCall"
+                  dot={{ fill: '#3b82f6' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="directory"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  name="Directory"
+                  dot={{ fill: '#10b981' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="schedule"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  name="Schedule"
+                  dot={{ fill: '#f59e0b' }}
+                />
+              </LineChart>
+            )}
+          </ResponsiveContainer>
         </div>
-        <div className="mt-3 text-xs text-gray-500 dark:text-gray-500">
+      )}
+
+      {/* Detailed Breakdown - Desktop Table */}
+      <div className="hidden md:block mb-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Page</TableHead>
+              <TableHead>Total Views</TableHead>
+              <TableHead>Unique Users</TableHead>
+              <TableHead>Avg Session Time</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">OnCall Schedule</TableCell>
+              <TableCell>{stats?.oncall?.total?.toLocaleString() || 0}</TableCell>
+              <TableCell>{stats?.oncall?.uniqueUsers?.toLocaleString() || 0}</TableCell>
+              <TableCell>{formatDuration(stats?.oncall?.avgSessionTime)}</TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Provider Directory</TableCell>
+              <TableCell>{stats?.directory?.total?.toLocaleString() || 0}</TableCell>
+              <TableCell>{stats?.directory?.uniqueUsers?.toLocaleString() || 0}</TableCell>
+              <TableCell>{formatDuration(stats?.directory?.avgSessionTime)}</TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Schedule Management</TableCell>
+              <TableCell>{stats?.schedule?.total?.toLocaleString() || 0}</TableCell>
+              <TableCell>{stats?.schedule?.uniqueUsers?.toLocaleString() || 0}</TableCell>
+              <TableCell>{formatDuration(stats?.schedule?.avgSessionTime)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-3 mb-6">
+        {['oncall', 'directory', 'schedule'].map((page) => (
+          <div key={page} className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="font-medium capitalize mb-2">
+              {page === 'oncall' ? 'OnCall Schedule' : page === 'directory' ? 'Provider Directory' : 'Schedule Management'}
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <div className="text-gray-600 dark:text-gray-400 text-xs">Views</div>
+                <div className="font-semibold">{stats?.[page]?.total?.toLocaleString() || 0}</div>
+              </div>
+              <div>
+                <div className="text-gray-600 dark:text-gray-400 text-xs">Users</div>
+                <div className="font-semibold">{stats?.[page]?.uniqueUsers?.toLocaleString() || 0}</div>
+              </div>
+              <div>
+                <div className="text-gray-600 dark:text-gray-400 text-xs">Avg Time</div>
+                <div className="font-semibold">{formatDuration(stats?.[page]?.avgSessionTime)}</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Link to Vercel Dashboard */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+        <p className="text-sm text-blue-900 dark:text-blue-200">
           View detailed analytics in your{" "}
           <a
             href="https://vercel.com/analytics"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+            className="underline font-medium hover:text-blue-700 dark:hover:text-blue-300"
           >
             Vercel Dashboard
           </a>
-        </div>
+        </p>
       </div>
     </div>
   );
