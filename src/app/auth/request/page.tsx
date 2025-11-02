@@ -19,6 +19,7 @@ export default function RequestPage() {
     const [specialties, setSpecialties] = useState<Array<{ id: string; name: string }>>([]);
     const [loadingSpecialties, setLoadingSpecialties] = useState(true);
     const [selectedSpecialty, setSelectedSpecialty] = useState("");
+    const [selectedAttendingSpecialty, setSelectedAttendingSpecialty] = useState("");
 
     // Fetch specialties from API
     useEffect(() => {
@@ -64,7 +65,7 @@ export default function RequestPage() {
         const chosenPosition = String(
             formData.get("position") || position || "",
         ).trim();
-        const specialtyAttending = String(
+        const specialtyAttending = selectedAttendingSpecialty || String(
             formData.get("specialty_attending") || "",
         ).trim();
         const specialtyResident = selectedSpecialty || String(
@@ -236,11 +237,19 @@ export default function RequestPage() {
                         </div>
                     </div>
                     {position === "Attending" && (
-                        <input
-                            name="specialty_attending"
-                            placeholder="Service / Department (e.g., Cardiology)"
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
+                        <div className="flex flex-col text-left">
+                            <label className="text-sm font-medium text-black dark:text-white mb-1">
+                                Service / Department
+                            </label>
+                            <SearchableSelect
+                                options={specialties}
+                                value={selectedAttendingSpecialty}
+                                onChange={setSelectedAttendingSpecialty}
+                                placeholder="Type to search departments..."
+                                loading={loadingSpecialties}
+                                name="specialty_attending"
+                            />
+                        </div>
                     )}
                     {position === "Resident" && (
                         <>
