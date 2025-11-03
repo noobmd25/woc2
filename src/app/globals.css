@@ -583,13 +583,6 @@ body {
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
-
-    /* React Joyride - Light Mode */
-    --joyride-tooltip-bg: white;
-    --joyride-tooltip-color: #333;
-    --joyride-primary: #3b82f6;
-    --joyride-overlay: rgba(0, 0, 0, 0.5);
-    --joyride-spotlight-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
   }
 
   .dark {
@@ -601,71 +594,74 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.439 0 0);
-
-    /* React Joyride - Dark Mode */
-    --joyride-tooltip-bg: #1f2937;
-    --joyride-tooltip-color: #f9fafb;
-    --joyride-primary: #60a5fa;
-    --joyride-overlay: rgba(0, 0, 0, 0.75);
-    --joyride-spotlight-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
   }
 }
 
-/* React Joyride Custom Styles */
-.__floater__open {
-  z-index: 9999 !important;
+/* Driver.js Custom Styles for Dark Mode Support */
+.driver-popover {
+  @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
 }
 
-.react-joyride__tooltip {
-  background-color: var(--joyride-tooltip-bg) !important;
-  color: var(--joyride-tooltip-color) !important;
-  border-radius: 0.5rem !important;
-  padding: 1.25rem !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+.dark .driver-popover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
 }
 
-.react-joyride__tooltip h4 {
-  margin-bottom: 0.75rem !important;
-  font-weight: 600 !important;
-  font-size: 1.125rem !important;
+.driver-popover-title {
+  @apply text-gray-900 dark:text-white font-bold text-lg;
 }
 
-.react-joyride__tooltip p {
+.driver-popover-description {
+  @apply text-gray-700 dark:text-gray-300;
   line-height: 1.6 !important;
-  margin-bottom: 0 !important;
 }
 
-.react-joyride__overlay {
-  background-color: var(--joyride-overlay) !important;
+.driver-popover-description p {
+  @apply text-gray-700 dark:text-gray-300;
 }
 
-.react-joyride__spotlight {
-  box-shadow: var(--joyride-spotlight-shadow) !important;
-  border-radius: 0.375rem !important;
+.driver-popover-description strong {
+  @apply text-gray-900 dark:text-white;
 }
 
-.react-joyride__beacon {
-  background-color: var(--joyride-primary) !important;
+.driver-popover-footer {
+  @apply border-t border-gray-200 dark:border-gray-700;
 }
 
-.react-joyride__beacon > span {
-  background-color: var(--joyride-primary) !important;
+.driver-popover-progress-text {
+  @apply text-gray-600 dark:text-gray-400;
 }
 
-/* Custom button styles for Joyride */
-button[data-action="primary"] {
-  background-color: var(--joyride-primary) !important;
-  color: white !important;
-  border-radius: 0.375rem !important;
-  padding: 0.5rem 1rem !important;
-  font-weight: 500 !important;
+.driver-popover-btn {
+  @apply bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors;
 }
 
-button[data-action="back"],
-button[data-action="skip"],
-button[data-action="close"] {
-  color: var(--joyride-tooltip-color) !important;
-  border-radius: 0.375rem !important;
-  padding: 0.5rem 1rem !important;
-  font-weight: 500 !important;
+.driver-popover-btn-disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.driver-popover-close-btn {
+  @apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200;
+}
+
+.driver-popover-navigation-btns {
+  @apply flex gap-2;
+}
+
+.driver-popover-prev-btn,
+.driver-popover-next-btn {
+  @apply bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors;
+}
+
+.driver-active-element {
+  @apply rounded-lg;
+}
+
+.driver-overlay {
+  @apply bg-black/50;
+}
+
+.dark .driver-overlay {
+  @apply bg-black/75;
 }
