@@ -583,6 +583,13 @@ body {
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    /* React Joyride - Light Mode */
+    --joyride-tooltip-bg: white;
+    --joyride-tooltip-color: #333;
+    --joyride-primary: #3b82f6;
+    --joyride-overlay: rgba(0, 0, 0, 0.5);
+    --joyride-spotlight-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
   }
 
   .dark {
@@ -594,5 +601,71 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.439 0 0);
+
+    /* React Joyride - Dark Mode */
+    --joyride-tooltip-bg: #1f2937;
+    --joyride-tooltip-color: #f9fafb;
+    --joyride-primary: #60a5fa;
+    --joyride-overlay: rgba(0, 0, 0, 0.75);
+    --joyride-spotlight-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
   }
+}
+
+/* React Joyride Custom Styles */
+.__floater__open {
+  z-index: 9999 !important;
+}
+
+.react-joyride__tooltip {
+  background-color: var(--joyride-tooltip-bg) !important;
+  color: var(--joyride-tooltip-color) !important;
+  border-radius: 0.5rem !important;
+  padding: 1.25rem !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.react-joyride__tooltip h4 {
+  margin-bottom: 0.75rem !important;
+  font-weight: 600 !important;
+  font-size: 1.125rem !important;
+}
+
+.react-joyride__tooltip p {
+  line-height: 1.6 !important;
+  margin-bottom: 0 !important;
+}
+
+.react-joyride__overlay {
+  background-color: var(--joyride-overlay) !important;
+}
+
+.react-joyride__spotlight {
+  box-shadow: var(--joyride-spotlight-shadow) !important;
+  border-radius: 0.375rem !important;
+}
+
+.react-joyride__beacon {
+  background-color: var(--joyride-primary) !important;
+}
+
+.react-joyride__beacon > span {
+  background-color: var(--joyride-primary) !important;
+}
+
+/* Custom button styles for Joyride */
+button[data-action="primary"] {
+  background-color: var(--joyride-primary) !important;
+  color: white !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
+}
+
+button[data-action="back"],
+button[data-action="skip"],
+button[data-action="close"] {
+  color: var(--joyride-tooltip-color) !important;
+  border-radius: 0.375rem !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
 }

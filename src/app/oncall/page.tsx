@@ -11,7 +11,14 @@ import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { MEDICAL_GROUP, MedicalGroup, PLANS, SPECIALTIES } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+// Dynamically import the tutorial component
+const OnCallTutorial = dynamic(
+  () => import("@/components/tutorial/OnCallTutorial"),
+  { ssr: false }
+);
 
 
 export default function OnCallPage() {
@@ -21,6 +28,7 @@ export default function OnCallPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [medicalGroup, setMedicalGroup] = useState<MedicalGroup>(MEDICAL_GROUP.MMM);
+  const [runTutorial, setRunTutorial] = useState(false);
   const role = useMemo(() => user?.profile?.role || "viewer", [user]);
   // Fetch specialties
   const {
@@ -68,6 +76,15 @@ export default function OnCallPage() {
   useEffect(() => {
     // Reload specialties on mount
     reloadSpecialties();
+
+    // Check if tutorial should run (for first-time users)
+    const hasSeenTutorial = localStorage.getItem('oncall-tutorial-completed');
+    if (!hasSeenTutorial) {
+      // Delay to ensure page is fully rendered
+      setTimeout(() => {
+        setRunTutorial(true);
+      }, 1500);
+    }
   }, [reloadSpecialties]);
 
 
@@ -88,12 +105,27 @@ export default function OnCallPage() {
 
   return (
     <div className="app-container px-4 py-6 max-w-lg mx-auto dark:bg-black">
+      {/* Tutorial Component */}
+      <OnCallTutorial
+        run={runTutorial}
+        onComplete={() => setRunTutorial(false)}
+      />
+
       <div className="space-y-6">
-        {/* Title */}
-        <div className="text-center">
+        {/* Title with Help Button */}
+        <div className="text-center relative">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             On-Call Viewer
           </h1>
+          <button
+            type="button"
+            onClick={() => setRunTutorial(true)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg flex items-center justify-center shadow-md transition-colors"
+            title="Show tutorial"
+            aria-label="Show tutorial"
+          >
+            ?
+          </button>
         </div>
 
         {/* Specialty and Plan Selector */}

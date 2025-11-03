@@ -26,7 +26,7 @@ export default function DateNavigation({
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-4" data-tour="date-navigation">
             {/* Date Display */}
             <div className="text-center">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">

@@ -33,7 +33,7 @@ export default function SpecialtyPlanSelector({
     return (
         <div className="space-y-4">
             {/* Specialty Selector */}
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="specialty-selector">
                 <Label htmlFor="specialty">Specialty</Label>
                 <div className="relative">
                     <Select
@@ -64,7 +64,7 @@ export default function SpecialtyPlanSelector({
 
             {/* Plan Selector (only for Internal Medicine) */}
             {!specialtyLoading && showPlanSelector && (
-                <div className="space-y-2">
+                <div className="space-y-2" data-tour="plan-selector">
                     <Label htmlFor="plan">Healthcare Plan</Label>
                     <Select value={plan} onValueChange={onPlanChange}>
                         <SelectTrigger id="plan" className="w-full">
