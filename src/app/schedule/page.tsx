@@ -3,8 +3,9 @@
 import { useColorMapping } from "@/app/hooks/useColorMapping";
 import { useProviders } from "@/app/hooks/useProviders";
 import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
-import { useSpecialties } from "@/app/hooks/useSpecialties";
-import { MONTH_NAMES, PLANS, ROLES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
+import { useOnCallSpecialties } from "@/app/hooks/useSpecialties";
+import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
+import { MONTH_NAMES, ROLES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import {
   toLocalISODate
 } from "@/lib/schedule-utils";
@@ -26,7 +27,6 @@ import { toast } from "sonner";
 // import LayoutShell from "@/components/LayoutShell";
 import { useAuth } from "@/components/AuthProvider";
 import ScheduleModal from "@/components/schedule/ScheduleModal";
-import SpecialtyManagementModal from "@/components/schedule/SpecialtyManagementModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -70,7 +70,6 @@ export default function SchedulePage() {
 
   // Modal states
   const [showClearModal, setShowClearModal] = useState(false);
-  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
 
   // "Works with" phone display state
   const [secondPhone, setSecondPhone] = useState("");
@@ -96,7 +95,7 @@ export default function SchedulePage() {
   );
 
   // Custom hooks
-  const { specialties, loading: specialtiesLoading, reloadSpecialties } = useSpecialties();
+  const { specialties, loading: specialtiesLoading } = useOnCallSpecialties(1, 100, "");
   const { providers, allProviders } = useProviders(specialty);
   const {
     entries,
@@ -181,7 +180,7 @@ export default function SchedulePage() {
       setSpecialty(storedSpecialty)
     }
     else {
-      setSpecialty(specialties[0] || "");
+      setSpecialty(specialties[0]?.name || "");
     }
     if (storedPlan) setPlan(storedPlan);
   }, [specialties]);
@@ -200,11 +199,6 @@ export default function SchedulePage() {
       sessionStorage.setItem("plan", plan);
     }
   }, [plan]);
-
-  // Load specialties on mount
-  useEffect(() => {
-    reloadSpecialties();
-  }, [reloadSpecialties]);
 
   // Load entries when visible range, specialty, or plan changes
   useEffect(() => {
@@ -750,6 +744,13 @@ export default function SchedulePage() {
     );
   }, [canEdit]);
 
+  // Handle unauthorized access
+  useEffect(() => {
+    if (!isLoading && role && role !== ROLES.ADMIN && role !== ROLES.SCHEDULER) {
+      router.push("/unauthorized");
+    }
+  }, [role, router, isLoading]);
+
   if (isLoading || specialtiesLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -760,7 +761,6 @@ export default function SchedulePage() {
   }
 
   if (role !== ROLES.ADMIN && role !== ROLES.SCHEDULER) {
-    router.push("/unauthorized");
     return null;
   }
 
@@ -779,12 +779,12 @@ export default function SchedulePage() {
 
         {role === ROLES.ADMIN && (
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setShowSpecialtyModal(true)}
+            <Link
+              href="/schedule/specialties"
               className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
             >
-              Edit Specialties
-            </button>
+              Manage Specialties
+            </Link>
             <Link
               href="/schedule/mmm-medical-groups"
               className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
@@ -807,55 +807,16 @@ export default function SchedulePage() {
         )}
       </div>
 
-      {/* Specialty and Plan Selection - Original Dropdown UI */}
-      <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="w-full">
-          <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2">
-            Specialty
-          </label>
-          {specialtiesLoading ? (
-            <div className="flex items-center px-3 sm:px-4 py-2 sm:py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-              <LoadingSpinner size="sm" />
-              <span className="ml-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">Loading specialties...</span>
-            </div>
-          ) : (
-            <select
-              value={specialty}
-              onChange={(e) => setSpecialty(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
-            >
-              {specialties.map((spec) => (
-                <option key={spec} value={spec}>
-                  {spec}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        {specialty === SPECIALTIES.INTERNAL_MEDICINE && (
-          <div className="w-full">
-            <label
-              htmlFor="healthcare-plan"
-              className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 sm:mb-2"
-            >
-              Healthcare Plan
-            </label>
-            <select
-              id="healthcare-plan"
-              value={plan || ""}
-              onChange={(e) => setPlan(e.target.value)}
-              className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 transition-all"
-            >
-              <option value="">-- Select a Plan --</option>
-              {PLANS.map((p) => (
-                <option key={p.name} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+      {/* Specialty and Plan Selection */}
+      <div className="mb-4 sm:mb-6">
+        <SpecialtyPlanSelector
+          specialty={specialty}
+          plan={plan || ""}
+          specialties={specialties}
+          specialtyLoading={specialtiesLoading}
+          onSpecialtyChange={setSpecialty}
+          onPlanChange={setPlan}
+        />
       </div>
 
       {/* Calendar */}
@@ -1010,13 +971,7 @@ export default function SchedulePage() {
         onSubmit={handleModalSubmit}
       />
 
-      {/* Specialty Management Modal */}
-      <SpecialtyManagementModal
-        isOpen={showSpecialtyModal}
-        currentSpecialty={specialty}
-        onClose={() => setShowSpecialtyModal(false)}
-        onSpecialtyChange={setSpecialty}
-      />
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

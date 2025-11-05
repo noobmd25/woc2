@@ -1,21 +1,52 @@
 "use client";
 
-import { getBrowserClient } from "@/lib/supabase/client";
+import { useAuthActions } from "@/app/hooks/useAuthActions";
+import { useSpecialties } from "@/app/hooks/useSpecialties";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import SearchableSelect from "@/components/ui/SearchableSelect";
+import { type SignupFormData, signupFormSchema } from "@/lib/validations/forms";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
-import { toast } from "react-hot-toast";
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
 export default function RequestPage() {
     // You can extract the signup form logic from HomeClient into a separate component
     // and use it here directly, or copy the relevant JSX and handlers.
-    const supabase = getBrowserClient();
     const router = useRouter();
 
     const [phoneInput, setPhoneInput] = useState("");
-    const [position, setPosition] = useState<"Resident" | "Attending" | "">("");
-    const [pgyYear, setPgyYear] = useState<string>("1");
     const [showPasswordFields, setShowPasswordFields] = useState(false);
+    const { specialties, loading: loadingSpecialties } = useSpecialties();
+    const { signup, isLoading: isSigningUp } = useAuthActions();
 
+    const {
+        register,
+        handleSubmit,
+        setValue,
+        control,
+        formState: { errors, isSubmitting },
+    } = useForm<SignupFormData>({
+        resolver: zodResolver(signupFormSchema),
+        defaultValues: {
+            full_name: "",
+            email: "",
+            phone: "",
+            position: undefined,
+            specialty_attending: "",
+            specialty_resident: "",
+            specialty_non_clinical: "",
+            pgy_year: "1",
+            password: "",
+            confirm_password: "",
+        },
+    });
+
+    const watchedPosition = useWatch({ control, name: "position" });
+    const watchedSpecialtyAttending = useWatch({ control, name: "specialty_attending" });
+    const watchedSpecialtyResident = useWatch({ control, name: "specialty_resident" });
+
+    // Specialties are loaded automatically by the hook
 
     const formatPhone = (value: string) => {
         const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -29,266 +60,364 @@ export default function RequestPage() {
         ].join("");
     };
 
-    const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const formData = new FormData(form);
+    const handleSignupSubmit = async (data: SignupFormData) => {
+        const result = await signup(data);
 
-        const full_name = String(formData.get("full_name") || "").trim();
-        const email = String(formData.get("email") || "").trim();
-        const phone = String(formData.get("phone") || "").trim();
-        const chosenPosition = String(
-            formData.get("position") || position || "",
-        ).trim();
-        const specialtyAttending = String(
-            formData.get("specialty_attending") || "",
-        ).trim();
-        const specialtyResident = String(
-            formData.get("specialty_resident") || "",
-        ).trim();
-        const pgy = String(formData.get("pgy_year") || pgyYear || "").trim();
-        const password = String(formData.get("password") || "");
-        const confirm = String(formData.get("confirm_password") || "");
-
-        if (!full_name || !email) {
-            toast.error("Name and email required");
-            return;
-        }
-        if (!chosenPosition) {
-            toast.error("Select a position");
-            return;
-        }
-
-        const provider_type = chosenPosition;
-        let department = "";
-        let year_of_training = "";
-        if (chosenPosition === "Attending") {
-            if (!specialtyAttending) {
-                toast.error("Service / department required");
-                return;
-            }
-            department = specialtyAttending;
-        } else if (chosenPosition === "Resident") {
-            if (!specialtyResident) {
-                toast.error("Residency specialty required");
-                return;
-            }
-            if (!pgy || !/^[1-7]$/.test(pgy)) {
-                toast.error("PGY year 1-7 required");
-                return;
-            }
-            department = specialtyResident;
-            year_of_training = `PGY-${pgy}`;
-        }
-
-        if (!password || password.length < 12) {
-            toast.error("Password min 12 chars");
-            return;
-        }
-        if (password !== confirm) {
-            toast.error("Passwords do not match");
-            return;
-        }
-        if (
-            !/[A-Z]/.test(password) ||
-            !/[a-z]/.test(password) ||
-            !/\d/.test(password)
-        ) {
-            toast.error("Need upper, lower, number");
-            return;
-        }
-
-        try {
-            const origin =
-                (typeof window !== "undefined" && window.location.origin) ||
-                process.env.NEXT_PUBLIC_SITE_URL ||
-                (process.env.VERCEL_URL
-                    ? `https://${process.env.VERCEL_URL}`
-                    : "http://localhost:3000");
-
-            const { error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    emailRedirectTo: `${origin}/auth/pending`,
-                    data: {
-                        full_name,
-                        department,
-                        provider_type,
-                        phone,
-                        year_of_training,
-                        requested_role: "viewer",
-                        status: "pending",
-                    },
-                },
-            });
-            if (signUpError) {
-                toast.error(signUpError.message || "Sign up failed");
-                try {
-                    await supabase.from("signup_errors").insert({
-                        email,
-                        error_text: signUpError.message || String(signUpError),
-                        context: { stage: "signup" },
-                    });
-                } catch { }
-                return;
-            }
-
-            // Provisioning of profile & role request handled by DB trigger (provision_profile)
-            toast.success("Account created. Check your email to confirm.");
+        if (result.success) {
             router.push("/auth/pending");
-        } catch (err: any) {
-            toast.error(err?.message || "Unexpected signup error");
-            try {
-                await supabase.from("signup_errors").insert({
-                    email,
-                    error_text: err?.message || String(err),
-                    context: { stage: "unexpected" },
-                });
-            } catch { }
         }
+        // Error handling is done in the hook
     };
     return (
-        <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center bg-white text-black dark:bg-black dark:text-white transition-colors duration-300">
-            <h1 className="text-4xl font-bold mb-4">Create Account</h1>
-            <div>
-                <form className="space-y-4" onSubmit={handleSignupSubmit}>
-                    <input
-                        name="full_name"
-                        placeholder="Full Name (e.g., John Doe)"
-                        autoComplete="name"
-                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        onBlur={() => setShowPasswordFields(true)}
-                    />
-                    <input
-                        name="email"
-                        type="email"
-                        placeholder="Email (e.g., john.doe@example.com)"
-                        autoComplete="email"
-                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        onBlur={() => setShowPasswordFields(true)}
-                    />
-                    <input
-                        name="phone"
-                        placeholder="Phone Number (e.g., (787) 123-4567)"
-                        autoComplete="tel"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(formatPhone(e.target.value))}
-                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
-                    <div className="flex flex-col text-left">
-                        <label className="text-sm font-medium text-black dark:text-white mb-1">
-                            Position
-                        </label>
-                        <div className="flex space-x-4">
-                            <label className="flex items-center space-x-2 text-black dark:text-white">
-                                <input
-                                    type="radio"
-                                    name="position"
-                                    value="Resident"
-                                    className="accent-blue-600"
-                                    checked={position === "Resident"}
-                                    onChange={() => {
-                                        setPosition("Resident");
-                                        setShowPasswordFields(true);
-                                    }}
-                                />
-                                <span>Resident</span>
-                            </label>
-                            <label className="flex items-center space-x-2 text-black dark:text-white">
-                                <input
-                                    type="radio"
-                                    name="position"
-                                    value="Attending"
-                                    className="accent-blue-600"
-                                    checked={position === "Attending"}
-                                    onChange={() => {
-                                        setPosition("Attending");
-                                        setShowPasswordFields(true);
-                                    }}
-                                />
-                                <span>Attending</span>
-                            </label>
-                        </div>
-                    </div>
-                    {position === "Attending" && (
-                        <input
-                            name="specialty_attending"
-                            placeholder="Service / Department (e.g., Cardiology)"
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
-                    )}
-                    {position === "Resident" && (
-                        <>
-                            <input
-                                name="specialty_resident"
-                                placeholder="Residency Specialty (e.g., Internal Medicine)"
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <div className="flex items-center space-x-3">
-                                <label className="text-sm font-medium text-black dark:text-white">
-                                    Year of Training
-                                </label>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-black dark:text-white">PGY-</span>
-                                    <select
-                                        name="pgy_year"
-                                        value={pgyYear}
-                                        onChange={(e) => setPgyYear(e.target.value)}
-                                        className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    >
-                                        {Array.from({ length: 7 }, (_, i) =>
-                                            String(i + 1),
-                                        ).map((yr) => (
-                                            <option key={yr} value={yr}>
-                                                {yr}
-                                            </option>
-                                        ))}
-                                    </select>
+        <div className="min-h-screen bg-white dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl mx-auto">
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                        Create Account
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400">
+                        Join our medical team by filling out your information below
+                    </p>
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8">
+
+                    <form className="space-y-6" onSubmit={handleSubmit(handleSignupSubmit)}>
+                        {/* Personal Information Section */}
+                        <div className="space-y-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                Personal Information
+                            </h2>
+
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Full Name
+                                    </label>
+                                    <input
+                                        {...register("full_name")}
+                                        id="full_name"
+                                        placeholder="e.g., John Doe"
+                                        autoComplete="name"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        onBlur={() => setShowPasswordFields(true)}
+                                    />
+                                    {errors.full_name && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.full_name.message}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Email Address
+                                    </label>
+                                    <input
+                                        {...register("email")}
+                                        id="email"
+                                        type="email"
+                                        placeholder="e.g., john.doe@example.com"
+                                        autoComplete="email"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        onBlur={() => setShowPasswordFields(true)}
+                                    />
+                                    {errors.email && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.email.message}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Phone Number
+                                    </label>
+                                    <input
+                                        {...register("phone")}
+                                        id="phone"
+                                        placeholder="e.g., (787) 123-4567"
+                                        autoComplete="tel"
+                                        value={phoneInput}
+                                        onChange={(e) => {
+                                            const formatted = formatPhone(e.target.value);
+                                            setPhoneInput(formatted);
+                                            setValue("phone", formatted);
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                    />
+                                    {errors.phone && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.phone.message}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
-                        </>
-                    )}
-                    {showPasswordFields && (
-                        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                            <input
-                                name="password"
-                                type="password"
-                                placeholder="Create Password (min 12 chars)"
-                                autoComplete="new-password"
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <input
-                                name="confirm_password"
-                                type="password"
-                                placeholder="Confirm Password"
-                                autoComplete="new-password"
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Password must include upper & lower case letters and a
-                                number. You cannot log in until an admin approves your
-                                account.
-                            </p>
                         </div>
-                    )}
-                    <div className="flex justify-end space-x-2">
-                        <button
-                            type="button"
-                            onClick={() => router.push("/auth/login")}
-                            className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded text-black dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
-                        >
-                            Create Account
-                        </button>
-                    </div>
-                </form>
+
+                        {/* Position Section */}
+                        <div className="space-y-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                Position
+                            </h2>
+
+                            <div>
+                                <fieldset className="space-y-3">
+                                    <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Select your position
+                                    </legend>
+                                    <RadioGroup
+                                        value={watchedPosition || ""}
+                                        onValueChange={(value) => {
+                                            setValue("position", value as "Resident" | "Attending" | "Non-Clinical");
+                                            setShowPasswordFields(true);
+                                        }}
+                                        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                                    >
+                                        <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-blue-400">
+                                            <RadioGroupItem value="Resident" className="mt-0.5" />
+                                            <span className="ml-3 flex flex-1">
+                                                <span className="flex flex-col">
+                                                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                                                        Resident
+                                                    </span>
+                                                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                                                        Medical resident in training
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </label>
+
+                                        <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-blue-400">
+                                            <RadioGroupItem value="Attending" className="mt-0.5" />
+                                            <span className="ml-3 flex flex-1">
+                                                <span className="flex flex-col">
+                                                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                                                        Attending
+                                                    </span>
+                                                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                                                        Attending physician
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </label>
+
+                                        <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-blue-400">
+                                            <RadioGroupItem value="Non-Clinical" className="mt-0.5" />
+                                            <span className="ml-3 flex flex-1">
+                                                <span className="flex flex-col">
+                                                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                                                        Non-Clinical
+                                                    </span>
+                                                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                                                        Administrative, research, or other non-clinical roles
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </label>
+                                    </RadioGroup>
+                                    {errors.position && (
+                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                                            {errors.position.message}
+                                        </p>
+                                    )}
+                                </fieldset>
+                            </div>
+                        </div>
+
+                        {/* Custom Position Section */}
+                        {watchedPosition === "Non-Clinical" && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Non-Clinical Information
+                                </h2>
+
+                                <div>
+                                    <label htmlFor="specialty_non_clinical" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Non-Clinical Specialty / Role
+                                    </label>
+                                    <input
+                                        {...register("specialty_non_clinical")}
+                                        id="specialty_non_clinical"
+                                        placeholder="e.g., Research Coordinator, Medical Librarian, etc."
+                                        autoComplete="organization-title"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                    />
+                                    {errors.specialty_non_clinical && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.specialty_non_clinical.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Specialty Section */}
+                        {watchedPosition === "Attending" && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Department Information
+                                </h2>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Service / Department
+                                    </label>
+                                    <SearchableSelect
+                                        options={specialties}
+                                        value={watchedSpecialtyAttending || ""}
+                                        onChange={(value) => setValue("specialty_attending", value)}
+                                        placeholder="Type to search departments..."
+                                        loading={loadingSpecialties}
+                                        name="specialty_attending"
+                                    />
+                                    {errors.specialty_attending && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.specialty_attending.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {watchedPosition === "Resident" && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Residency Information
+                                </h2>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Residency Specialty
+                                        </label>
+                                        <SearchableSelect
+                                            options={specialties}
+                                            value={watchedSpecialtyResident || ""}
+                                            onChange={(value) => setValue("specialty_resident", value)}
+                                            placeholder="Type to search specialties..."
+                                            loading={loadingSpecialties}
+                                            name="specialty_resident"
+                                        />
+                                        {errors.specialty_resident && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.specialty_resident.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="pgy_year" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Year of Training
+                                        </label>
+                                        <div className="flex items-center">
+                                            <span className="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-md dark:bg-gray-600 dark:border-gray-600 dark:text-gray-300">
+                                                PGY-
+                                            </span>
+                                            <select
+                                                {...register("pgy_year")}
+                                                id="pgy_year"
+                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                            >
+                                                {Array.from({ length: 7 }, (_, i) =>
+                                                    String(i + 1),
+                                                ).map((yr) => (
+                                                    <option key={yr} value={yr}>
+                                                        {yr}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {errors.pgy_year && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.pgy_year.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Password Section */}
+                        {showPasswordFields && (
+                            <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-6">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Account Security
+                                </h2>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Password
+                                        </label>
+                                        <input
+                                            {...register("password")}
+                                            id="password"
+                                            type="password"
+                                            placeholder="Create password"
+                                            autoComplete="new-password"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        />
+                                        {errors.password && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.password.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Confirm Password
+                                        </label>
+                                        <input
+                                            {...register("confirm_password")}
+                                            id="confirm_password"
+                                            type="password"
+                                            placeholder="Confirm password"
+                                            autoComplete="new-password"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        />
+                                        {errors.confirm_password && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.confirm_password.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4">
+                                    <div className="flex">
+                                        <div className="ml-3">
+                                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                <strong>Password Requirements:</strong> Must include upper & lower case letters and a number.
+                                                You cannot log in until an admin approves your account.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Form Actions */}
+                        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <button
+                                type="button"
+                                onClick={() => router.push("/auth/login")}
+                                className="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || isSigningUp}
+                                className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSigningUp ? "Creating Account..." : "Create Account"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </main>
+        </div>
     );
 }

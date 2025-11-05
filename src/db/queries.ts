@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, like, lte } from "drizzle-orm";
 import { db } from "./index";
 import {
     directory,
@@ -95,14 +95,72 @@ export const scheduleQueries = {
  * Specialty operations
  */
 export const specialtyQueries = {
-    findAll: async () => {
-        return db.select().from(specialties).orderBy(asc(specialties.name));
+    findAll: async (params?: {
+        limit?: number;
+        offset?: number;
+        search?: string;
+        showOncall?: boolean;
+        hasResidency?: boolean;
+        orderBy?: 'name' | 'createdAt' | 'updatedAt';
+        orderDirection?: 'asc' | 'desc';
+    }) => {
+        const {
+            limit,
+            offset = 0,
+            search,
+            showOncall,
+            hasResidency,
+            orderBy = 'name',
+            orderDirection = 'asc'
+        } = params || {};
+
+        // Build conditions array
+        const conditions = [];
+        if (search) {
+            conditions.push(like(specialties.name, `%${search}%`));
+        }
+        if (showOncall !== undefined) {
+            conditions.push(eq(specialties.showOncall, showOncall));
+        }
+        if (hasResidency !== undefined) {
+            conditions.push(eq(specialties.hasResidency, hasResidency));
+        }
+
+        // Determine order column and direction
+        const orderColumn = specialties[orderBy];
+        const orderFn = orderDirection === 'desc' ? desc : asc;
+
+        // Build query with all conditions applied
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+        // Get total count
+        const totalQuery = await db
+            .select({ count: count() })
+            .from(specialties)
+            .where(whereClause);
+
+        const total = totalQuery[0]?.count || 0;
+
+        // Get paginated data
+        const dataQuery = db
+            .select()
+            .from(specialties)
+            .where(whereClause)
+            .orderBy(orderFn(orderColumn))
+            .offset(offset)
+            .limit(limit || 1000); // Default limit if not specified
+
+        const data = await dataQuery;
+
+        return { data, total };
     },
 
     findOncallSpecialties: async () => {
         return db.select().from(specialties).where(eq(specialties.showOncall, true)).orderBy(asc(specialties.name));
     },
-
+    findSpecialtiesWithResidency: async () => {
+        return db.select().from(specialties).where(eq(specialties.hasResidency, true)).orderBy(asc(specialties.name));
+    },
     findById: async (id: string) => {
         return db.select().from(specialties).where(eq(specialties.id, id)).limit(1);
     },

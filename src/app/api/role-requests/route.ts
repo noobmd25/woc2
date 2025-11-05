@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
         const id = searchParams.get("id");
         const userId = searchParams.get("userId");
         const status = searchParams.get("status");
+        const email = searchParams.get("email");
 
         const conditions = [];
 
@@ -29,6 +30,10 @@ export async function GET(req: NextRequest) {
 
         if (status) {
             conditions.push(eq(roleRequests.status, status as any));
+        }
+
+        if (email) {
+            conditions.push(eq(roleRequests.email, email));
         }
 
         const query = db.select().from(roleRequests);

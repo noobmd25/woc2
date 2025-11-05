@@ -11,10 +11,12 @@ import {
 } from "@/components/ui/select";
 import { PLANS, SPECIALTIES } from "@/lib/constants";
 
+import { type Specialty } from "@/lib/types/specialty";
+
 interface SpecialtyPlanSelectorProps {
     specialty: string;
     plan: string;
-    specialties: string[];
+    specialties: Specialty[];
     specialtyLoading: boolean;
     onSpecialtyChange: (value: string) => void;
     onPlanChange: (value: string) => void;
@@ -47,9 +49,9 @@ export default function SpecialtyPlanSelector({
                             <SelectValue placeholder="Select specialty" />
                         </SelectTrigger>
                         <SelectContent>
-                            {specialties.filter(Boolean).map((spec) => (
-                                <SelectItem key={spec} value={spec}>
-                                    {spec}
+                            {specialties.filter(spec => spec.name).map((spec) => (
+                                <SelectItem key={spec.id} value={spec.name}>
+                                    {spec.name}
                                 </SelectItem>
                             ))}
                         </SelectContent>

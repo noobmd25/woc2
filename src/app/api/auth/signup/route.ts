@@ -27,40 +27,53 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const { email, password, fullName, department } = await req.json();
+  const body = await req.json();
+  console.log("Signup request body:", body);
+
+  const { email, password, full_name, department, provider_type, phone, year_of_training } = body;
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL || "",
     process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   );
 
+  console.log("Checking password policy...");
   if (!PASSWORD_POLICY.test(password)) {
-    return NextResponse.json({ error: "Weak password" }, { status: 400 });
+    console.log("Password failed policy check");
+    return NextResponse.json({ error: "Password must be at least 12 characters and contain uppercase, lowercase, numbers, and special characters." }, { status: 400 });
   }
 
+  console.log("Checking password breach...");
   if (await passwordBreached(password)) {
+    console.log("Password found in breach corpus");
     return NextResponse.json(
-      { error: "Password found in breach corpus" },
+      { error: "This password has been compromised in a data breach. Please choose a different password." },
       { status: 400 },
     );
   }
 
+  console.log("Calling Supabase signup...");
   const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
-        full_name: fullName,
+        full_name,
         department,
-        provider_type: "physician",
+        provider_type,
+        phone,
+        year_of_training,
         requested_role: "viewer",
+        status: "pending",
       },
     },
   });
 
   if (error) {
+    console.error("Supabase signup error:", error);
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  console.log("Signup successful");
   return NextResponse.json({ ok: true });
 }

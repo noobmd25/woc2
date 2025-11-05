@@ -32,12 +32,13 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // If unauthenticated user hits a protected page, send them to login
     if (isProtectedPath(pathname) && !user) {
-      toast.error("Please sign in");
+      // toast.error("Please sign in");
       router.push("/auth/login");
       return;
     }
 
     // If user has a profile status that shouldn’t access the site
+    // TODO: fix this, the status to check is the requested_role status, not profile status.
     if (isProtectedPath(pathname) && user) {
       const status = user.profile?.status;
       const allowedStatus = ["approved", "active"];
@@ -62,7 +63,7 @@ export function Providers({
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <AuthProvider initialUser={initialUser}>
         {/* Only one Toaster for your whole app */}
-        <Toaster position="top-center" />
+        <Toaster position="bottom-right" />
         <AuthGuard>{children}</AuthGuard>
       </AuthProvider>
     </ThemeProvider>

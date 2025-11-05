@@ -1,7 +1,7 @@
 "use client";
 
 import { useOnCall } from "@/app/hooks/useOnCall";
-import { useSpecialties } from "@/app/hooks/useSpecialties";
+import { useOnCallSpecialties } from "@/app/hooks/useSpecialties";
 import { useAuth } from "@/components/AuthProvider";
 import MGLookupModal from "@/components/lookup/MGLookupModal";
 import DateNavigation from "@/components/oncall/DateNavigation";
@@ -12,7 +12,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import { MEDICAL_GROUP, MedicalGroup, PLANS, SPECIALTIES } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 
 export default function OnCallPage() {
@@ -34,9 +34,8 @@ export default function OnCallPage() {
   // Fetch specialties
   const {
     specialties,
-    reloadSpecialties,
     loading: specialtyLoading
-  } = useSpecialties();
+  } = useOnCallSpecialties(1, 100, "");
 
   // Fetch on-call data
   const {
@@ -73,12 +72,6 @@ export default function OnCallPage() {
 
   const showNoProviderMessage = useMemo(() => !onCallLoading && !providerData && debugInfo?.rows === 0, [onCallLoading, providerData, debugInfo]);
   const showPlanGuidance = useMemo(() => specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan, [specialty, plan]);
-
-  useEffect(() => {
-    // Reload specialties on mount
-    reloadSpecialties();
-  }, [reloadSpecialties]);
-
 
   if (specialtyLoading || isLoading) {
     return (
@@ -150,14 +143,12 @@ export default function OnCallPage() {
         ) : (
           <>
 
-            {providerData && (
-              <DateNavigation
-                currentDate={currentDate}
-                onPreviousDay={handlePrevDay}
-                onNextDay={handleNextDay}
-                onToday={handleToday}
-              />
-            )}
+            <DateNavigation
+              currentDate={currentDate}
+              onPreviousDay={handlePrevDay}
+              onNextDay={handleNextDay}
+              onToday={handleToday}
+            />
 
             {/* Provider Card */}
             {providerData && (

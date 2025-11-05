@@ -3,15 +3,15 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PLANS } from "@/lib/constants";
-import { mmmProviderSchema } from "@/lib/validations/forms";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { specialtySchema } from "@/lib/validations/forms";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 
-export default function MMMDialogForm({
+export default function SpecialtyDialogForm({
     isOpen,
     onClose,
     onSubmit,
@@ -19,8 +19,8 @@ export default function MMMDialogForm({
 }: {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: { name: string; medicalGroup: string }) => void;
-    defaultValues?: { name: string; medicalGroup: string };
+    onSubmit: (data: { name: string; showOnCall?: boolean; hasResidency?: boolean }) => void;
+    defaultValues?: { name: string; showOnCall?: boolean; hasResidency?: boolean };
 }) {
     const {
         register,
@@ -29,8 +29,8 @@ export default function MMMDialogForm({
         reset,
         control,
     } = useForm({
-        resolver: zodResolver(mmmProviderSchema),
-        defaultValues: { name: "", medicalGroup: "" },
+        resolver: zodResolver(specialtySchema),
+        defaultValues: { name: "", showOnCall: true, hasResidency: false },
     });
 
     const handleOnClose = () => {
@@ -41,11 +41,16 @@ export default function MMMDialogForm({
     useEffect(() => {
         if (isOpen) {
             if (defaultValues) {
-                reset(defaultValues);
+                reset({
+                    name: defaultValues.name || "",
+                    showOnCall: defaultValues.showOnCall ?? true,
+                    hasResidency: defaultValues.hasResidency ?? false,
+                });
             } else {
                 reset({
                     name: "",
-                    medicalGroup: "",
+                    showOnCall: true,
+                    hasResidency: false,
                 });
             }
         }
@@ -72,7 +77,7 @@ export default function MMMDialogForm({
                 <DialogHeader className="pointer-events-none flex flex-col items-start mb-2 w-full">
                     <div className="space-y-6 text-center w-full">
                         <DialogTitle className="font-bold font-open-sans text-foreground text-xl leading-[1.36] tracking-tight break-words">
-                            {defaultValues ? "Edit MMM Group" : "Add New MMM Group"}
+                            {defaultValues ? "Edit Specialty" : "Add New Specialty"}
                         </DialogTitle>
                     </div>
                 </DialogHeader>
@@ -86,41 +91,48 @@ export default function MMMDialogForm({
                 >
                     <div>
                         <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">
-                            Provider Name
+                            Specialty Name
                         </label>
                         <Input
-                            placeholder="Provider Name"
+                            placeholder="Specialty Name"
                             {...register("name")}
                             className="bg-white dark:bg-gray-800/70 border-gray-300 dark:border-gray-600 placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500 shadow-sm"
                         />
                         {errors.name && <span className="text-xs text-red-500">{errors.name.message}</span>}
                     </div>
-                    <div>
-                        <label className="block text-xs font-medium mb-1 text-gray-600 dark:text-gray-300 tracking-wide uppercase">
-                            Plan
-                        </label>
+
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="showOnCall" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Show on Call
+                        </Label>
                         <Controller
-                            name="medicalGroup"
+                            name="showOnCall"
                             control={control}
                             render={({ field }) => (
-                                <Select
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder="Select a plan" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {PLANS.filter((plan) => plan.isIpa).map((plan) => (
-                                            <SelectItem key={plan.name} value={plan.name}>
-                                                {plan.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <Switch
+                                    id="showOnCall"
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
                             )}
                         />
-                        {errors.medicalGroup && <span className="text-xs text-red-500">{errors.medicalGroup.message}</span>}
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                        <Label htmlFor="hasResidency" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Has Residency
+                        </Label>
+                        <Controller
+                            name="hasResidency"
+                            control={control}
+                            render={({ field }) => (
+                                <Switch
+                                    id="hasResidency"
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            )}
+                        />
                     </div>
                     <Button
                         type="submit"

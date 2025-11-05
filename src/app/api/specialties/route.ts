@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { specialtyQueries } from "@/db/queries";
 import { specialties } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
@@ -10,19 +11,31 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
-        const showOncall = searchParams.get("showOncall");
 
-        const data =
-            showOncall !== null
-                ? await db
-                    .select()
-                    .from(specialties)
-                    .where(eq(specialties.showOncall, showOncall === "true"))
-                : await db
-                    .select()
-                    .from(specialties);
+        // Parse query parameters
+        const page = searchParams.get("page") ? parseInt(searchParams.get("page")!) : 1;
+        const pageSize = searchParams.get("pageSize") ? parseInt(searchParams.get("pageSize")!) : 25;
+        const limit = pageSize;
+        const offset = (page - 1) * pageSize;
+        const search = searchParams.get("search") || undefined;
+        const showOncall = searchParams.get("showOncall") !== null ? searchParams.get("showOncall") === "true" : undefined;
+        const hasResidency = searchParams.get("hasResidency") !== null ? searchParams.get("hasResidency") === "true" : undefined;
+        const orderByParam = searchParams.get("orderBy");
+        const orderBy: 'name' | 'createdAt' | 'updatedAt' = orderByParam === 'name' || orderByParam === 'createdAt' || orderByParam === 'updatedAt' ? orderByParam : 'name';
+        const orderDirectionParam = searchParams.get("orderDirection");
+        const orderDirection: 'asc' | 'desc' = orderDirectionParam === 'asc' || orderDirectionParam === 'desc' ? orderDirectionParam : 'asc';
 
-        return NextResponse.json({ data, count: data.length });
+        const result = await specialtyQueries.findAll({
+            limit,
+            offset,
+            search,
+            showOncall,
+            hasResidency,
+            orderBy,
+            orderDirection
+        });
+
+        return NextResponse.json({ data: result.data, total: result.total });
     } catch (error) {
         console.error("Error fetching specialties:", error);
         return NextResponse.json(

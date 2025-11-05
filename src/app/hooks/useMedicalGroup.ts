@@ -23,7 +23,7 @@ export interface VitalMedicalGroup {
 export function useMedicalGroup<T>(
     type: MedicalGroup,
     initialPage = 1,
-    initialPageSize = 25,
+    initialPageSize = 10,
     initialSearch = ""
 ) {
     const [results, setResults] = useState<T[]>([]);

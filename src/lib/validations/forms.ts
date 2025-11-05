@@ -1,4 +1,12 @@
 import { z } from "zod";
+import { PLANS } from "../constants";
+
+// Login form validation schema
+export const loginSchema = z.object({
+    email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
+    password: z.string().min(1, "Password is required"),
+});
+export type LoginFormData = z.infer<typeof loginSchema>;
 
 // Provider form validation schema
 export const providerFormSchema = z.object({
@@ -66,3 +74,123 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
+
+export const mmmProviderSchema = z.object({
+    name: z.string().min(2, "Name required"),
+    medicalGroup: z.enum(PLANS.map(plan => plan.name) as [string, ...string[]], {
+        errorMap: () => ({ message: "Select a valid plan" })
+    }),
+});
+
+export const vitalProviderSchema = z.object({
+    name: z.string().min(2, "Name required"),
+    medicalGroup: z.string().min(2, "Group Code required")
+});
+
+export const specialtySchema = z.object({
+    name: z.string().min(2, "Name required"),
+    showOnCall: z.boolean().optional(),
+    hasResidency: z.boolean().optional(),
+});
+
+// Signup form validation schema
+export const signupFormSchema = z.object({
+    full_name: z
+        .string()
+        .min(1, "Full name is required")
+        .min(2, "Full name must be at least 2 characters")
+        .max(100, "Full name must be less than 100 characters")
+        .trim(),
+
+    email: z
+        .string()
+        .min(1, "Email is required")
+        .email("Please enter a valid email address"),
+
+    phone: z
+        .string()
+        .min(1, "Phone number is required")
+        .refine(
+            (val) => {
+                // Allow common phone formats: (123) 456-7890, 123-456-7890, 123.456.7890, +1 123 456 7890, etc.
+                const cleaned = val.replace(/[^\d]/g, "");
+                return cleaned.length >= 10 && cleaned.length <= 15;
+            },
+            "Please enter a valid phone number"
+        ),
+
+    position: z
+        .enum(["Resident", "Attending", "Non-Clinical"], {
+            errorMap: () => ({ message: "Please select a position" })
+        }),
+
+    specialty_attending: z.string().optional(),
+    specialty_resident: z.string().optional(),
+    specialty_non_clinical: z.string().optional(),
+    pgy_year: z.string().optional(),
+
+    password: z
+        .string()
+        .min(1, "Password is required")
+        .min(12, "Password must be at least 12 characters")
+        .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+        .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+        .regex(/\d/, "Password must contain at least one number")
+        .regex(/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/, "Password must contain at least one special character"),
+
+    confirm_password: z
+        .string()
+        .min(1, "Please confirm your password"),
+}).refine(
+    (data) => {
+        if (data.position === "Attending") {
+            return data.specialty_attending && data.specialty_attending.trim().length > 0;
+        }
+        return true;
+    },
+    {
+        message: "Service / department is required for Attending",
+        path: ["specialty_attending"],
+    }
+).refine(
+    (data) => {
+        if (data.position === "Resident") {
+            return data.specialty_resident && data.specialty_resident.trim().length > 0;
+        }
+        return true;
+    },
+    {
+        message: "Residency specialty is required for Resident",
+        path: ["specialty_resident"],
+    }
+).refine(
+    (data) => {
+        if (data.position === "Resident") {
+            return data.pgy_year && /^[1-7]$/.test(data.pgy_year);
+        }
+        return true;
+    },
+    {
+        message: "PGY year must be between 1-7 for Resident",
+        path: ["pgy_year"],
+    }
+).refine(
+    (data) => {
+        if (data.position === "Non-Clinical") {
+            return data.specialty_non_clinical && data.specialty_non_clinical.trim().length > 0;
+        }
+        return true;
+    },
+    {
+        message: "Non-clinical specialty is required when selecting Non-Clinical",
+        path: ["specialty_non_clinical"],
+    }
+).refine(
+    (data) => data.password === data.confirm_password,
+    {
+        message: "Passwords do not match",
+        path: ["confirm_password"],
+    }
+);
+
+export type SignupFormData = z.infer<typeof signupFormSchema>;

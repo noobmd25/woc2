@@ -2,5 +2,8 @@
   "useTabs": false,
   "tabWidth": 2,
   "singleQuote": false,
-  "quoteProps": "consistent"
+  "quoteProps": "consistent",
+  "trailingComma": "es5",
+  "semi": true,
+  "endOfLine": "lf"
 }
