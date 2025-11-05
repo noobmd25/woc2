@@ -8,9 +8,10 @@ interface SignupData {
     full_name: string;
     email: string;
     phone: string;
-    position: "Resident" | "Attending";
+    position: "Resident" | "Attending" | "Non-Clinical";
     specialty_attending?: string;
     specialty_resident?: string;
+    specialty_non_clinical?: string;
     pgy_year?: string;
     password: string;
 }
@@ -74,11 +75,15 @@ export const useAuthActions = () => {
             // Determine department based on position
             let department = "";
             let year_of_training = "";
+            const provider_type = data.position;
+
             if (data.position === "Attending") {
                 department = specialty_attending || "";
             } else if (data.position === "Resident") {
                 department = specialty_resident || "";
                 year_of_training = `PGY-${data.pgy_year}`;
+            } else if (data.position === "Non-Clinical") {
+                department = data.specialty_non_clinical || "Non Clinical";
             }
 
             const payload = {
@@ -86,7 +91,7 @@ export const useAuthActions = () => {
                 password: data.password,
                 full_name: data.full_name,
                 department,
-                provider_type: data.position,
+                provider_type,
                 phone: data.phone,
                 year_of_training,
             };

@@ -3,7 +3,7 @@
 import { useColorMapping } from "@/app/hooks/useColorMapping";
 import { useProviders } from "@/app/hooks/useProviders";
 import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
-import { useSpecialties } from "@/app/hooks/useSpecialties";
+import { useOnCallSpecialties } from "@/app/hooks/useSpecialties";
 import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
 import { MONTH_NAMES, ROLES, SECOND_PHONE_PREFS, SPECIALTIES, type SecondPhonePref } from "@/lib/constants";
 import {
@@ -27,7 +27,6 @@ import { toast } from "sonner";
 // import LayoutShell from "@/components/LayoutShell";
 import { useAuth } from "@/components/AuthProvider";
 import ScheduleModal from "@/components/schedule/ScheduleModal";
-import SpecialtyManagementModal from "@/components/schedule/SpecialtyManagementModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +70,6 @@ export default function SchedulePage() {
 
   // Modal states
   const [showClearModal, setShowClearModal] = useState(false);
-  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
 
   // "Works with" phone display state
   const [secondPhone, setSecondPhone] = useState("");
@@ -97,7 +95,7 @@ export default function SchedulePage() {
   );
 
   // Custom hooks
-  const { specialties, loading: specialtiesLoading } = useSpecialties();
+  const { specialties, loading: specialtiesLoading } = useOnCallSpecialties(1, 100, "");
   const { providers, allProviders } = useProviders(specialty);
   const {
     entries,
@@ -781,12 +779,12 @@ export default function SchedulePage() {
 
         {role === ROLES.ADMIN && (
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setShowSpecialtyModal(true)}
+            <Link
+              href="/schedule/specialties"
               className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
             >
-              Edit Specialties
-            </button>
+              Manage Specialties
+            </Link>
             <Link
               href="/schedule/mmm-medical-groups"
               className="bg-cyan-600 hover:bg-cyan-700 dark:bg-cyan-500 dark:hover:bg-cyan-600 text-white font-medium px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg shadow-sm hover:shadow-md transition-all duration-150"
@@ -973,13 +971,7 @@ export default function SchedulePage() {
         onSubmit={handleModalSubmit}
       />
 
-      {/* Specialty Management Modal */}
-      <SpecialtyManagementModal
-        isOpen={showSpecialtyModal}
-        currentSpecialty={specialty}
-        onClose={() => setShowSpecialtyModal(false)}
-        onSpecialtyChange={setSpecialty}
-      />
+
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>

@@ -5,57 +5,76 @@ import { toast } from "sonner";
 
 import { type Specialty } from "@/lib/types/specialty";
 
-export const useSpecialties = () => {
+export function useSpecialties(
+  initialPage = 1,
+  initialPageSize = 10,
+  initialSearch = "",
+  initialShowOnCall?: boolean
+) {
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
-  const [specialtyEditList, setSpecialtyEditList] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [page, setPage] = useState(initialPage);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState(initialSearch);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
 
-  const reloadSpecialties = useCallback(async () => {
+  // Debounce search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const fetchSpecialties = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/specialties');
+      const queryParams = new URLSearchParams({
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      if (debouncedSearch) queryParams.append("search", debouncedSearch);
+      if (initialShowOnCall !== undefined) queryParams.append("showOncall", initialShowOnCall.toString());
+
+      const url = `/api/specialties?${queryParams.toString()}`;
+      const response = await fetch(url);
 
       if (!response.ok) {
         console.error("Error fetching specialties:", response.statusText);
         setSpecialties([]);
-        setSpecialtyEditList([]);
+        setTotal(0);
         toast.error("Failed to load specialties");
         return;
       }
 
-      const { data } = await response.json();
+      const { data, total: totalCount } = await response.json();
+      setSpecialties((data as Specialty[]) || []);
+      setTotal(totalCount || 0);
 
-      const activeSpecialties = (data as Specialty[] | null)
-        ?.filter((s: Specialty) => s.showOncall) as Specialty[];
-      setSpecialties(activeSpecialties || []);
-      setSpecialtyEditList(
-        (data ?? []).map((s: Specialty) => ({
-          id: s.id as string,
-          name: (s.name ?? "") as string,
-          showOncall: s.showOncall,
-        })),
-      );
     } catch (error) {
-      console.error("Error in reloadSpecialties:", error);
+      console.error("Error in fetchSpecialties:", error);
       toast.error("Failed to load specialties");
+      setSpecialties([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, debouncedSearch, initialShowOnCall]);
 
-  // Automatically load specialties on hook initialization
+  // Automatically load specialties on hook initialization and when dependencies change
   useEffect(() => {
-    reloadSpecialties();
-  }, [reloadSpecialties]);
+    fetchSpecialties();
+  }, [fetchSpecialties]);
 
   const addSpecialty = useCallback(
-    async (name: string) => {
+    async (name: string, showOnCall: boolean = true, hasResidency: boolean = false) => {
       const trimmedName = name.trim();
       if (!trimmedName) return false;
 
       // Check for duplicates in current list
-      const duplicate = specialtyEditList.some(
+      const duplicate = specialties.some(
         (s) => s.name.toLowerCase() === trimmedName.toLowerCase()
       );
       if (duplicate) {
@@ -68,7 +87,7 @@ export const useSpecialties = () => {
         const response = await fetch('/api/specialties', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: trimmedName, showOncall: true }),
+          body: JSON.stringify({ name: trimmedName, showOncall: showOnCall, hasResidency }),
         });
 
         if (!response.ok) {
@@ -79,7 +98,7 @@ export const useSpecialties = () => {
         }
 
         toast.success("Specialty added.");
-        await reloadSpecialties();
+        await fetchSpecialties();
         return true;
       } catch (error) {
         console.error("Error in addSpecialty:", error);
@@ -89,18 +108,18 @@ export const useSpecialties = () => {
         setActionLoading(prev => ({ ...prev, add: false }));
       }
     },
-    [specialtyEditList, reloadSpecialties],
+    [specialties, fetchSpecialties],
   );
 
   const updateSpecialty = useCallback(
-    async (id: string, newName: string, showOncall?: boolean) => {
+    async (id: string, newName: string, showOncall?: boolean, hasResidency?: boolean) => {
       const trimmedName = newName.trim();
       if (!trimmedName) {
         toast.error("Name cannot be empty.");
         return false;
       }
 
-      const duplicate = specialtyEditList.some(
+      const duplicate = specialties.some(
         (s) =>
           s.id !== id && s.name.toLowerCase() === trimmedName.toLowerCase(),
       );
@@ -114,6 +133,9 @@ export const useSpecialties = () => {
         const updates: any = { id, name: trimmedName };
         if (showOncall !== undefined) {
           updates.showOncall = showOncall;
+        }
+        if (hasResidency !== undefined) {
+          updates.hasResidency = hasResidency;
         }
 
         const response = await fetch('/api/specialties', {
@@ -131,13 +153,18 @@ export const useSpecialties = () => {
 
         toast.success("Specialty updated.");
         // Optimistically update local state instead of reloading
-        setSpecialtyEditList(prev =>
-          prev.map(s => s.id === id ? { ...s, name: trimmedName, ...(showOncall !== undefined && { showOncall: showOncall }) } : s)
+        setSpecialties(prev =>
+          prev.map(s => s.id === id ? {
+            ...s,
+            name: trimmedName,
+            ...(showOncall !== undefined && { showOncall: showOncall }),
+            ...(hasResidency !== undefined && { hasResidency: hasResidency })
+          } : s)
         );
         // Update active specialties list if showOncall changed
         if (showOncall !== undefined) {
           setSpecialties(prev => {
-            const updated = specialtyEditList.find(s => s.id === id);
+            const updated = specialties.find(s => s.id === id);
             if (!updated) return prev;
             if (showOncall && !prev.some(s => s.id === id)) {
               return [...prev, { ...updated, name: trimmedName, showOncall: showOncall }].sort((a, b) => a.name.localeCompare(b.name));
@@ -156,7 +183,7 @@ export const useSpecialties = () => {
         setActionLoading(prev => ({ ...prev, [id]: false }));
       }
     },
-    [specialtyEditList],
+    [specialties],
   );
 
   const deleteSpecialty = useCallback(
@@ -175,7 +202,7 @@ export const useSpecialties = () => {
         }
 
         toast.success("Specialty deleted.");
-        await reloadSpecialties();
+        await fetchSpecialties();
         return true;
       } catch (error) {
         console.error("Error in deleteSpecialty:", error);
@@ -185,7 +212,7 @@ export const useSpecialties = () => {
         setActionLoading(prev => ({ ...prev, [`delete-${id}`]: false }));
       }
     },
-    [reloadSpecialties],
+    [fetchSpecialties],
   );
 
   // Toggle showOncall
@@ -208,9 +235,9 @@ export const useSpecialties = () => {
 
         toast.success("Specialty updated.");
         // Optimistically update local state
-        const specialty = specialtyEditList.find(s => s.id === id);
+        const specialty = specialties.find(s => s.id === id);
         if (specialty) {
-          setSpecialtyEditList(prev =>
+          setSpecialties(prev =>
             prev.map(s => s.id === id ? { ...s, showOncall: !currentValue } : s)
           );
           // Update active specialties list
@@ -227,18 +254,32 @@ export const useSpecialties = () => {
         setActionLoading(prev => ({ ...prev, [`toggle-${id}`]: false }));
       }
     },
-    [specialtyEditList, specialties],
+    [specialties],
   );
 
   return {
     specialties,
-    specialtyEditList,
     loading,
     actionLoading,
-    reloadSpecialties,
+    page,
+    setPage,
+    pageSize,
+    setPageSize,
+    total,
+    search,
+    setSearch,
+    refetch: fetchSpecialties,
     addSpecialty,
     updateSpecialty,
     deleteSpecialty,
     toggleShowOnCall,
   };
 };
+
+export function useOnCallSpecialties(
+  initialPage = 1,
+  initialPageSize = 10,
+  initialSearch = ""
+) {
+  return useSpecialties(initialPage, initialPageSize, initialSearch, true);
+}

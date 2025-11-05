@@ -1,7 +1,7 @@
 "use client";
 
 import { useOnCall } from "@/app/hooks/useOnCall";
-import { useSpecialties } from "@/app/hooks/useSpecialties";
+import { useOnCallSpecialties } from "@/app/hooks/useSpecialties";
 import { useAuth } from "@/components/AuthProvider";
 import MGLookupModal from "@/components/lookup/MGLookupModal";
 import DateNavigation from "@/components/oncall/DateNavigation";
@@ -35,7 +35,7 @@ export default function OnCallPage() {
   const {
     specialties,
     loading: specialtyLoading
-  } = useSpecialties();
+  } = useOnCallSpecialties(1, 100, "");
 
   // Fetch on-call data
   const {

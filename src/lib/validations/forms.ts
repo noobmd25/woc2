@@ -87,6 +87,12 @@ export const vitalProviderSchema = z.object({
     medicalGroup: z.string().min(2, "Group Code required")
 });
 
+export const specialtySchema = z.object({
+    name: z.string().min(2, "Name required"),
+    showOnCall: z.boolean().optional(),
+    hasResidency: z.boolean().optional(),
+});
+
 // Signup form validation schema
 export const signupFormSchema = z.object({
     full_name: z
@@ -114,12 +120,13 @@ export const signupFormSchema = z.object({
         ),
 
     position: z
-        .enum(["Resident", "Attending"], {
+        .enum(["Resident", "Attending", "Non-Clinical"], {
             errorMap: () => ({ message: "Please select a position" })
         }),
 
     specialty_attending: z.string().optional(),
     specialty_resident: z.string().optional(),
+    specialty_non_clinical: z.string().optional(),
     pgy_year: z.string().optional(),
 
     password: z
@@ -166,6 +173,17 @@ export const signupFormSchema = z.object({
     {
         message: "PGY year must be between 1-7 for Resident",
         path: ["pgy_year"],
+    }
+).refine(
+    (data) => {
+        if (data.position === "Non-Clinical") {
+            return data.specialty_non_clinical && data.specialty_non_clinical.trim().length > 0;
+        }
+        return true;
+    },
+    {
+        message: "Non-clinical specialty is required when selecting Non-Clinical",
+        path: ["specialty_non_clinical"],
     }
 ).refine(
     (data) => data.password === data.confirm_password,

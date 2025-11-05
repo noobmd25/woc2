@@ -35,6 +35,7 @@ export default function RequestPage() {
             position: undefined,
             specialty_attending: "",
             specialty_resident: "",
+            specialty_non_clinical: "",
             pgy_year: "1",
             password: "",
             confirm_password: "",
@@ -44,6 +45,8 @@ export default function RequestPage() {
     const watchedPosition = useWatch({ control, name: "position" });
     const watchedSpecialtyAttending = useWatch({ control, name: "specialty_attending" });
     const watchedSpecialtyResident = useWatch({ control, name: "specialty_resident" });
+
+    // Specialties are loaded automatically by the hook
 
     const formatPhone = (value: string) => {
         const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -166,7 +169,7 @@ export default function RequestPage() {
                                     <RadioGroup
                                         value={watchedPosition || ""}
                                         onValueChange={(value) => {
-                                            setValue("position", value as "Resident" | "Attending");
+                                            setValue("position", value as "Resident" | "Attending" | "Non-Clinical");
                                             setShowPasswordFields(true);
                                         }}
                                         className="grid grid-cols-1 sm:grid-cols-2 gap-3"
@@ -198,6 +201,20 @@ export default function RequestPage() {
                                                 </span>
                                             </span>
                                         </label>
+
+                                        <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-blue-400">
+                                            <RadioGroupItem value="Non-Clinical" className="mt-0.5" />
+                                            <span className="ml-3 flex flex-1">
+                                                <span className="flex flex-col">
+                                                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                                                        Non-Clinical
+                                                    </span>
+                                                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                                                        Administrative, research, or other non-clinical roles
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </label>
                                     </RadioGroup>
                                     {errors.position && (
                                         <p className="mt-2 text-sm text-red-600 dark:text-red-400">
@@ -207,6 +224,33 @@ export default function RequestPage() {
                                 </fieldset>
                             </div>
                         </div>
+
+                        {/* Custom Position Section */}
+                        {watchedPosition === "Non-Clinical" && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Non-Clinical Information
+                                </h2>
+
+                                <div>
+                                    <label htmlFor="specialty_non_clinical" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Non-Clinical Specialty / Role
+                                    </label>
+                                    <input
+                                        {...register("specialty_non_clinical")}
+                                        id="specialty_non_clinical"
+                                        placeholder="e.g., Research Coordinator, Medical Librarian, etc."
+                                        autoComplete="organization-title"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                    />
+                                    {errors.specialty_non_clinical && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.specialty_non_clinical.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Specialty Section */}
                         {watchedPosition === "Attending" && (

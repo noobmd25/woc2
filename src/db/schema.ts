@@ -80,6 +80,7 @@ export const specialties = pgTable("specialties", {
     createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
     showOncall: boolean("show_oncall").default(false).notNull(),
+    hasResidency: boolean("has_residency").default(false).notNull(),
 },
     (table) => {
         return {
