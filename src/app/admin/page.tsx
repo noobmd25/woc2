@@ -3,7 +3,17 @@
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { useEffect, useState } from "react";
 
+import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getBrowserClient } from "@/lib/supabase/client";
 
 const AccessRequests = dynamic(
@@ -26,8 +36,10 @@ type TabKey =
   | "usage";
 
 function PageContent() {
+  const router = useRouter();
   const supabase = getBrowserClient();
   const [role, setRole] = React.useState<string | undefined>(undefined);
+  const [loading, setLoading] = React.useState(true);
   const [sendingTest, setSendingTest] = React.useState(false);
   const [testResult, setTestResult] = React.useState<string | null>(null);
   const [sendingApproval, setSendingApproval] = React.useState(false);
@@ -45,7 +57,7 @@ function PageContent() {
       } = await supabase.auth.getUser();
       if (!mounted) return;
       if (!user) {
-        setRole(undefined);
+        router.push("/auth/login");
         return;
       }
       const { data: dbProfile } = await supabase
@@ -54,23 +66,27 @@ function PageContent() {
         .eq("id", user.id)
         .single();
       if (!mounted) return;
-      if (dbProfile?.role) {
-        setRole(dbProfile.role as string);
-      } else {
-        const meta: any = user.user_metadata as any;
-        setRole((meta && meta.role) as string | undefined);
+
+      const userRole = dbProfile?.role || (user.user_metadata as any)?.role;
+
+      // Redirect if not admin
+      if (userRole !== "admin") {
+        router.push("/unauthorized");
+        return;
       }
+
+      setRole(userRole as string);
+      setLoading(false);
     })();
     return () => {
       mounted = false;
     };
-  }, [supabase]);
+  }, [supabase, router]);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const router = useRouter();
 
-  const [activeTab, setActiveTab] = React.useState<TabKey>("integrity");
+  const [activeTab, setActiveTab] = React.useState<TabKey>("access");
   const initedFromURLRef = React.useRef(false);
   const lastQSRef = React.useRef<string | null>(null);
 
@@ -125,13 +141,9 @@ function PageContent() {
     lastQSRef.current = null; // reset once
     const t = searchParams.get("tab");
     if (isValidTab(t)) {
-      if (t === "access" && role !== "admin") {
-        setActiveTab("integrity");
-      } else {
-        setActiveTab(t);
-      }
+      setActiveTab(t);
     } else {
-      const defaultTab = role === "admin" ? "access" : "integrity";
+      const defaultTab = "access";
       const q = new URLSearchParams(searchParams.toString());
       q.set("tab", defaultTab);
       const newQS = q.toString();
@@ -147,15 +159,11 @@ function PageContent() {
       setActiveTab(defaultTab);
     }
     initedFromURLRef.current = true;
-  }, [role, searchParams, pathname, router]);
+  }, [searchParams, pathname, router]);
 
   // When activeTab changes, reflect it in the URL only if different
   React.useEffect(() => {
     if (!initedFromURLRef.current) return; // wait for init
-    if (activeTab === "access" && role !== "admin") {
-      setActiveTab("integrity");
-      return;
-    }
     const current =
       typeof window !== "undefined"
         ? new URLSearchParams(window.location.search).get("tab")
@@ -248,58 +256,65 @@ function PageContent() {
     return () => window.removeEventListener("keydown", onKey);
   }, [testingOpen]);
 
-  const tabs: { key: TabKey; label: string }[] = [];
-  if (role === "admin") {
-    tabs.push({ key: "access", label: "Access Management" });
-  }
-  tabs.push(
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: "access", label: "Access Management" },
     { key: "integrity", label: "Data Integrity" },
     { key: "errors", label: "Error Reports" },
     { key: "audit", label: "Audit Logs" },
     { key: "announcements", label: "Announcements" },
     { key: "usage", label: "Usage Stats" },
-  );
+  ];
+
+  if (loading) {
+    return (
+      <div className="app-container px-4 py-6 max-w-lg mx-auto dark:bg-black">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Admin Dashboard
+          </h1>
+        </div>
+        <div className="flex justify-center py-8">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <div className="p-4 sm:p-6 lg:p-8">
-        <nav
-          className="border-b border-gray-200 dark:border-gray-700 overflow-x-auto -mx-4 sm:mx-0 px-4"
-          role="tablist"
-          aria-label="Admin sections"
-          style={{ WebkitOverflowScrolling: "touch" }}
-        >
-          <ul className="flex -mb-px space-x-6 text-sm font-medium text-gray-600 dark:text-gray-300 whitespace-nowrap snap-x snap-mandatory">
-            {tabs.map((tab) => (
-              <li key={tab.key} className="shrink-0 snap-start">
-                <button
-                  role="tab"
-                  className={`inline-block p-4 border-b-2 ${activeTab === tab.key
-                    ? "border-indigo-500 text-indigo-600 dark:text-indigo-400"
-                    : "border-transparent hover:text-gray-800 dark:hover:text-gray-100"
-                    }`}
-                  aria-selected={activeTab === tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                >
-                  {tab.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="mt-3 text-xs text-gray-400">
-          Active tab: {activeTab}
+    <div className="app-container px-4 py-6 max-w-6xl mx-auto dark:bg-black">
+      <div className="space-y-6">
+        {/* Title */}
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Admin Dashboard
+          </h1>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 py-4 sm:py-6">
-          {role === "admin" && (
-            <DashboardCard
-              title="Pending Access"
-              value={counts.pendingAccess}
-              onClick={() => setActiveTab("access")}
-            />
-          )}
+        {/* Tabs Navigation */}
+        <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === tab.key
+                  ? "bg-blue-600 text-white"
+                  : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
+                  }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dashboard Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <DashboardCard
+            title="Pending Access"
+            value={counts.pendingAccess}
+            onClick={() => setActiveTab("access")}
+          />
           <DashboardCard
             title="Integrity Issues"
             value={counts.integrityIssues}
@@ -327,36 +342,31 @@ function PageContent() {
           />
         </div>
 
-        {/* Replaced inline test sections with a single Testing button and modal */}
-        {role === "admin" && (
-          <div className="my-4 flex justify-end">
-            <button
-              onClick={() => setTestingOpen(true)}
-              className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm shadow"
-              aria-haspopup="dialog"
-              aria-expanded={testingOpen}
-            >
-              🧪 Testing
-            </button>
-          </div>
-        )}
-
-        <section className="py-6">
-          {role === "admin" && activeTab === "access" && (
-            <>
-              <AccessRequests />
-            </>
-          )}
+        {/* Tab Content */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          {activeTab === "access" && <AccessRequests />}
           {activeTab === "integrity" && <IntegrityStub />}
           {activeTab === "errors" && <ErrorsStub />}
           {activeTab === "audit" && <AuditStub />}
           {activeTab === "announcements" && <AnnouncementsStub />}
           {activeTab === "usage" && <UsageStub />}
-        </section>
+        </div>
+
+        {/* Testing Button */}
+        <div className="flex justify-end">
+          <button
+            onClick={() => setTestingOpen(true)}
+            className="inline-flex items-center px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm shadow"
+            aria-haspopup="dialog"
+            aria-expanded={testingOpen}
+          >
+            🧪 Testing
+          </button>
+        </div>
       </div>
 
       {/* Testing Modal */}
-      {role === "admin" && testingOpen && (
+      {testingOpen && (
         <div
           className="fixed inset-0 z-[1200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 modal-overlay-in"
           onClick={() => setTestingOpen(false)}
@@ -434,7 +444,7 @@ function PageContent() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -442,7 +452,18 @@ function PageContent() {
 export default function Page() {
   return (
     <React.Suspense
-      fallback={<div className="p-4 text-gray-600">Loading…</div>}
+      fallback={
+        <div className="app-container px-4 py-6 max-w-lg mx-auto dark:bg-black">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Admin Dashboard
+            </h1>
+          </div>
+          <div className="flex justify-center py-8">
+            <LoadingSpinner />
+          </div>
+        </div>
+      }
     >
       <PageContent />
     </React.Suspense>
@@ -461,12 +482,12 @@ function DashboardCard({
   return (
     <button
       onClick={onClick}
-      className="block w-full text-left rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 sm:p-3 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left w-full"
     >
-      <div className="text-[11px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
+      <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
         {title}
       </div>
-      <div className="mt-0.5 sm:mt-1 text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
+      <div className="text-2xl font-bold text-gray-900 dark:text-white">
         {value}
       </div>
     </button>
@@ -474,45 +495,561 @@ function DashboardCard({
 }
 
 function IntegrityStub() {
-  return <div>Data Integrity content</div>;
-}
-function ErrorsStub() {
-  return <div>Error Reports content</div>;
-}
-function AuditStub() {
-  return <div>Audit Logs content</div>;
-}
-function AnnouncementsStub() {
-  return <div>Announcements content</div>;
-}
-function UsageStub() {
   return (
-    <div id="usage" className="space-y-4">
-      <h2 className="text-xl font-semibold">Usage Statistics</h2>
-      <p className="text-sm text-gray-600 dark:text-gray-300">
-        Wire this to your analytics store + daily aggregates.
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Data Integrity Issues</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Monitor and resolve data consistency issues across the system.
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="text-sm text-gray-500">This Week</div>
-          <div className="text-2xl font-semibold">312</div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Issue Type</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Affected Records</TableHead>
+              <TableHead>Severity</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Missing Data</TableCell>
+              <TableCell>Providers without specialty assignment</TableCell>
+              <TableCell>3</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  Medium
+                </span>
+              </TableCell>
+              <TableCell>Open</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm">
+                  Review
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Duplicate Entries</TableCell>
+              <TableCell>Duplicate schedule entries for same date</TableCell>
+              <TableCell>2</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  High
+                </span>
+              </TableCell>
+              <TableCell>Open</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm">
+                  Review
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">Orphaned Records</TableCell>
+              <TableCell>Schedule entries with deleted providers</TableCell>
+              <TableCell>1</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  Medium
+                </span>
+              </TableCell>
+              <TableCell>Resolved</TableCell>
+              <TableCell>
+                <button className="text-gray-400 cursor-not-allowed text-sm">
+                  Resolved
+                </button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Missing Data</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+              Medium
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Providers without specialty assignment
+          </p>
+          <div className="flex justify-between text-sm mb-3">
+            <span className="text-gray-600 dark:text-gray-400">Affected:</span>
+            <span className="font-medium">3 records</span>
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+            Review
+          </button>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="text-sm text-gray-500">Unique Users</div>
-          <div className="text-2xl font-semibold">148</div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-          <div className="text-sm text-gray-500">Avg. Sessions/User</div>
-          <div className="text-2xl font-semibold">1.7</div>
+
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Duplicate Entries</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+              High
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Duplicate schedule entries for same date
+          </p>
+          <div className="flex justify-between text-sm mb-3">
+            <span className="text-gray-600 dark:text-gray-400">Affected:</span>
+            <span className="font-medium">2 records</span>
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+            Review
+          </button>
         </div>
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <div className="font-medium mb-2">Visits by Day (last 14 days)</div>
-        <div className="h-48 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-300 text-sm">
-          Chart placeholder
+    </div>
+  );
+}
+
+function ErrorsStub() {
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Error Reports</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Track and monitor system errors and exceptions.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Timestamp</TableHead>
+              <TableHead>Error Type</TableHead>
+              <TableHead>Message</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:32</TableCell>
+              <TableCell>API Error</TableCell>
+              <TableCell className="max-w-xs truncate">Failed to fetch schedule data</TableCell>
+              <TableCell>user@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  Unresolved
+                </span>
+              </TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm">
+                  Details
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:25</TableCell>
+              <TableCell>Validation</TableCell>
+              <TableCell className="max-w-xs truncate">Invalid phone number format</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Resolved
+                </span>
+              </TableCell>
+              <TableCell>
+                <button className="text-gray-400 cursor-not-allowed text-sm">
+                  Resolved
+                </button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">API Error</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+              Unresolved
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Failed to fetch schedule data
+          </p>
+          <div className="space-y-1 text-sm mb-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">User:</span>
+              <span className="font-medium">user@example.com</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Time:</span>
+              <span className="font-medium">2024-01-15 14:32</span>
+            </div>
+          </div>
+          <button className="w-full px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+            View Details
+          </button>
         </div>
-        <div className="mt-2 text-xs text-gray-500">
-          TODO: wire to a tiny line chart.
+      </div>
+    </div>
+  );
+}
+
+function AuditStub() {
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Audit Logs</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Track all administrative actions and system changes.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Timestamp</TableHead>
+              <TableHead>User</TableHead>
+              <TableHead>Action</TableHead>
+              <TableHead>Resource</TableHead>
+              <TableHead>Details</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:30</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  Update
+                </span>
+              </TableCell>
+              <TableCell>Provider: Dr. Smith</TableCell>
+              <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                Updated specialty
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:25</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Create
+                </span>
+              </TableCell>
+              <TableCell>Schedule Entry</TableCell>
+              <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                Added on-call schedule
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">2024-01-15 14:20</TableCell>
+              <TableCell>admin@example.com</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                  Delete
+                </span>
+              </TableCell>
+              <TableCell>Provider: Dr. Jones</TableCell>
+              <TableCell className="text-sm text-gray-600 dark:text-gray-400">
+                Removed provider
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Provider Updated</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              Update
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Dr. Smith - Updated specialty
+          </p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">User:</span>
+              <span className="font-medium">admin@example.com</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Time:</span>
+              <span className="font-medium">2024-01-15 14:30</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">Schedule Created</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              Create
+            </span>
+          </div>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+            Schedule Entry - Added on-call schedule
+          </p>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">User:</span>
+              <span className="font-medium">admin@example.com</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Time:</span>
+              <span className="font-medium">2024-01-15 14:25</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnnouncementsStub() {
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Announcements</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Manage system-wide announcements and notifications.
+      </p>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Created</TableHead>
+              <TableHead>Expires</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">System Maintenance</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  Info
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                  Active
+                </span>
+              </TableCell>
+              <TableCell>2024-01-15</TableCell>
+              <TableCell>2024-01-20</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm mr-2">
+                  Edit
+                </button>
+                <button className="text-red-600 hover:text-red-800 dark:text-red-400 text-sm">
+                  Delete
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              <TableCell className="font-medium">New Feature Release</TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                  Update
+                </span>
+              </TableCell>
+              <TableCell>
+                <span className="px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300">
+                  Scheduled
+                </span>
+              </TableCell>
+              <TableCell>2024-01-14</TableCell>
+              <TableCell>2024-01-21</TableCell>
+              <TableCell>
+                <button className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-sm mr-2">
+                  Edit
+                </button>
+                <button className="text-red-600 hover:text-red-800 dark:text-red-400 text-sm">
+                  Delete
+                </button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Mobile Cards */}
+      <div className="block md:hidden space-y-4">
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shadow-sm p-4">
+          <div className="flex items-start justify-between mb-3">
+            <div className="font-bold text-gray-900 dark:text-white">System Maintenance</div>
+            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              Active
+            </span>
+          </div>
+          <div className="mb-3">
+            <span className="px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+              Info
+            </span>
+          </div>
+          <div className="space-y-1 text-sm mb-3">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Created:</span>
+              <span className="font-medium">2024-01-15</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Expires:</span>
+              <span className="font-medium">2024-01-20</span>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button className="flex-1 px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm">
+              Edit
+            </button>
+            <button className="flex-1 px-3 py-2 rounded border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20 text-sm">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UsageStub() {
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchAnalytics() {
+      try {
+        setLoading(true);
+        const res = await fetch('/api/analytics/usage');
+        if (!res.ok) {
+          throw new Error('Failed to fetch analytics');
+        }
+        const data = await res.json();
+        setStats(data);
+      } catch (err: any) {
+        console.error('Failed to fetch analytics:', err);
+        setError(err.message || 'Failed to load analytics');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchAnalytics();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <h2 className="text-xl font-semibold mb-4">Usage Statistics</h2>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <p className="text-red-800 dark:text-red-300">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <h2 className="text-xl font-semibold mb-4">Usage Statistics</h2>
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+        Track page views and user engagement across the platform. Data from Vercel Analytics.
+      </p>
+
+      {/* Main Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">OnCall Page Views</div>
+          <div className="text-2xl font-bold mt-1">{stats?.oncall?.total || 0}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Last 7 days</div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Directory Page Views</div>
+          <div className="text-2xl font-bold mt-1">{stats?.directory?.total || 0}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Last 7 days</div>
+        </div>
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-600 dark:text-gray-400">Total Unique Users</div>
+          <div className="text-2xl font-bold mt-1">{stats?.uniqueUsers || 0}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Last 7 days</div>
+        </div>
+      </div>
+
+      {/* Detailed Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <h3 className="font-semibold mb-3">OnCall Page Analytics</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Total Views:</span>
+              <span className="font-medium">{stats?.oncall?.total || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Unique Users:</span>
+              <span className="font-medium">{stats?.oncall?.uniqueUsers || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Avg. Session Time:</span>
+              <span className="font-medium">{stats?.oncall?.avgSessionTime || 0}s</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <h3 className="font-semibold mb-3">Directory Page Analytics</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Total Views:</span>
+              <span className="font-medium">{stats?.directory?.total || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Unique Users:</span>
+              <span className="font-medium">{stats?.directory?.uniqueUsers || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600 dark:text-gray-400">Avg. Session Time:</span>
+              <span className="font-medium">{stats?.directory?.avgSessionTime || 0}s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Chart Placeholder */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <h3 className="font-semibold mb-3">Page Views Trend</h3>
+        <div className="h-48 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm">
+          Chart visualization - Coming soon
+        </div>
+        <div className="mt-3 text-xs text-gray-500 dark:text-gray-500">
+          View detailed analytics in your{" "}
+          <a
+            href="https://vercel.com/analytics"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            Vercel Dashboard
+          </a>
         </div>
       </div>
     </div>
