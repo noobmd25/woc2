@@ -1,3 +1,4 @@
+import { ROUTES } from "@/lib/routes";
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 
@@ -90,7 +91,7 @@ export async function GET(request: Request) {
         }
 
         // Fetch page stats
-        const pageViewsUrl = `${baseUrl}/stats/path?projectId=${projectId}&path=/oncall&path=/directory&path=/schedule&since=${since}&until=${until}${teamParam}`;
+        const pageViewsUrl = `${baseUrl}/stats/path?projectId=${projectId}&path=${ROUTES.ONCALL}&path=${ROUTES.DIRECTORY}&path=${ROUTES.SCHEDULE}&since=${since}&until=${until}${teamParam}`;
 
         const pageViewsResponse = await fetch(pageViewsUrl, {
             headers: {
@@ -117,9 +118,9 @@ export async function GET(request: Request) {
         const chartData = processTimeSeriesData(timeSeriesData.timeSeries, range);
 
         // Process page stats
-        const oncallData = pageViewsData.data?.find((d: any) => d.path === '/oncall') || {};
-        const directoryData = pageViewsData.data?.find((d: any) => d.path === '/directory') || {};
-        const scheduleData = pageViewsData.data?.find((d: any) => d.path === '/schedule') || {};
+        const oncallData = pageViewsData.data?.find((d: any) => d.path === ROUTES.ONCALL) || {};
+        const directoryData = pageViewsData.data?.find((d: any) => d.path === ROUTES.DIRECTORY) || {};
+        const scheduleData = pageViewsData.data?.find((d: any) => d.path === ROUTES.SCHEDULE) || {};
 
         const stats = {
             timeRange: {
@@ -183,11 +184,11 @@ function processTimeSeriesData(timeSeries: any[], range: TimeRange) {
         const path = point.path;
         const views = point.pageviews || point.count || 0;
 
-        if (path === '/oncall') {
+        if (path === ROUTES.ONCALL) {
             grouped[timestamp].oncall += views;
-        } else if (path === '/directory') {
+        } else if (path === ROUTES.DIRECTORY) {
             grouped[timestamp].directory += views;
-        } else if (path === '/schedule') {
+        } else if (path === ROUTES.SCHEDULE) {
             grouped[timestamp].schedule += views;
         }
         grouped[timestamp].total += views;
