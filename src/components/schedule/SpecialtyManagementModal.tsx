@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Edit2, Plus, Power, Save, Trash2, X } from "lucide-react";
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { useSpecialties } from "@/app/hooks/useSpecialties";
@@ -56,15 +56,7 @@ const SpecialtyManagementModal = memo(
             updateSpecialty,
             deleteSpecialty,
             toggleShowOnCall,
-            reloadSpecialties,
         } = useSpecialties();
-
-        // Load specialties when modal opens
-        useEffect(() => {
-            if (isOpen) {
-                reloadSpecialties();
-            }
-        }, [isOpen, reloadSpecialties]);
 
         const handleAddSpecialty = useCallback(
             async (e: React.FormEvent) => {

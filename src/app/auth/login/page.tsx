@@ -1,14 +1,13 @@
 "use client";
 
-import { getBrowserClient } from "@/lib/supabase/client";
+import { useAuthActions } from "@/app/hooks/useAuthActions";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { toast } from "sonner";
 
 export default function HomeClient() {
   const router = useRouter();
-  // const search = useSearchParams();
-  const [loading, setLoading] = useState(false);
+  const { login, isLoading } = useAuthActions();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -23,7 +22,6 @@ export default function HomeClient() {
 
   const handleLoginSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoading(true);
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
@@ -31,34 +29,15 @@ export default function HomeClient() {
 
     if (!email || !password) {
       toast.error("Please enter both email and password");
-      setLoading(false);
       return;
     }
 
-    const supabase = getBrowserClient();
-    if (!supabase) {
-      toast.error("Supabase client not available");
-      setLoading(false);
-      return;
-    }
+    const result = await login({ email, password });
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast.error(error.message);
-      } else {
-        toast.success("Signed in successfully");
-        router.push("/oncall");
-      }
-    } catch (error: any) {
-      toast.error("An unexpected error occurred");
-    } finally {
-      setLoading(false);
+    if (result.success) {
+      router.push("/oncall");
     }
+    // Error handling is done in the hook
   };
 
   return (
@@ -90,10 +69,10 @@ export default function HomeClient() {
           />
           <button
             type="submit"
-            disabled={loading}
+            disabled={isLoading}
             className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
           >
-            {loading ? "Signing in..." : "Sign In"}
+            {isLoading ? "Signing in..." : "Sign In"}
           </button>
         </form>
         <p className="text-sm mt-4 text-gray-600 dark:text-gray-400">

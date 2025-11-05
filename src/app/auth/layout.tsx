@@ -1,5 +1,4 @@
 import { Roboto_Mono } from "next/font/google";
-import { Toaster } from "sonner";
 
 const robotoMono = Roboto_Mono({
     variable: "--font-roboto-mono",
@@ -14,7 +13,6 @@ export default function LoginLayout({
     return (
         <div className={robotoMono.variable + " antialiased"}>
             {children}
-            <Toaster position="top-center" />
         </div>
     );
 }

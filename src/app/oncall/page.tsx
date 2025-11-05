@@ -11,7 +11,7 @@ import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { MEDICAL_GROUP, MedicalGroup, PLANS, SPECIALTIES } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 
 export default function OnCallPage() {
@@ -25,7 +25,6 @@ export default function OnCallPage() {
   // Fetch specialties
   const {
     specialties,
-    reloadSpecialties,
     loading: specialtyLoading
   } = useSpecialties();
 
@@ -64,12 +63,6 @@ export default function OnCallPage() {
 
   const showNoProviderMessage = useMemo(() => !onCallLoading && !providerData && debugInfo?.rows === 0, [onCallLoading, providerData, debugInfo]);
   const showPlanGuidance = useMemo(() => specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan, [specialty, plan]);
-
-  useEffect(() => {
-    // Reload specialties on mount
-    reloadSpecialties();
-  }, [reloadSpecialties]);
-
 
   if (specialtyLoading || isLoading) {
     return (
@@ -141,14 +134,12 @@ export default function OnCallPage() {
         ) : (
           <>
 
-            {providerData && (
-              <DateNavigation
-                currentDate={currentDate}
-                onPreviousDay={handlePrevDay}
-                onNextDay={handleNextDay}
-                onToday={handleToday}
-              />
-            )}
+            <DateNavigation
+              currentDate={currentDate}
+              onPreviousDay={handlePrevDay}
+              onNextDay={handleNextDay}
+              onToday={handleToday}
+            />
 
             {/* Provider Card */}
             {providerData && (

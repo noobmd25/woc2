@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { type Specialty } from "@/lib/types/specialty";
 
 export const useSpecialties = () => {
-  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [specialtyEditList, setSpecialtyEditList] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
@@ -26,11 +26,9 @@ export const useSpecialties = () => {
 
       const { data } = await response.json();
 
-      const activeNames = (data as Specialty[] | null)
-        ?.filter((s: Specialty) => s.showOncall)
-        .map((s: Specialty) => s.name ?? "")
-        .filter(Boolean) as string[];
-      setSpecialties(activeNames);
+      const activeSpecialties = (data as Specialty[] | null)
+        ?.filter((s: Specialty) => s.showOncall) as Specialty[];
+      setSpecialties(activeSpecialties || []);
       setSpecialtyEditList(
         (data ?? []).map((s: Specialty) => ({
           id: s.id as string,
@@ -45,6 +43,11 @@ export const useSpecialties = () => {
       setLoading(false);
     }
   }, []);
+
+  // Automatically load specialties on hook initialization
+  useEffect(() => {
+    reloadSpecialties();
+  }, [reloadSpecialties]);
 
   const addSpecialty = useCallback(
     async (name: string) => {
@@ -136,10 +139,10 @@ export const useSpecialties = () => {
           setSpecialties(prev => {
             const updated = specialtyEditList.find(s => s.id === id);
             if (!updated) return prev;
-            if (showOncall && !prev.includes(trimmedName)) {
-              return [...prev, trimmedName].sort();
-            } else if (!showOncall && prev.includes(updated.name)) {
-              return prev.filter(name => name !== updated.name);
+            if (showOncall && !prev.some(s => s.id === id)) {
+              return [...prev, { ...updated, name: trimmedName, showOncall: showOncall }].sort((a, b) => a.name.localeCompare(b.name));
+            } else if (!showOncall && prev.some(s => s.id === id)) {
+              return prev.filter(s => s.id !== id);
             }
             return prev;
           });
@@ -211,10 +214,10 @@ export const useSpecialties = () => {
             prev.map(s => s.id === id ? { ...s, showOncall: !currentValue } : s)
           );
           // Update active specialties list
-          if (!currentValue && !specialties.includes(specialty.name)) {
-            setSpecialties(prev => [...prev, specialty.name].sort());
+          if (!currentValue && !specialties.some(s => s.id === id)) {
+            setSpecialties(prev => [...prev, specialty].sort((a, b) => a.name.localeCompare(b.name)));
           } else if (currentValue) {
-            setSpecialties(prev => prev.filter(name => name !== specialty.name));
+            setSpecialties(prev => prev.filter(s => s.id !== id));
           }
         }
       } catch (error) {

@@ -1,46 +1,48 @@
 "use client";
 
+import { useAuthActions } from "@/app/hooks/useAuthActions";
+import { useSpecialties } from "@/app/hooks/useSpecialties";
 import SearchableSelect from "@/components/ui/SearchableSelect";
-import { getBrowserClient } from "@/lib/supabase/client";
+import { type SignupFormData, signupFormSchema } from "@/lib/validations/forms";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
-import { toast } from "react-hot-toast";
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
 export default function RequestPage() {
     // You can extract the signup form logic from HomeClient into a separate component
     // and use it here directly, or copy the relevant JSX and handlers.
-    const supabase = getBrowserClient();
     const router = useRouter();
 
     const [phoneInput, setPhoneInput] = useState("");
-    const [position, setPosition] = useState<"Resident" | "Attending" | "">("");
-    const [pgyYear, setPgyYear] = useState<string>("1");
     const [showPasswordFields, setShowPasswordFields] = useState(false);
-    const [specialties, setSpecialties] = useState<Array<{ id: string; name: string }>>([]);
-    const [loadingSpecialties, setLoadingSpecialties] = useState(true);
-    const [selectedSpecialty, setSelectedSpecialty] = useState("");
-    const [selectedAttendingSpecialty, setSelectedAttendingSpecialty] = useState("");
+    const { specialties, loading: loadingSpecialties } = useSpecialties();
+    const { signup, isLoading: isSigningUp } = useAuthActions();
 
-    // Fetch specialties from API
-    useEffect(() => {
-        async function fetchSpecialties() {
-            try {
-                const res = await fetch('/api/specialties');
-                if (!res.ok) {
-                    throw new Error('Failed to fetch specialties');
-                }
-                const { data } = await res.json();
-                setSpecialties(data || []);
-            } catch (err) {
-                console.error('Error fetching specialties:', err);
-                toast.error('Failed to load specialties');
-            } finally {
-                setLoadingSpecialties(false);
-            }
-        }
+    const {
+        register,
+        handleSubmit,
+        setValue,
+        control,
+        formState: { errors, isSubmitting },
+    } = useForm<SignupFormData>({
+        resolver: zodResolver(signupFormSchema),
+        defaultValues: {
+            full_name: "",
+            email: "",
+            phone: "",
+            position: undefined,
+            specialty_attending: "",
+            specialty_resident: "",
+            pgy_year: "1",
+            password: "",
+            confirm_password: "",
+        },
+    });
 
-        fetchSpecialties();
-    }, []);
+    const watchedPosition = useWatch({ control, name: "position" });
+    const watchedSpecialtyAttending = useWatch({ control, name: "specialty_attending" });
+    const watchedSpecialtyResident = useWatch({ control, name: "specialty_resident" });
 
     const formatPhone = (value: string) => {
         const digits = value.replace(/\D/g, "").slice(0, 10);
@@ -54,153 +56,57 @@ export default function RequestPage() {
         ].join("");
     };
 
-    const handleSignupSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const formData = new FormData(form);
+    const handleSignupSubmit = async (data: SignupFormData) => {
+        const result = await signup(data);
 
-        const full_name = String(formData.get("full_name") || "").trim();
-        const email = String(formData.get("email") || "").trim();
-        const phone = String(formData.get("phone") || "").trim();
-        const chosenPosition = String(
-            formData.get("position") || position || "",
-        ).trim();
-        const specialtyAttending = selectedAttendingSpecialty || String(
-            formData.get("specialty_attending") || "",
-        ).trim();
-        const specialtyResident = selectedSpecialty || String(
-            formData.get("specialty_resident") || "",
-        ).trim();
-        const pgy = String(formData.get("pgy_year") || pgyYear || "").trim();
-        const password = String(formData.get("password") || "");
-        const confirm = String(formData.get("confirm_password") || "");
-
-        if (!full_name || !email) {
-            toast.error("Name and email required");
-            return;
-        }
-        if (!chosenPosition) {
-            toast.error("Select a position");
-            return;
-        }
-
-        const provider_type = chosenPosition;
-        let department = "";
-        let year_of_training = "";
-        if (chosenPosition === "Attending") {
-            if (!specialtyAttending) {
-                toast.error("Service / department required");
-                return;
-            }
-            department = specialtyAttending;
-        } else if (chosenPosition === "Resident") {
-            if (!specialtyResident) {
-                toast.error("Residency specialty required");
-                return;
-            }
-            if (!pgy || !/^[1-7]$/.test(pgy)) {
-                toast.error("PGY year 1-7 required");
-                return;
-            }
-            department = specialtyResident;
-            year_of_training = `PGY-${pgy}`;
-        }
-
-        if (!password || password.length < 12) {
-            toast.error("Password min 12 chars");
-            return;
-        }
-        if (password !== confirm) {
-            toast.error("Passwords do not match");
-            return;
-        }
-        if (
-            !/[A-Z]/.test(password) ||
-            !/[a-z]/.test(password) ||
-            !/\d/.test(password)
-        ) {
-            toast.error("Need upper, lower, number");
-            return;
-        }
-
-        try {
-            const origin =
-                (typeof window !== "undefined" && window.location.origin) ||
-                process.env.NEXT_PUBLIC_SITE_URL ||
-                (process.env.VERCEL_URL
-                    ? `https://${process.env.VERCEL_URL}`
-                    : "http://localhost:3000");
-
-            const { error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    emailRedirectTo: `${origin}/auth/pending`,
-                    data: {
-                        full_name,
-                        department,
-                        provider_type,
-                        phone,
-                        year_of_training,
-                        requested_role: "viewer",
-                        status: "pending",
-                    },
-                },
-            });
-            if (signUpError) {
-                toast.error(signUpError.message || "Sign up failed");
-                try {
-                    await supabase.from("signup_errors").insert({
-                        email,
-                        error_text: signUpError.message || String(signUpError),
-                        context: { stage: "signup" },
-                    });
-                } catch { }
-                return;
-            }
-
-            // Provisioning of profile & role request handled by DB trigger (provision_profile)
-            toast.success("Account created. Check your email to confirm.");
+        if (result.success) {
             router.push("/auth/pending");
-        } catch (err: any) {
-            toast.error(err?.message || "Unexpected signup error");
-            try {
-                await supabase.from("signup_errors").insert({
-                    email,
-                    error_text: err?.message || String(err),
-                    context: { stage: "unexpected" },
-                });
-            } catch { }
         }
+        // Error handling is done in the hook
     };
     return (
         <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center bg-white text-black dark:bg-black dark:text-white transition-colors duration-300">
             <h1 className="text-4xl font-bold mb-4">Create Account</h1>
             <div>
-                <form className="space-y-4" onSubmit={handleSignupSubmit}>
-                    <input
-                        name="full_name"
-                        placeholder="Full Name (e.g., John Doe)"
-                        autoComplete="name"
-                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        onBlur={() => setShowPasswordFields(true)}
-                    />
-                    <input
-                        name="email"
-                        type="email"
-                        placeholder="Email (e.g., john.doe@example.com)"
-                        autoComplete="email"
-                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        onBlur={() => setShowPasswordFields(true)}
-                    />
-                    <input
-                        name="phone"
-                        placeholder="Phone Number (e.g., (787) 123-4567)"
-                        autoComplete="tel"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(formatPhone(e.target.value))}
-                        className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                    />
+                <form className="space-y-4" onSubmit={handleSubmit(handleSignupSubmit)}>
+                    <div>
+                        <input
+                            {...register("full_name")}
+                            placeholder="Full Name (e.g., John Doe)"
+                            autoComplete="name"
+                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            onBlur={() => setShowPasswordFields(true)}
+                        />
+                        {errors.full_name && <span className="text-xs text-red-500">{errors.full_name.message}</span>}
+                    </div>
+
+                    <div>
+                        <input
+                            {...register("email")}
+                            type="email"
+                            placeholder="Email (e.g., john.doe@example.com)"
+                            autoComplete="email"
+                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            onBlur={() => setShowPasswordFields(true)}
+                        />
+                        {errors.email && <span className="text-xs text-red-500">{errors.email.message}</span>}
+                    </div>
+
+                    <div>
+                        <input
+                            {...register("phone")}
+                            placeholder="Phone Number (e.g., (787) 123-4567)"
+                            autoComplete="tel"
+                            value={phoneInput}
+                            onChange={(e) => {
+                                const formatted = formatPhone(e.target.value);
+                                setPhoneInput(formatted);
+                                setValue("phone", formatted);
+                            }}
+                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        />
+                        {errors.phone && <span className="text-xs text-red-500">{errors.phone.message}</span>}
+                    </div>
                     <div className="flex flex-col text-left">
                         <label className="text-sm font-medium text-black dark:text-white mb-1">
                             Position
@@ -208,13 +114,12 @@ export default function RequestPage() {
                         <div className="flex space-x-4">
                             <label className="flex items-center space-x-2 text-black dark:text-white">
                                 <input
+                                    {...register("position")}
                                     type="radio"
-                                    name="position"
                                     value="Resident"
                                     className="accent-blue-600"
-                                    checked={position === "Resident"}
                                     onChange={() => {
-                                        setPosition("Resident");
+                                        setValue("position", "Resident");
                                         setShowPasswordFields(true);
                                     }}
                                 />
@@ -222,36 +127,38 @@ export default function RequestPage() {
                             </label>
                             <label className="flex items-center space-x-2 text-black dark:text-white">
                                 <input
+                                    {...register("position")}
                                     type="radio"
-                                    name="position"
                                     value="Attending"
                                     className="accent-blue-600"
-                                    checked={position === "Attending"}
                                     onChange={() => {
-                                        setPosition("Attending");
+                                        setValue("position", "Attending");
                                         setShowPasswordFields(true);
                                     }}
                                 />
                                 <span>Attending</span>
                             </label>
                         </div>
+                        {errors.position && <span className="text-xs text-red-500">{errors.position.message}</span>}
                     </div>
-                    {position === "Attending" && (
+                    {watchedPosition === "Attending" && (
                         <div className="flex flex-col text-left">
                             <label className="text-sm font-medium text-black dark:text-white mb-1">
                                 Service / Department
                             </label>
                             <SearchableSelect
                                 options={specialties}
-                                value={selectedAttendingSpecialty}
-                                onChange={setSelectedAttendingSpecialty}
+                                value={watchedSpecialtyAttending || ""}
+                                onChange={(value) => setValue("specialty_attending", value)}
                                 placeholder="Type to search departments..."
                                 loading={loadingSpecialties}
                                 name="specialty_attending"
                             />
+
+                            {errors.specialty_attending && <span className="text-xs text-red-500">{errors.specialty_attending.message}</span>}
                         </div>
                     )}
-                    {position === "Resident" && (
+                    {watchedPosition === "Resident" && (
                         <>
                             <div className="flex flex-col text-left">
                                 <label className="text-sm font-medium text-black dark:text-white mb-1">
@@ -259,12 +166,14 @@ export default function RequestPage() {
                                 </label>
                                 <SearchableSelect
                                     options={specialties}
-                                    value={selectedSpecialty}
-                                    onChange={setSelectedSpecialty}
+                                    value={watchedSpecialtyResident || ""}
+                                    onChange={(value) => setValue("specialty_resident", value)}
                                     placeholder="Type to search specialties..."
                                     loading={loadingSpecialties}
                                     name="specialty_resident"
                                 />
+
+                                {errors.specialty_resident && <span className="text-xs text-red-500">{errors.specialty_resident.message}</span>}
                             </div>
                             <div className="flex items-center space-x-3">
                                 <label className="text-sm font-medium text-black dark:text-white">
@@ -273,9 +182,7 @@ export default function RequestPage() {
                                 <div className="flex items-center space-x-2">
                                     <span className="text-black dark:text-white">PGY-</span>
                                     <select
-                                        name="pgy_year"
-                                        value={pgyYear}
-                                        onChange={(e) => setPgyYear(e.target.value)}
+                                        {...register("pgy_year")}
                                         className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                                     >
                                         {Array.from({ length: 7 }, (_, i) =>
@@ -287,25 +194,32 @@ export default function RequestPage() {
                                         ))}
                                     </select>
                                 </div>
+                                {errors.pgy_year && <span className="text-xs text-red-500">{errors.pgy_year.message}</span>}
                             </div>
                         </>
                     )}
                     {showPasswordFields && (
                         <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                            <input
-                                name="password"
-                                type="password"
-                                placeholder="Create Password (min 12 chars)"
-                                autoComplete="new-password"
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
-                            <input
-                                name="confirm_password"
-                                type="password"
-                                placeholder="Confirm Password"
-                                autoComplete="new-password"
-                                className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            />
+                            <div>
+                                <input
+                                    {...register("password")}
+                                    type="password"
+                                    placeholder="Create Password (min 12 chars)"
+                                    autoComplete="new-password"
+                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                                {errors.password && <span className="text-xs text-red-500">{errors.password.message}</span>}
+                            </div>
+                            <div>
+                                <input
+                                    {...register("confirm_password")}
+                                    type="password"
+                                    placeholder="Confirm Password"
+                                    autoComplete="new-password"
+                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                                {errors.confirm_password && <span className="text-xs text-red-500">{errors.confirm_password.message}</span>}
+                            </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                                 Password must include upper & lower case letters and a
                                 number. You cannot log in until an admin approves your
@@ -323,9 +237,10 @@ export default function RequestPage() {
                         </button>
                         <button
                             type="submit"
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                            disabled={isSubmitting || isSigningUp}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
                         >
-                            Create Account
+                            {isSigningUp ? "Creating Account..." : "Create Account"}
                         </button>
                     </div>
                 </form>

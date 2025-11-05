@@ -5,18 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PLANS } from "@/lib/constants";
+import { mmmProviderSchema } from "@/lib/validations/forms";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { z } from "zod";
-
-const providerSchema = z.object({
-    name: z.string().min(2, "Name required"),
-    medicalGroup: z.enum(PLANS.map(plan => plan.name) as [string, ...string[]], {
-        errorMap: () => ({ message: "Select a valid plan" })
-    }),
-});
 
 export default function MMMDialogForm({
     isOpen,
@@ -36,7 +29,7 @@ export default function MMMDialogForm({
         reset,
         control,
     } = useForm({
-        resolver: zodResolver(providerSchema),
+        resolver: zodResolver(mmmProviderSchema),
         defaultValues: { name: "", medicalGroup: "" },
     });
 

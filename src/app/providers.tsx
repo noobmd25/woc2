@@ -62,7 +62,7 @@ export function Providers({
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <AuthProvider initialUser={initialUser}>
         {/* Only one Toaster for your whole app */}
-        <Toaster position="top-center" />
+        <Toaster position="bottom-right" />
         <AuthGuard>{children}</AuthGuard>
       </AuthProvider>
     </ThemeProvider>
