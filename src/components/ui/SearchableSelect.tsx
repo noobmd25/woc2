@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 
 interface Option {
     id: string;
@@ -33,6 +33,7 @@ export default function SearchableSelect({
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+    const uniqueId = useId();
 
     // Update search term when value changes externally
     useEffect(() => {
@@ -97,10 +98,10 @@ export default function SearchableSelect({
     // Scroll highlighted item into view
     useEffect(() => {
         if (highlightedIndex >= 0 && isOpen) {
-            const element = document.getElementById(`option-${highlightedIndex}`);
+            const element = document.getElementById(`option-${uniqueId}-${highlightedIndex}`);
             element?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         }
-    }, [highlightedIndex, isOpen]);
+    }, [highlightedIndex, isOpen, uniqueId]);
 
     return (
         <div className={`relative ${className}`} ref={dropdownRef}>
@@ -129,11 +130,11 @@ export default function SearchableSelect({
                         filteredOptions.map((option, index) => (
                             <div
                                 key={option.id}
-                                id={`option-${index}`}
+                                id={`option-${uniqueId}-${index}`}
                                 onClick={() => handleSelect(option.name)}
                                 className={`p-2 cursor-pointer transition-colors ${index === highlightedIndex
-                                        ? 'bg-blue-100 dark:bg-blue-900'
-                                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    ? 'bg-blue-100 dark:bg-blue-900'
+                                    : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                                     } ${value === option.name
                                         ? 'font-semibold text-blue-600 dark:text-blue-400'
                                         : 'text-black dark:text-white'

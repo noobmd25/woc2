@@ -2,6 +2,7 @@
 
 import { useAuthActions } from "@/app/hooks/useAuthActions";
 import { useSpecialties } from "@/app/hooks/useSpecialties";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { type SignupFormData, signupFormSchema } from "@/lib/validations/forms";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -65,186 +66,314 @@ export default function RequestPage() {
         // Error handling is done in the hook
     };
     return (
-        <main className="flex flex-col items-center justify-center min-h-screen p-8 text-center bg-white text-black dark:bg-black dark:text-white transition-colors duration-300">
-            <h1 className="text-4xl font-bold mb-4">Create Account</h1>
-            <div>
-                <form className="space-y-4" onSubmit={handleSubmit(handleSignupSubmit)}>
-                    <div>
-                        <input
-                            {...register("full_name")}
-                            placeholder="Full Name (e.g., John Doe)"
-                            autoComplete="name"
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            onBlur={() => setShowPasswordFields(true)}
-                        />
-                        {errors.full_name && <span className="text-xs text-red-500">{errors.full_name.message}</span>}
-                    </div>
+        <div className="min-h-screen bg-white dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-2xl mx-auto">
+                <div className="text-center mb-8">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                        Create Account
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400">
+                        Join our medical team by filling out your information below
+                    </p>
+                </div>
 
-                    <div>
-                        <input
-                            {...register("email")}
-                            type="email"
-                            placeholder="Email (e.g., john.doe@example.com)"
-                            autoComplete="email"
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            onBlur={() => setShowPasswordFields(true)}
-                        />
-                        {errors.email && <span className="text-xs text-red-500">{errors.email.message}</span>}
-                    </div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8">
 
-                    <div>
-                        <input
-                            {...register("phone")}
-                            placeholder="Phone Number (e.g., (787) 123-4567)"
-                            autoComplete="tel"
-                            value={phoneInput}
-                            onChange={(e) => {
-                                const formatted = formatPhone(e.target.value);
-                                setPhoneInput(formatted);
-                                setValue("phone", formatted);
-                            }}
-                            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        />
-                        {errors.phone && <span className="text-xs text-red-500">{errors.phone.message}</span>}
-                    </div>
-                    <div className="flex flex-col text-left">
-                        <label className="text-sm font-medium text-black dark:text-white mb-1">
-                            Position
-                        </label>
-                        <div className="flex space-x-4">
-                            <label className="flex items-center space-x-2 text-black dark:text-white">
-                                <input
-                                    {...register("position")}
-                                    type="radio"
-                                    value="Resident"
-                                    className="accent-blue-600"
-                                    onChange={() => {
-                                        setValue("position", "Resident");
-                                        setShowPasswordFields(true);
-                                    }}
-                                />
-                                <span>Resident</span>
-                            </label>
-                            <label className="flex items-center space-x-2 text-black dark:text-white">
-                                <input
-                                    {...register("position")}
-                                    type="radio"
-                                    value="Attending"
-                                    className="accent-blue-600"
-                                    onChange={() => {
-                                        setValue("position", "Attending");
-                                        setShowPasswordFields(true);
-                                    }}
-                                />
-                                <span>Attending</span>
-                            </label>
-                        </div>
-                        {errors.position && <span className="text-xs text-red-500">{errors.position.message}</span>}
-                    </div>
-                    {watchedPosition === "Attending" && (
-                        <div className="flex flex-col text-left">
-                            <label className="text-sm font-medium text-black dark:text-white mb-1">
-                                Service / Department
-                            </label>
-                            <SearchableSelect
-                                options={specialties}
-                                value={watchedSpecialtyAttending || ""}
-                                onChange={(value) => setValue("specialty_attending", value)}
-                                placeholder="Type to search departments..."
-                                loading={loadingSpecialties}
-                                name="specialty_attending"
-                            />
+                    <form className="space-y-6" onSubmit={handleSubmit(handleSignupSubmit)}>
+                        {/* Personal Information Section */}
+                        <div className="space-y-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                Personal Information
+                            </h2>
 
-                            {errors.specialty_attending && <span className="text-xs text-red-500">{errors.specialty_attending.message}</span>}
-                        </div>
-                    )}
-                    {watchedPosition === "Resident" && (
-                        <>
-                            <div className="flex flex-col text-left">
-                                <label className="text-sm font-medium text-black dark:text-white mb-1">
-                                    Residency Specialty
-                                </label>
-                                <SearchableSelect
-                                    options={specialties}
-                                    value={watchedSpecialtyResident || ""}
-                                    onChange={(value) => setValue("specialty_resident", value)}
-                                    placeholder="Type to search specialties..."
-                                    loading={loadingSpecialties}
-                                    name="specialty_resident"
-                                />
-
-                                {errors.specialty_resident && <span className="text-xs text-red-500">{errors.specialty_resident.message}</span>}
-                            </div>
-                            <div className="flex items-center space-x-3">
-                                <label className="text-sm font-medium text-black dark:text-white">
-                                    Year of Training
-                                </label>
-                                <div className="flex items-center space-x-2">
-                                    <span className="text-black dark:text-white">PGY-</span>
-                                    <select
-                                        {...register("pgy_year")}
-                                        className="p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    >
-                                        {Array.from({ length: 7 }, (_, i) =>
-                                            String(i + 1),
-                                        ).map((yr) => (
-                                            <option key={yr} value={yr}>
-                                                {yr}
-                                            </option>
-                                        ))}
-                                    </select>
+                            <div className="grid grid-cols-1 gap-4">
+                                <div>
+                                    <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Full Name
+                                    </label>
+                                    <input
+                                        {...register("full_name")}
+                                        id="full_name"
+                                        placeholder="e.g., John Doe"
+                                        autoComplete="name"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        onBlur={() => setShowPasswordFields(true)}
+                                    />
+                                    {errors.full_name && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.full_name.message}
+                                        </p>
+                                    )}
                                 </div>
-                                {errors.pgy_year && <span className="text-xs text-red-500">{errors.pgy_year.message}</span>}
+
+                                <div>
+                                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Email Address
+                                    </label>
+                                    <input
+                                        {...register("email")}
+                                        id="email"
+                                        type="email"
+                                        placeholder="e.g., john.doe@example.com"
+                                        autoComplete="email"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        onBlur={() => setShowPasswordFields(true)}
+                                    />
+                                    {errors.email && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.email.message}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Phone Number
+                                    </label>
+                                    <input
+                                        {...register("phone")}
+                                        id="phone"
+                                        placeholder="e.g., (787) 123-4567"
+                                        autoComplete="tel"
+                                        value={phoneInput}
+                                        onChange={(e) => {
+                                            const formatted = formatPhone(e.target.value);
+                                            setPhoneInput(formatted);
+                                            setValue("phone", formatted);
+                                        }}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                    />
+                                    {errors.phone && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.phone.message}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </>
-                    )}
-                    {showPasswordFields && (
-                        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                            <div>
-                                <input
-                                    {...register("password")}
-                                    type="password"
-                                    placeholder="Create Password (min 12 chars)"
-                                    autoComplete="new-password"
-                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                {errors.password && <span className="text-xs text-red-500">{errors.password.message}</span>}
-                            </div>
-                            <div>
-                                <input
-                                    {...register("confirm_password")}
-                                    type="password"
-                                    placeholder="Confirm Password"
-                                    autoComplete="new-password"
-                                    className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                />
-                                {errors.confirm_password && <span className="text-xs text-red-500">{errors.confirm_password.message}</span>}
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                Password must include upper & lower case letters and a
-                                number. You cannot log in until an admin approves your
-                                account.
-                            </p>
                         </div>
-                    )}
-                    <div className="flex justify-end space-x-2">
-                        <button
-                            type="button"
-                            onClick={() => router.push("/auth/login")}
-                            className="px-4 py-2 bg-gray-300 hover:bg-gray-400 rounded text-black dark:bg-gray-600 dark:hover:bg-gray-500 dark:text-white"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSubmitting || isSigningUp}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50"
-                        >
-                            {isSigningUp ? "Creating Account..." : "Create Account"}
-                        </button>
-                    </div>
-                </form>
+
+                        {/* Position Section */}
+                        <div className="space-y-4">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                Position
+                            </h2>
+
+                            <div>
+                                <fieldset className="space-y-3">
+                                    <legend className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Select your position
+                                    </legend>
+                                    <RadioGroup
+                                        value={watchedPosition || ""}
+                                        onValueChange={(value) => {
+                                            setValue("position", value as "Resident" | "Attending");
+                                            setShowPasswordFields(true);
+                                        }}
+                                        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+                                    >
+                                        <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-blue-400">
+                                            <RadioGroupItem value="Resident" className="mt-0.5" />
+                                            <span className="ml-3 flex flex-1">
+                                                <span className="flex flex-col">
+                                                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                                                        Resident
+                                                    </span>
+                                                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                                                        Medical resident in training
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </label>
+
+                                        <label className="relative flex cursor-pointer rounded-lg border border-gray-300 bg-white p-4 shadow-sm focus:outline-none hover:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-blue-400">
+                                            <RadioGroupItem value="Attending" className="mt-0.5" />
+                                            <span className="ml-3 flex flex-1">
+                                                <span className="flex flex-col">
+                                                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                                                        Attending
+                                                    </span>
+                                                    <span className="block text-sm text-gray-500 dark:text-gray-400">
+                                                        Attending physician
+                                                    </span>
+                                                </span>
+                                            </span>
+                                        </label>
+                                    </RadioGroup>
+                                    {errors.position && (
+                                        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                                            {errors.position.message}
+                                        </p>
+                                    )}
+                                </fieldset>
+                            </div>
+                        </div>
+
+                        {/* Specialty Section */}
+                        {watchedPosition === "Attending" && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Department Information
+                                </h2>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                        Service / Department
+                                    </label>
+                                    <SearchableSelect
+                                        options={specialties}
+                                        value={watchedSpecialtyAttending || ""}
+                                        onChange={(value) => setValue("specialty_attending", value)}
+                                        placeholder="Type to search departments..."
+                                        loading={loadingSpecialties}
+                                        name="specialty_attending"
+                                    />
+                                    {errors.specialty_attending && (
+                                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                            {errors.specialty_attending.message}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {watchedPosition === "Resident" && (
+                            <div className="space-y-4">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-700 pb-2">
+                                    Residency Information
+                                </h2>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Residency Specialty
+                                        </label>
+                                        <SearchableSelect
+                                            options={specialties}
+                                            value={watchedSpecialtyResident || ""}
+                                            onChange={(value) => setValue("specialty_resident", value)}
+                                            placeholder="Type to search specialties..."
+                                            loading={loadingSpecialties}
+                                            name="specialty_resident"
+                                        />
+                                        {errors.specialty_resident && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.specialty_resident.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="pgy_year" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Year of Training
+                                        </label>
+                                        <div className="flex items-center">
+                                            <span className="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm rounded-l-md dark:bg-gray-600 dark:border-gray-600 dark:text-gray-300">
+                                                PGY-
+                                            </span>
+                                            <select
+                                                {...register("pgy_year")}
+                                                id="pgy_year"
+                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-r-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                            >
+                                                {Array.from({ length: 7 }, (_, i) =>
+                                                    String(i + 1),
+                                                ).map((yr) => (
+                                                    <option key={yr} value={yr}>
+                                                        {yr}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        {errors.pgy_year && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.pgy_year.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Password Section */}
+                        {showPasswordFields && (
+                            <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-6">
+                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    Account Security
+                                </h2>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Password
+                                        </label>
+                                        <input
+                                            {...register("password")}
+                                            id="password"
+                                            type="password"
+                                            placeholder="Create password"
+                                            autoComplete="new-password"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        />
+                                        {errors.password && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.password.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Confirm Password
+                                        </label>
+                                        <input
+                                            {...register("confirm_password")}
+                                            id="confirm_password"
+                                            type="password"
+                                            placeholder="Confirm password"
+                                            autoComplete="new-password"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:focus:ring-blue-400"
+                                        />
+                                        {errors.confirm_password && (
+                                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                                {errors.confirm_password.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 p-4">
+                                    <div className="flex">
+                                        <div className="ml-3">
+                                            <p className="text-sm text-blue-700 dark:text-blue-300">
+                                                <strong>Password Requirements:</strong> Must include upper & lower case letters and a number.
+                                                You cannot log in until an admin approves your account.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Form Actions */}
+                        <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <button
+                                type="button"
+                                onClick={() => router.push("/auth/login")}
+                                className="px-6 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || isSigningUp}
+                                className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSigningUp ? "Creating Account..." : "Create Account"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </main>
+        </div>
     );
 }

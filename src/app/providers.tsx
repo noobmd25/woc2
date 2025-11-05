@@ -32,12 +32,13 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // If unauthenticated user hits a protected page, send them to login
     if (isProtectedPath(pathname) && !user) {
-      toast.error("Please sign in");
+      // toast.error("Please sign in");
       router.push("/auth/login");
       return;
     }
 
     // If user has a profile status that shouldn’t access the site
+    // TODO: fix this, the status to check is the requested_role status, not profile status.
     if (isProtectedPath(pathname) && user) {
       const status = user.profile?.status;
       const allowedStatus = ["approved", "active"];
