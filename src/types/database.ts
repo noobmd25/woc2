@@ -27,28 +27,6 @@ export interface Database {
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
       };
-      role_requests: {
-        Row: {
-          id: string;
-          user_id: string | null;
-          email: string;
-          provider_type: string | null;
-          requested_role: "viewer" | "scheduler" | "admin";
-          justification: string | null;
-          metadata: Json | null;
-          status: "pending" | "approved" | "denied" | "withdrawn";
-          decided_by: string | null;
-          decided_at: string | null;
-          decision_reason: string | null;
-          source: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Partial<
-          Database["public"]["Tables"]["role_requests"]["Row"]
-        > & { id?: string };
-        Update: Partial<Database["public"]["Tables"]["role_requests"]["Row"]>;
-      };
       specialties: {
         // Updated to include id (uuid) which is referenced in code
         Row: { id: string; name: string; show_oncall: boolean };
@@ -121,17 +99,7 @@ export interface Database {
       };
     };
     Views: {};
-    Functions: {
-      approve_role_request: {
-        Args: {
-          p_request_id: string;
-          p_decider: string;
-          p_role: "viewer" | "scheduler" | "admin";
-          p_reason: string | null;
-        };
-        Returns: undefined;
-      };
-    };
+    Functions: {};
     Enums: {};
     CompositeTypes: {};
   };
