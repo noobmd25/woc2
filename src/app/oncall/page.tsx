@@ -8,6 +8,7 @@ import DateNavigation from "@/components/oncall/DateNavigation";
 import DebugInfo from "@/components/oncall/DebugInfo";
 import ProviderCard from "@/components/oncall/ProviderCard";
 import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
+import OnCallTutorial from "@/components/tutorial/OnCallTutorial";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { usePageAnalytics } from "@/hooks/usePageAnalytics";
 import {
@@ -17,14 +18,7 @@ import {
 	SPECIALTIES,
 } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-// Dynamically import the tutorial component
-const OnCallTutorial = dynamic(
-	() => import("@/components/tutorial/OnCallTutorial"),
-	{ ssr: false }
-);
 
 export default function OnCallPage() {
 	const { user, isLoading } = useAuth();

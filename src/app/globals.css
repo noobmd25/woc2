@@ -600,75 +600,149 @@ body {
 	}
 }
 
-/* Driver.js Custom Styles for Dark Mode Support */
+/* Driver.js Custom Styles - Modern App Design */
 .driver-popover {
 	@apply bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100;
-	border-radius: 12px !important;
+	border-radius: 0.75rem !important;
+	border: 1px solid theme("colors.gray.200") !important;
 	box-shadow:
-		0 10px 25px rgba(0, 0, 0, 0.15),
-		0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+		0 10px 25px -5px rgba(0, 0, 0, 0.1),
+		0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+	max-width: 400px !important;
+	padding: 0 !important;
 }
 
 .dark .driver-popover {
+	border-color: theme("colors.gray.700") !important;
 	box-shadow:
-		0 10px 25px rgba(0, 0, 0, 0.4),
-		0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+		0 10px 25px -5px rgba(0, 0, 0, 0.5),
+		0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
 }
 
 .driver-popover-title {
-	@apply text-gray-900 dark:text-white font-bold text-lg;
+	@apply text-gray-900 dark:text-white font-semibold text-lg px-6 pt-6 pb-2;
 }
 
 .driver-popover-description {
-	@apply text-gray-700 dark:text-gray-300;
+	@apply text-gray-700 dark:text-gray-300 px-6 pb-4;
 	line-height: 1.6 !important;
 }
 
 .driver-popover-description p {
-	@apply text-gray-700 dark:text-gray-300;
+	@apply text-gray-700 dark:text-gray-300 mb-0;
 }
 
 .driver-popover-description strong {
-	@apply text-gray-900 dark:text-white;
+	@apply text-gray-900 dark:text-white font-semibold;
 }
 
-.driver-popover-footer {
-	@apply border-t border-gray-200 dark:border-gray-700;
+/* List styling inside description */
+.driver-popover-description ul {
+	@apply list-none pl-0 space-y-1;
 }
 
-.driver-popover-progress-text {
+.driver-popover-description li {
 	@apply text-gray-600 dark:text-gray-400;
 }
 
-.driver-popover-btn {
-	@apply bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors;
+.driver-popover-footer {
+	@apply border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between gap-3 bg-gray-50 dark:bg-gray-900/50;
+	border-radius: 0 0 0.75rem 0.75rem !important;
 }
 
-.driver-popover-btn-disabled {
-	@apply opacity-50 cursor-not-allowed;
+.driver-popover-progress-text {
+	@apply text-sm text-gray-600 dark:text-gray-400 font-medium;
 }
 
+/* Close button - styled like app's icon buttons */
 .driver-popover-close-btn {
-	@apply text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200;
+	@apply absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200;
+	font-size: 1.5rem !important;
+	line-height: 1 !important;
+	opacity: 0.8;
 }
 
+.driver-popover-close-btn:hover {
+	opacity: 1;
+	@apply rounded-md;
+}
+
+/* Navigation buttons container */
 .driver-popover-navigation-btns {
-	@apply flex gap-2;
+	@apply flex items-center gap-2;
+}
+
+/* Button base styles - matching shadcn/ui button component */
+.driver-popover-btn {
+	@apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all h-9 px-4 py-2;
+	outline: none !important;
 }
 
 .driver-popover-prev-btn,
 .driver-popover-next-btn {
-	@apply bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium transition-colors;
+	@apply bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm rounded-md;
 }
 
-.driver-active-element {
-	@apply rounded-lg;
+/* Previous button - secondary style */
+.driver-popover-prev-btn {
+	@apply bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-gray-300 dark:border-gray-600 rounded-md;
 }
 
+/* Disabled state */
+.driver-popover-btn-disabled,
+.driver-popover-prev-btn:disabled,
+.driver-popover-next-btn:disabled {
+	@apply opacity-50 cursor-not-allowed pointer-events-none;
+}
+
+/* Active/Focus states */
+.driver-popover-prev-btn:focus-visible,
+.driver-popover-next-btn:focus-visible {
+	@apply ring-2 ring-ring ring-offset-2;
+}
+
+/* Overlay styling */
 .driver-overlay {
-	@apply bg-black/50;
+	@apply bg-black/10;
 }
 
 .dark .driver-overlay {
-	@apply bg-black/75;
+	@apply bg-black/80;
+}
+
+/* Arrow styling */
+.driver-popover-arrow {
+	@apply border-gray-200 dark:border-gray-700;
+}
+
+.driver-popover-arrow-side-top.driver-popover-arrow {
+	border-bottom-color: theme("colors.white") !important;
+}
+
+.dark .driver-popover-arrow-side-top.driver-popover-arrow {
+	border-bottom-color: theme("colors.gray.800") !important;
+}
+
+.driver-popover-arrow-side-bottom.driver-popover-arrow {
+	border-top-color: theme("colors.white") !important;
+}
+
+.dark .driver-popover-arrow-side-bottom.driver-popover-arrow {
+	border-top-color: theme("colors.gray.800") !important;
+}
+
+.driver-popover-arrow-side-left.driver-popover-arrow {
+	border-right-color: theme("colors.white") !important;
+}
+
+.dark .driver-popover-arrow-side-left.driver-popover-arrow {
+	border-right-color: theme("colors.gray.800") !important;
+}
+
+.driver-popover-arrow-side-right.driver-popover-arrow {
+	border-left-color: theme("colors.white") !important;
+}
+
+.dark .driver-popover-arrow-side-right.driver-popover-arrow {
+	border-left-color: theme("colors.gray.800") !important;
 }
