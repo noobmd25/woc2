@@ -3,16 +3,11 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { vitalProviderSchema } from "@/lib/validations/forms";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-
-const providerSchema = z.object({
-    name: z.string().min(2, "Name required"),
-    medicalGroup: z.string().min(2, "Group Code required")
-});
 
 export default function VitalDialogForm({
     isOpen,
@@ -31,7 +26,7 @@ export default function VitalDialogForm({
         formState: { errors, isSubmitting },
         reset,
     } = useForm({
-        resolver: zodResolver(providerSchema),
+        resolver: zodResolver(vitalProviderSchema),
         defaultValues: { name: "", medicalGroup: "" },
     });
 

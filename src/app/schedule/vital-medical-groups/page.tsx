@@ -2,6 +2,7 @@
 
 import { type VitalMedicalGroup, useMedicalGroup } from "@/app/hooks/useMedicalGroup";
 import DialogForm from "@/components/medical-groups/VitalDialogForm";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,8 @@ export default function VitalGroupsTab() {
   const [editId, setEditId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogDefaultValues, setDialogDefaultValues] = useState<{ name: string; medicalGroup: string } | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<{ id: number; name: string } | null>(null);
 
   // Sorting
   const sorted = [...results].sort((a, b) => {
@@ -69,10 +72,24 @@ export default function VitalGroupsTab() {
   };
 
   // Delete provider
-  const handleDelete = async (id: number) => {
-    const ok = await deleteGroup(id);
+  // Delete provider with confirmation dialog
+  const handleDelete = (id: number, name: string) => {
+    setGroupToDelete({ id, name });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!groupToDelete) return;
+    const ok = await deleteGroup(groupToDelete.id);
     if (ok) toast.success("Provider deleted");
     else toast.error("Error deleting provider");
+    setDeleteDialogOpen(false);
+    setGroupToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setGroupToDelete(null);
   };
 
   // Edit provider
@@ -227,7 +244,7 @@ export default function VitalGroupsTab() {
                         <Button
                           variant="destructive"
                           size="icon"
-                          onClick={() => handleDelete(r.id)}
+                          onClick={() => handleDelete(r.id, r.vitalGroupName)}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -269,7 +286,7 @@ export default function VitalGroupsTab() {
                     <Button size="sm" onClick={handleEdit(r.id)}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id)}>
+                    <Button size="sm" variant="destructive" onClick={() => handleDelete(r.id, r.vitalGroupName)}>
                       Delete
                     </Button>
                   </div>
@@ -312,6 +329,24 @@ export default function VitalGroupsTab() {
         onSubmit={dialogDefaultValues ? handleUpdate : handleAdd}
         defaultValues={dialogDefaultValues || undefined}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Medical Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <span className="font-semibold">"{groupToDelete?.name}"</span>?
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import "./globals.css";
 
 import Header from "@/components/Header";
 import { getUserAndProfile } from "@/lib/access";
+import { Analytics } from "@vercel/analytics/react";
 import { Providers } from "./providers"; // client wrapper
 
 const robotoMono = Roboto_Mono({
@@ -111,6 +112,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Header />
           <main className="min-h-screen">{children}</main>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );

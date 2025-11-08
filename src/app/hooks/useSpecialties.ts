@@ -1,241 +1,376 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { type Specialty } from "@/lib/types/specialty";
 
-export const useSpecialties = () => {
-  const [specialties, setSpecialties] = useState<string[]>([]);
-  const [specialtyEditList, setSpecialtyEditList] = useState<Specialty[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+export function useSpecialties(
+	initialPage = 1,
+	initialPageSize = 10,
+	initialSearch = "",
+	initialShowOnCall?: boolean
+) {
+	const [specialties, setSpecialties] = useState<Specialty[]>([]);
+	const [loading, setLoading] = useState(false);
+	const [actionLoading, setActionLoading] = useState<{
+		[key: string]: boolean;
+	}>({});
+	const [page, setPage] = useState(initialPage);
+	const [pageSize, setPageSize] = useState(initialPageSize);
+	const [total, setTotal] = useState(0);
+	const [search, setSearch] = useState(initialSearch);
+	const [debouncedSearch, setDebouncedSearch] = useState(initialSearch);
 
-  const reloadSpecialties = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/specialties');
+	// Debounce search
+	useEffect(() => {
+		const handler = setTimeout(() => {
+			setDebouncedSearch(search);
+		}, 350);
+		return () => clearTimeout(handler);
+	}, [search]);
 
-      if (!response.ok) {
-        console.error("Error fetching specialties:", response.statusText);
-        setSpecialties([]);
-        setSpecialtyEditList([]);
-        toast.error("Failed to load specialties");
-        return;
-      }
+	const fetchSpecialties = useCallback(async () => {
+		setLoading(true);
+		try {
+			const queryParams = new URLSearchParams({
+				page: String(page),
+				pageSize: String(pageSize),
+			});
+			if (debouncedSearch) queryParams.append("search", debouncedSearch);
+			if (initialShowOnCall !== undefined)
+				queryParams.append("showOncall", initialShowOnCall.toString());
 
-      const { data } = await response.json();
+			const url = `/api/specialties?${queryParams.toString()}`;
+			const response = await fetch(url);
 
-      const activeNames = (data as Specialty[] | null)
-        ?.filter((s: Specialty) => s.showOncall)
-        .map((s: Specialty) => s.name ?? "")
-        .filter(Boolean) as string[];
-      setSpecialties(activeNames);
-      setSpecialtyEditList(
-        (data ?? []).map((s: Specialty) => ({
-          id: s.id as string,
-          name: (s.name ?? "") as string,
-          showOncall: s.showOncall,
-        })),
-      );
-    } catch (error) {
-      console.error("Error in reloadSpecialties:", error);
-      toast.error("Failed to load specialties");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+			if (!response.ok) {
+				console.error(
+					"Error fetching specialties:",
+					response.statusText
+				);
+				setSpecialties([]);
+				setTotal(0);
+				toast.error("Failed to load specialties");
+				return;
+			}
 
-  const addSpecialty = useCallback(
-    async (name: string) => {
-      const trimmedName = name.trim();
-      if (!trimmedName) return false;
+			const { data, total: totalCount } = await response.json();
+			setSpecialties((data as Specialty[]) || []);
+			setTotal(totalCount || 0);
+		} catch (error) {
+			console.error("Error in fetchSpecialties:", error);
+			toast.error("Failed to load specialties");
+			setSpecialties([]);
+			setTotal(0);
+		} finally {
+			setLoading(false);
+		}
+	}, [page, pageSize, debouncedSearch, initialShowOnCall]);
 
-      // Check for duplicates in current list
-      const duplicate = specialtyEditList.some(
-        (s) => s.name.toLowerCase() === trimmedName.toLowerCase()
-      );
-      if (duplicate) {
-        toast.error("Specialty already exists.");
-        return false;
-      }
+	// Automatically load specialties on hook initialization and when dependencies change
+	useEffect(() => {
+		fetchSpecialties();
+	}, [fetchSpecialties]);
 
-      setActionLoading(prev => ({ ...prev, add: true }));
-      try {
-        const response = await fetch('/api/specialties', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: trimmedName, showOncall: true }),
-        });
+	const addSpecialty = useCallback(
+		async (
+			name: string,
+			showOnCall: boolean = true,
+			hasResidency: boolean = false
+		) => {
+			const trimmedName = name.trim();
+			if (!trimmedName) return false;
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Failed to add specialty:", errorData.error);
-          toast.error("Failed to add specialty.");
-          return false;
-        }
+			// Check for duplicates in current list
+			const duplicate = specialties.some(
+				(s) => s.name.toLowerCase() === trimmedName.toLowerCase()
+			);
+			if (duplicate) {
+				toast.error("Specialty already exists.");
+				return false;
+			}
 
-        toast.success("Specialty added.");
-        await reloadSpecialties();
-        return true;
-      } catch (error) {
-        console.error("Error in addSpecialty:", error);
-        toast.error("Failed to add specialty.");
-        return false;
-      } finally {
-        setActionLoading(prev => ({ ...prev, add: false }));
-      }
-    },
-    [specialtyEditList, reloadSpecialties],
-  );
+			setActionLoading((prev) => ({ ...prev, add: true }));
+			try {
+				const response = await fetch("/api/specialties", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						name: trimmedName,
+						showOncall: showOnCall,
+						hasResidency,
+					}),
+				});
 
-  const updateSpecialty = useCallback(
-    async (id: string, newName: string, showOncall?: boolean) => {
-      const trimmedName = newName.trim();
-      if (!trimmedName) {
-        toast.error("Name cannot be empty.");
-        return false;
-      }
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error("Failed to add specialty:", errorData.error);
+					toast.error("Failed to add specialty.");
+					return false;
+				}
 
-      const duplicate = specialtyEditList.some(
-        (s) =>
-          s.id !== id && s.name.toLowerCase() === trimmedName.toLowerCase(),
-      );
-      if (duplicate) {
-        toast.error("A specialty with this name already exists.");
-        return false;
-      }
+				toast.success("Specialty added.");
+				await fetchSpecialties();
+				return true;
+			} catch (error) {
+				console.error("Error in addSpecialty:", error);
+				toast.error("Failed to add specialty.");
+				return false;
+			} finally {
+				setActionLoading((prev) => ({ ...prev, add: false }));
+			}
+		},
+		[specialties, fetchSpecialties]
+	);
 
-      setActionLoading(prev => ({ ...prev, [id]: true }));
-      try {
-        const updates: any = { id, name: trimmedName };
-        if (showOncall !== undefined) {
-          updates.showOncall = showOncall;
-        }
+	const updateSpecialty = useCallback(
+		async (
+			id: string,
+			newName: string,
+			showOncall?: boolean,
+			hasResidency?: boolean
+		) => {
+			const trimmedName = newName.trim();
+			if (!trimmedName) {
+				toast.error("Name cannot be empty.");
+				return false;
+			}
 
-        const response = await fetch('/api/specialties', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updates),
-        });
+			const duplicate = specialties.some(
+				(s) =>
+					s.id !== id &&
+					s.name.toLowerCase() === trimmedName.toLowerCase()
+			);
+			if (duplicate) {
+				toast.error("A specialty with this name already exists.");
+				return false;
+			}
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Failed to update specialty:", errorData.error);
-          toast.error("Failed to update specialty.");
-          return false;
-        }
+			setActionLoading((prev) => ({ ...prev, [id]: true }));
+			try {
+				const updates: any = { id, name: trimmedName };
+				if (showOncall !== undefined) {
+					updates.showOncall = showOncall;
+				}
+				if (hasResidency !== undefined) {
+					updates.hasResidency = hasResidency;
+				}
 
-        toast.success("Specialty updated.");
-        // Optimistically update local state instead of reloading
-        setSpecialtyEditList(prev =>
-          prev.map(s => s.id === id ? { ...s, name: trimmedName, ...(showOncall !== undefined && { showOncall: showOncall }) } : s)
-        );
-        // Update active specialties list if showOncall changed
-        if (showOncall !== undefined) {
-          setSpecialties(prev => {
-            const updated = specialtyEditList.find(s => s.id === id);
-            if (!updated) return prev;
-            if (showOncall && !prev.includes(trimmedName)) {
-              return [...prev, trimmedName].sort();
-            } else if (!showOncall && prev.includes(updated.name)) {
-              return prev.filter(name => name !== updated.name);
-            }
-            return prev;
-          });
-        }
-        return true;
-      } catch (error) {
-        console.error("Error in updateSpecialty:", error);
-        toast.error("Failed to update specialty.");
-        return false;
-      } finally {
-        setActionLoading(prev => ({ ...prev, [id]: false }));
-      }
-    },
-    [specialtyEditList],
-  );
+				const response = await fetch("/api/specialties", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(updates),
+				});
 
-  const deleteSpecialty = useCallback(
-    async (id: string) => {
-      setActionLoading(prev => ({ ...prev, [`delete-${id}`]: true }));
-      try {
-        const response = await fetch(`/api/specialties?id=${id}`, {
-          method: 'DELETE',
-        });
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error(
+						"Failed to update specialty:",
+						errorData.error
+					);
+					toast.error("Failed to update specialty.");
+					return false;
+				}
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Failed to delete specialty:", errorData.error);
-          toast.error("Failed to delete specialty.");
-          return false;
-        }
+				toast.success("Specialty updated.");
+				// Optimistically update local state instead of reloading
+				setSpecialties((prev) =>
+					prev.map((s) =>
+						s.id === id
+							? {
+									...s,
+									name: trimmedName,
+									...(showOncall !== undefined && {
+										showOncall: showOncall,
+									}),
+									...(hasResidency !== undefined && {
+										hasResidency: hasResidency,
+									}),
+								}
+							: s
+					)
+				);
+				// Update active specialties list if showOncall changed
+				if (showOncall !== undefined) {
+					setSpecialties((prev) => {
+						const updated = specialties.find((s) => s.id === id);
+						if (!updated) return prev;
+						if (showOncall && !prev.some((s) => s.id === id)) {
+							return [
+								...prev,
+								{
+									...updated,
+									name: trimmedName,
+									showOncall: showOncall,
+								},
+							].sort((a, b) => a.name.localeCompare(b.name));
+						} else if (
+							!showOncall &&
+							prev.some((s) => s.id === id)
+						) {
+							return prev.filter((s) => s.id !== id);
+						}
+						return prev;
+					});
+				}
+				return true;
+			} catch (error) {
+				console.error("Error in updateSpecialty:", error);
+				toast.error("Failed to update specialty.");
+				return false;
+			} finally {
+				setActionLoading((prev) => ({ ...prev, [id]: false }));
+			}
+		},
+		[specialties]
+	);
 
-        toast.success("Specialty deleted.");
-        await reloadSpecialties();
-        return true;
-      } catch (error) {
-        console.error("Error in deleteSpecialty:", error);
-        toast.error("Failed to delete specialty.");
-        return false;
-      } finally {
-        setActionLoading(prev => ({ ...prev, [`delete-${id}`]: false }));
-      }
-    },
-    [reloadSpecialties],
-  );
+	const deleteSpecialty = useCallback(
+		async (id: string) => {
+			setActionLoading((prev) => ({ ...prev, [`delete-${id}`]: true }));
+			try {
+				const response = await fetch(`/api/specialties?id=${id}`, {
+					method: "DELETE",
+				});
 
-  // Toggle showOncall
-  const toggleShowOnCall = useCallback(
-    async (id: string, currentValue: boolean) => {
-      setActionLoading(prev => ({ ...prev, [`toggle-${id}`]: true }));
-      try {
-        const response = await fetch('/api/specialties', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, showOncall: !currentValue }),
-        });
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error(
+						"Failed to delete specialty:",
+						errorData.error
+					);
+					toast.error("Failed to delete specialty.");
+					return false;
+				}
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Failed to toggle showOncall:", errorData.error);
-          toast.error("Failed to update specialty.");
-          return;
-        }
+				toast.success("Specialty deleted.");
+				await fetchSpecialties();
+				return true;
+			} catch (error) {
+				console.error("Error in deleteSpecialty:", error);
+				toast.error("Failed to delete specialty.");
+				return false;
+			} finally {
+				setActionLoading((prev) => ({
+					...prev,
+					[`delete-${id}`]: false,
+				}));
+			}
+		},
+		[fetchSpecialties]
+	);
 
-        toast.success("Specialty updated.");
-        // Optimistically update local state
-        const specialty = specialtyEditList.find(s => s.id === id);
-        if (specialty) {
-          setSpecialtyEditList(prev =>
-            prev.map(s => s.id === id ? { ...s, showOncall: !currentValue } : s)
-          );
-          // Update active specialties list
-          if (!currentValue && !specialties.includes(specialty.name)) {
-            setSpecialties(prev => [...prev, specialty.name].sort());
-          } else if (currentValue) {
-            setSpecialties(prev => prev.filter(name => name !== specialty.name));
-          }
-        }
-      } catch (error) {
-        console.error("Error in toggleShowOnCall:", error);
-        toast.error("Failed to update specialty.");
-      } finally {
-        setActionLoading(prev => ({ ...prev, [`toggle-${id}`]: false }));
-      }
-    },
-    [specialtyEditList, specialties],
-  );
+	// Toggle showOncall
+	const toggleShowOnCall = useCallback(
+		async (id: string, currentValue: boolean) => {
+			setActionLoading((prev) => ({ ...prev, [`toggle-${id}`]: true }));
+			try {
+				const response = await fetch("/api/specialties", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ id, showOncall: !currentValue }),
+				});
 
-  return {
-    specialties,
-    specialtyEditList,
-    loading,
-    actionLoading,
-    reloadSpecialties,
-    addSpecialty,
-    updateSpecialty,
-    deleteSpecialty,
-    toggleShowOnCall,
-  };
-};
+				if (!response.ok) {
+					const errorData = await response.json();
+					console.error(
+						"Failed to toggle showOncall:",
+						errorData.error
+					);
+					toast.error("Failed to update specialty.");
+					return;
+				}
+
+				toast.success("Specialty updated.");
+				// Optimistically update local state
+				const specialty = specialties.find((s) => s.id === id);
+				if (specialty) {
+					setSpecialties((prev) =>
+						prev.map((s) =>
+							s.id === id
+								? { ...s, showOncall: !currentValue }
+								: s
+						)
+					);
+					// Update active specialties list
+					if (
+						!currentValue &&
+						!specialties.some((s) => s.id === id)
+					) {
+						setSpecialties((prev) =>
+							[...prev, specialty].sort((a, b) =>
+								a.name.localeCompare(b.name)
+							)
+						);
+					} else if (currentValue) {
+						setSpecialties((prev) =>
+							prev.filter((s) => s.id !== id)
+						);
+					}
+				}
+			} catch (error) {
+				console.error("Error in toggleShowOnCall:", error);
+				toast.error("Failed to update specialty.");
+			} finally {
+				setActionLoading((prev) => ({
+					...prev,
+					[`toggle-${id}`]: false,
+				}));
+			}
+		},
+		[specialties]
+	);
+
+	return {
+		specialties,
+		loading,
+		actionLoading,
+		page,
+		setPage,
+		pageSize,
+		setPageSize,
+		total,
+		search,
+		setSearch,
+		refetch: fetchSpecialties,
+		addSpecialty,
+		updateSpecialty,
+		deleteSpecialty,
+		toggleShowOnCall,
+	};
+}
+
+export function useAllSpecialties(
+	initialPage = 1,
+	initialPageSize = 10,
+	initialSearch = ""
+) {
+	return useSpecialties(
+		initialPage,
+		initialPageSize,
+		initialSearch,
+		undefined
+	);
+}
+
+export function useOnCallSpecialties(
+	initialPage = 1,
+	initialPageSize = 10,
+	initialSearch = ""
+) {
+	return useSpecialties(initialPage, initialPageSize, initialSearch, true);
+}
+
+export function useResidencySpecialties(
+	initialPage = 1,
+	initialPageSize = 10,
+	initialSearch = ""
+) {
+	return useSpecialties(
+		initialPage,
+		initialPageSize,
+		initialSearch,
+		undefined
+	);
+}

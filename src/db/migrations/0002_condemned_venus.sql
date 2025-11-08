@@ -1,0 +1,1 @@
+ALTER TABLE "specialties" ADD COLUMN "has_residency" boolean DEFAULT false NOT NULL;

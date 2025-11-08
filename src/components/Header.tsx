@@ -108,9 +108,19 @@ export default function Header() {
               <div className="flex items-center space-x-1 md:flex lg:space-x-2">
                 <ModeToggle />
               </div>
-              {isAuthenticated && (
+              {isAuthenticated ? (
                 <div className="ml-1 md:ml-2">
                   <UserMenu />
+                </div>
+              ) : (
+                <div className="hidden md:block ml-1 md:ml-2">
+                  <Link
+                    className="w-full rounded-full border border-foreground px-5 py-2.5 text-center font-medium text-base text-foreground transition-colors hover:bg-foreground hover:text-background dark:border-white dark:text-white"
+                    onClick={() => setIsMenuOpen(false)}
+                    href={"/auth/login"}
+                  >
+                    Login
+                  </Link>
                 </div>
               )}
             </div>
@@ -144,18 +154,10 @@ export default function Header() {
                     onClick={() => setIsMenuOpen(false)}
                     href={"/auth/login"}
                   >
-                    Log In
-                  </Link>
-                  <Link
-                    className="w-full rounded-full bg-info px-5 py-2.5 text-center font-medium text-base text-white transition-colors hover:bg-info/90"
-                    onClick={() => setIsMenuOpen(false)}
-                    href={"/auth/sign-up"}
-                  >
-                    Sign Up
+                    Login
                   </Link>
                 </div>
               )}
-
             </nav>
           )}
         </div>

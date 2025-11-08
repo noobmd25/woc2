@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
         if (!scheduleData || scheduleData.length === 0) {
             return NextResponse.json(
                 { data: null, message: "No provider found for this date and specialty" },
-                { status: 404 }
+                { status: 200 }
             );
         }
 
