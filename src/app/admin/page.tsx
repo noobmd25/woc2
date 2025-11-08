@@ -1,14 +1,12 @@
 "use client";
 
 import {
-	Activity,
 	AlertTriangle,
 	BarChart3,
 	FileText,
 	Megaphone,
 	Settings,
 	ShieldCheck,
-	UserCheck,
 	Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -36,7 +34,7 @@ const tabs = [
 
 function PageContent() {
 	const router = useRouter();
-	const { approved, denied, blocked, pending } = useUserCounts();
+	const { pending } = useUserCounts();
 
 	const handleTabClick = (tabKey: TabKey) => {
 		router.push(`/admin/${tabKey}`);
@@ -53,51 +51,6 @@ function PageContent() {
 					<p className="text-gray-600 dark:text-gray-400 mt-2">
 						Manage users, monitor system health, and view analytics
 					</p>
-				</div>
-
-				{/* Quick Stats */}
-				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-					<div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">
-									Pending Access Requests
-								</p>
-								<p className="text-2xl font-bold mt-1">{pending}</p>
-							</div>
-							<div className="text-2xl">
-								<UserCheck className="h-6 w-6 text-blue-600" />
-							</div>
-						</div>
-					</div>
-					<div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">
-									Approved Users
-								</p>
-								<p className="text-2xl font-bold mt-1">{approved}</p>
-							</div>
-							<div className="text-2xl">
-								<Users className="h-6 w-6 text-green-600" />
-							</div>
-						</div>
-					</div>
-					<div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="text-sm text-gray-600 dark:text-gray-400">
-									Total Users
-								</p>
-								<p className="text-2xl font-bold mt-1">
-									{approved + denied + blocked + pending}
-								</p>
-							</div>
-							<div className="text-2xl">
-								<Activity className="h-6 w-6 text-purple-600" />
-							</div>
-						</div>
-					</div>
 				</div>
 
 				{/* Admin Sections */}

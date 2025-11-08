@@ -306,35 +306,20 @@ export function useUserCounts() {
 	const fetchCounts = useCallback(async () => {
 		setCounts((prev) => ({ ...prev, loading: true }));
 		try {
-			const [approvedRes, deniedRes, blockedRes, pendingRes] =
-				await Promise.all([
-					fetch("/api/users?status=approved&pageSize=1", {
-						credentials: "include",
-					}),
-					fetch("/api/users?status=denied&pageSize=1", {
-						credentials: "include",
-					}),
-					fetch("/api/users?status=revoked&pageSize=1", {
-						credentials: "include",
-					}),
-					fetch("/api/users?status=pending&pageSize=1", {
-						credentials: "include",
-					}),
-				]);
+			const response = await fetch("/api/analytics/users", {
+				credentials: "include",
+			});
 
-			const [approvedData, deniedData, blockedData, pendingData] =
-				await Promise.all([
-					approvedRes.json(),
-					deniedRes.json(),
-					blockedRes.json(),
-					pendingRes.json(),
-				]);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch user counts: ${response.status}`);
+			}
 
+			const data = await response.json();
 			setCounts({
-				approved: approvedData.count || 0,
-				denied: deniedData.count || 0,
-				blocked: blockedData.count || 0,
-				pending: pendingData.count || 0,
+				approved: data.approved || 0,
+				denied: data.denied || 0,
+				blocked: data.blocked || 0,
+				pending: data.pending || 0,
 				loading: false,
 			});
 		} catch (error) {
@@ -349,36 +334,22 @@ export function useUserCounts() {
 		const loadCounts = async () => {
 			setCounts((prev) => ({ ...prev, loading: true }));
 			try {
-				const [approvedRes, deniedRes, blockedRes, pendingRes] =
-					await Promise.all([
-						fetch("/api/users?status=approved&pageSize=1", {
-							credentials: "include",
-						}),
-						fetch("/api/users?status=denied&pageSize=1", {
-							credentials: "include",
-						}),
-						fetch("/api/users?status=revoked&pageSize=1", {
-							credentials: "include",
-						}),
-						fetch("/api/users?status=pending&pageSize=1", {
-							credentials: "include",
-						}),
-					]);
+				const response = await fetch("/api/analytics/users", {
+					credentials: "include",
+				});
 
-				const [approvedData, deniedData, blockedData, pendingData] =
-					await Promise.all([
-						approvedRes.json(),
-						deniedRes.json(),
-						blockedRes.json(),
-						pendingRes.json(),
-					]);
+				if (!response.ok) {
+					throw new Error(`Failed to fetch user counts: ${response.status}`);
+				}
+
+				const data = await response.json();
 
 				if (isMounted) {
 					setCounts({
-						approved: approvedData.count || 0,
-						denied: deniedData.count || 0,
-						blocked: blockedData.count || 0,
-						pending: pendingData.count || 0,
+						approved: data.approved || 0,
+						denied: data.denied || 0,
+						blocked: data.blocked || 0,
+						pending: data.pending || 0,
 						loading: false,
 					});
 				}
