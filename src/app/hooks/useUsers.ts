@@ -134,7 +134,7 @@ export function useUsers(
 					method: "PUT",
 					headers: { "Content-Type": "application/json" },
 					credentials: "include",
-					body: JSON.stringify({ id: userId, status: "revoked", role: null }),
+					body: JSON.stringify({ id: userId, status: "revoked" }),
 				});
 
 				if (!response.ok) {
@@ -146,6 +146,37 @@ export function useUsers(
 			} catch (err) {
 				const errorMessage =
 					err instanceof Error ? err.message : "Failed to revoke user access";
+				setError(errorMessage);
+				throw err;
+			} finally {
+				setActingId(null);
+			}
+		},
+		[fetchUsers]
+	);
+
+	const activateUserAccess = useCallback(
+		async (userId: string) => {
+			setActingId(userId);
+			setError(null);
+
+			try {
+				const response = await fetch("/api/profiles", {
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					credentials: "include",
+					body: JSON.stringify({ id: userId, status: "approved" }),
+				});
+
+				if (!response.ok) {
+					throw new Error(`Failed to activate user access: ${response.status}`);
+				}
+
+				// Refresh the users list
+				await fetchUsers();
+			} catch (err) {
+				const errorMessage =
+					err instanceof Error ? err.message : "Failed to activate user access";
 				setError(errorMessage);
 				throw err;
 			} finally {
@@ -235,6 +266,7 @@ export function useUsers(
 		refreshUsers,
 		updateUserRole,
 		revokeUserAccess,
+		activateUserAccess,
 		forcePasswordReset,
 	};
 }
@@ -256,9 +288,95 @@ export function usePendingUsers(
 	);
 }
 
+export function useUserCounts() {
+	const [counts, setCounts] = useState<{
+		approved: number;
+		denied: number;
+		blocked: number;
+		pending: number;
+		loading: boolean;
+	}>({
+		approved: 0,
+		denied: 0,
+		blocked: 0,
+		pending: 0,
+		loading: false,
+	});
+
+	const fetchCounts = useCallback(async () => {
+		setCounts((prev) => ({ ...prev, loading: true }));
+		try {
+			const response = await fetch("/api/analytics/users", {
+				credentials: "include",
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to fetch user counts: ${response.status}`);
+			}
+
+			const data = await response.json();
+			setCounts({
+				approved: data.approved || 0,
+				denied: data.denied || 0,
+				blocked: data.blocked || 0,
+				pending: data.pending || 0,
+				loading: false,
+			});
+		} catch (error) {
+			console.error("Failed to fetch user counts:", error);
+			setCounts((prev) => ({ ...prev, loading: false }));
+		}
+	}, []);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadCounts = async () => {
+			setCounts((prev) => ({ ...prev, loading: true }));
+			try {
+				const response = await fetch("/api/analytics/users", {
+					credentials: "include",
+				});
+
+				if (!response.ok) {
+					throw new Error(`Failed to fetch user counts: ${response.status}`);
+				}
+
+				const data = await response.json();
+
+				if (isMounted) {
+					setCounts({
+						approved: data.approved || 0,
+						denied: data.denied || 0,
+						blocked: data.blocked || 0,
+						pending: data.pending || 0,
+						loading: false,
+					});
+				}
+			} catch (error) {
+				console.error("Failed to fetch user counts:", error);
+				if (isMounted) {
+					setCounts((prev) => ({ ...prev, loading: false }));
+				}
+			}
+		};
+
+		loadCounts();
+
+		return () => {
+			isMounted = false;
+		};
+	}, []);
+
+	return {
+		...counts,
+		refetch: fetchCounts,
+	};
+}
+
 export function useManagedUsers(
 	initialPage = 1,
-	initialPageSize = 20,
+	initialPageSize = 10,
 	initialSearch = "",
 	initialSortBy: "full_name" | "email" | "role" | "created_at" = "full_name",
 	initialSortDir: "asc" | "desc" = "asc"

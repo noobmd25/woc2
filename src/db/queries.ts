@@ -1,4 +1,16 @@
-import { and, asc, count, desc, eq, gte, like, lte, ne, or } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	like,
+	lte,
+	ne,
+	or,
+} from "drizzle-orm";
 import { db } from "./index";
 import {
 	directory,
@@ -160,6 +172,46 @@ export const profileQueries = {
 		sortDir?: "asc" | "desc";
 	}) => {
 		return profileQueries.findAll({ ...params, status: "pending" });
+	},
+
+	getUserCounts: async () => {
+		const results = await db
+			.select({
+				status: profiles.status,
+				count: count(),
+			})
+			.from(profiles)
+			.where(
+				inArray(profiles.status, ["approved", "denied", "revoked", "pending"])
+			)
+			.groupBy(profiles.status);
+
+		// Transform results into the expected format
+		const counts = {
+			approved: 0,
+			denied: 0,
+			blocked: 0,
+			pending: 0,
+		};
+
+		results.forEach((row) => {
+			switch (row.status) {
+				case "approved":
+					counts.approved = row.count;
+					break;
+				case "denied":
+					counts.denied = row.count;
+					break;
+				case "revoked":
+					counts.blocked = row.count;
+					break;
+				case "pending":
+					counts.pending = row.count;
+					break;
+			}
+		});
+
+		return counts;
 	},
 };
 
