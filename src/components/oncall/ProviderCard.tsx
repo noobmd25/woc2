@@ -31,7 +31,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
     // const directoryLink = getProviderDirectoryLink(provider.providerName);
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow duration-200" data-tour="provider-card">
             {/* Provider Info */}
             <div className="text-center space-y-2">
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-2">
@@ -78,7 +78,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
                             }}
                         >{formatPhoneDisplay(provider.phoneNumber)}</a>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" data-tour="contact-buttons">
                         <a
                             href={`tel:${provider.phoneNumber}`}
                             className="block"
