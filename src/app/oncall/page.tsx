@@ -18,6 +18,7 @@ import {
 	SPECIALTIES,
 } from "@/lib/constants";
 import { getNextDay, getPreviousDay, getToday } from "@/lib/oncall-utils";
+import { HelpCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 export default function OnCallPage() {
@@ -90,12 +91,14 @@ export default function OnCallPage() {
 
 	useEffect(() => {
 		// Check if tutorial should run (for first-time users)
-		const hasSeenTutorial = localStorage.getItem("oncall-tutorial-completed");
-		if (!hasSeenTutorial) {
-			// Delay to ensure page is fully rendered
-			setTimeout(() => {
-				setRunTutorial(true);
-			}, 1500);
+		if (typeof window !== "undefined") {
+			const hasSeenTutorial = localStorage.getItem("oncall-tutorial-completed");
+			if (!hasSeenTutorial) {
+				// Delay to ensure page is fully rendered
+				setTimeout(() => {
+					setRunTutorial(true);
+				}, 1500);
+			}
 		}
 	}, []);
 
@@ -135,7 +138,7 @@ export default function OnCallPage() {
 						title="Show tutorial"
 						aria-label="Show tutorial"
 					>
-						?
+						<HelpCircle />
 					</button>
 				</div>
 
