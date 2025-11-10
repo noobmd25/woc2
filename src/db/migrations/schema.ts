@@ -207,6 +207,7 @@ export const wrappersFdwStats = pgTable("wrappers_fdw_stats", {
 		.notNull(),
 });
 
+// TODO: this table is not used currently, decide later if we want to keep it or remove.
 export const attendingRequests = pgTable(
 	"attending_requests",
 	{
