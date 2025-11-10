@@ -24,6 +24,20 @@ const renderIcon = (Icon: LucideIcon, className = "w-5 h-5") => {
 	return renderToStaticMarkup(<Icon className={className} />);
 };
 
+// Helper function to generate mobile tip HTML
+const renderMobileTip = (message: string) => {
+	return `<div class="flex items-center gap-2 mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><span class="text-xl">💡</span><p class="text-sm text-blue-700 dark:text-blue-300 mb-0">${message}</p></div>`;
+};
+
+// Helper function to get mobile-specific action text
+const getActionText = (
+	isMobile: boolean,
+	mobileText: string,
+	desktopText: string
+) => {
+	return isMobile ? mobileText : desktopText;
+};
+
 interface OnCallTutorialProps {
 	run: boolean;
 	onComplete?: () => void;
@@ -94,11 +108,11 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                     </li>
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(Stethoscope, "w-4 h-4 text-blue-600 dark:text-blue-400")}
-                                        Emergency Medicine
+                                        Vascular Surgery
                                     </li>
                                     <li class="text-gray-500 dark:text-gray-500 ml-6">And many more...</li>
                                 </ul>
-                                ${isMobile ? '<div class="flex items-center gap-2 mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg"><span class="text-xl">💡</span><p class="text-sm text-blue-700 dark:text-blue-300 mb-0">Tap the dropdown to see all options</p></div>' : ""}
+                                ${isMobile ? renderMobileTip("Tap the dropdown to see all options") : ""}
                             </div>
                         `,
 						side: "bottom",
@@ -117,7 +131,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                 <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(Shield, "w-4 h-4 text-blue-600 dark:text-blue-400")}
-                                        <span><strong class="text-gray-900 dark:text-gray-100">MMM</strong> - Medicare & Medicaid</span>
+                                        <span><strong class="text-gray-900 dark:text-gray-100">MMM</strong> - Medicare</span>
                                     </li>
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(Shield, "w-4 h-4 text-green-600 dark:text-green-400")}
@@ -125,7 +139,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                     </li>
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(Shield, "w-4 h-4 text-purple-600 dark:text-purple-400")}
-                                        <span><strong class="text-gray-900 dark:text-gray-100">Triple-S</strong> - Triple-S Salud</span>
+                                        <span><strong class="text-gray-900 dark:text-gray-100">MCS</strong> - MCS Classicare</span>
                                     </li>
                                 </ul>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 italic border-l-2 border-gray-300 dark:border-gray-600 pl-3">
@@ -152,11 +166,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                             ${renderIcon(ChevronLeft, "w-4 h-4")}
                                             ${renderIcon(ChevronRight, "w-4 h-4")}
                                         </div>
-                                        <span><strong class="text-gray-900 dark:text-gray-100">Arrows</strong> - ${isMobile ? "Tap" : "Click"} to go to previous/next day</span>
-                                    </li>
-                                    <li class="flex items-start gap-2">
-                                        ${renderIcon(Calendar, "w-4 h-4 mt-0.5")}
-                                        <span><strong class="text-gray-900 dark:text-gray-100">Date</strong> - ${isMobile ? "Tap" : "Click"} to open calendar picker</span>
+                                        <span><strong class="text-gray-900 dark:text-gray-100">Arrows</strong> - ${getActionText(isMobile, "Tap", "Click")} to go to previous/next day</span>
                                     </li>
                                     <li class="flex items-start gap-2">
                                         <span class="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs font-medium">Today</span>
@@ -205,7 +215,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
 						description: `
                             <div class="space-y-4">
                                 <p class="text-gray-700 dark:text-gray-300 leading-relaxed">
-                                    Three quick ways to reach the on-call doctor:
+                                    Three quick ways to reach the on-call physician:
                                 </p>
                                 <div class="space-y-2.5">
                                     <div class="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -215,7 +225,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                         <div class="flex-1 min-w-0">
                                             <strong class="text-gray-900 dark:text-gray-100">Call</strong>
                                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-0.5 mb-0">
-                                                ${isMobile ? "Tap to call directly" : "Click to copy number and call"}
+                                                ${getActionText(isMobile, "Tap to call directly", "Click to copy number and call")}
                                             </p>
                                         </div>
                                     </div>
@@ -245,7 +255,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                 <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                                     <p class="text-sm text-blue-800 dark:text-blue-200 mb-0 flex items-start gap-2">
                                         <span class="text-lg mt-0.5">💡</span>
-                                        <span><strong>Pro Tip:</strong> ${isMobile ? "Tap" : "Click"} the phone number to copy it to your clipboard!</span>
+                                        <span><strong>Pro Tip:</strong> ${getActionText(isMobile, "Tap", "Click")} the phone number to copy it to your clipboard!</span>
                                     </p>
                                 </div>
                             </div>
@@ -294,7 +304,7 @@ const OnCallTutorial: React.FC<OnCallTutorialProps> = ({ run, onComplete }) => {
                                 <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3">
                                     <p class="text-sm text-green-800 dark:text-green-200 mb-0 flex items-start gap-2">
                                         ${renderIcon(HelpCircle, "w-5 h-5 flex-shrink-0 mt-0.5")}
-                                        <span><strong>Need help again?</strong> ${isMobile ? "Tap" : "Click"} the help icon next to the page title anytime to replay this tutorial!</span>
+                                        <span><strong>Need help again?</strong> ${getActionText(isMobile, "Tap", "Click")} the help icon next to the page title anytime to replay this tutorial!</span>
                                     </p>
                                 </div>
                             </div>
