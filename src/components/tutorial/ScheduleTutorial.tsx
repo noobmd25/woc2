@@ -3,19 +3,21 @@
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import {
-	Calendar,
-	CheckCircle2,
-	ChevronLeft,
-	ChevronRight,
-	Edit,
-	HelpCircle,
-	List,
-	LucideIcon,
-	Plus,
-	RefreshCcw,
-	Stethoscope,
-	Trash2,
-	User,
+    Calendar,
+    CheckCircle2,
+    ChevronLeft,
+    ChevronRight,
+    Edit,
+    Heart,
+    HelpCircle,
+    HelpingHand,
+    List,
+    LucideIcon,
+    Plus,
+    RefreshCcw,
+    Stethoscope,
+    Trash2,
+    User
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -93,12 +95,12 @@ const ScheduleTutorial: React.FC<ScheduleTutorialProps> = ({
                                         Internal Medicine
                                     </li>
                                     <li class="flex items-center gap-2">
-                                        ${renderIcon(Stethoscope, "w-4 h-4 text-blue-600 dark:text-blue-400")}
+                                        ${renderIcon(Heart, "w-4 h-4 text-red-600 dark:text-red-400")}
                                         Cardiology
                                     </li>
                                     <li class="flex items-center gap-2">
-                                        ${renderIcon(Stethoscope, "w-4 h-4 text-blue-600 dark:text-blue-400")}
-                                        Emergency Medicine
+                                        ${renderIcon(HelpingHand, "w-4 h-4 text-red-600 dark:text-red-400")}
+                                        Vascular Surgery
                                     </li>
                                     <li class="text-gray-500 dark:text-gray-500 ml-6">And many more...</li>
                                 </ul>
@@ -121,15 +123,15 @@ const ScheduleTutorial: React.FC<ScheduleTutorialProps> = ({
                                 <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(User, "w-4 h-4 text-blue-600 dark:text-blue-400")}
-                                        <span><strong class="text-gray-900 dark:text-gray-100">MMM</strong> - Medicare & Medicaid</span>
-                                    </li>
-                                    <li class="flex items-center gap-2">
-                                        ${renderIcon(User, "w-4 h-4 text-green-600 dark:text-green-400")}
-                                        <span><strong class="text-gray-900 dark:text-gray-100">Vital</strong> - Vital Health Plan</span>
+                                        <span><strong class="text-gray-900 dark:text-gray-100">MMM</strong> - Medicare</span>
                                     </li>
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(User, "w-4 h-4 text-purple-600 dark:text-purple-400")}
-                                        <span><strong class="text-gray-900 dark:text-gray-100">Triple-S</strong> - Triple-S Salud</span>
+                                        <span><strong class="text-gray-900 dark:text-gray-100">Vital</strong> - Vital Health Plan</span>
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        ${renderIcon(User, "w-4 h-4 text-green-600 dark:text-green-400")}
+                                        <span><strong class="text-gray-900 dark:text-gray-100">MCS</strong> - MCS Classicare</span>
                                     </li>
                                 </ul>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 italic border-l-2 border-gray-300 dark:border-gray-600 pl-3">
@@ -187,7 +189,7 @@ const ScheduleTutorial: React.FC<ScheduleTutorialProps> = ({
                                 <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(User, "w-4 h-4 text-blue-600 dark:text-blue-400")}
-                                        Provider's name (with "Dr." prefix)
+                                        Provider's name
                                     </li>
                                     <li class="flex items-center gap-2">
                                         ${renderIcon(Trash2, "w-4 h-4 text-red-600 dark:text-red-400")}
@@ -313,7 +315,7 @@ const ScheduleTutorial: React.FC<ScheduleTutorialProps> = ({
                                             </li>
                                             <li class="flex items-center gap-2">
                                                 ${renderIcon(Plus, "w-4 h-4")}
-                                                Add new schedule entries by clicking dates
+                                                Add new schedule entries by clicking empty dates
                                             </li>
                                             <li class="flex items-center gap-2">
                                                 ${renderIcon(Edit, "w-4 h-4")}
