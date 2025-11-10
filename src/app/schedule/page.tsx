@@ -21,9 +21,10 @@ import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
-import { RefreshCcw, X } from "lucide-react";
+import { HelpCircle, RefreshCcw, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -369,13 +370,17 @@ export default function SchedulePage() {
 	}, [isModalOpen, editingEntry, allProviders]);
 
 	useEffect(() => {
-		// Check if tutorial should run (for first-time users)
-		const hasSeenTutorial = localStorage.getItem("schedule-tutorial-completed");
-		if (!hasSeenTutorial) {
-			// Delay to ensure page is fully rendered
-			setTimeout(() => {
-				setRunTutorial(true);
-			}, 1500);
+		if (typeof window !== "undefined") {
+			// Check if tutorial should run (for first-time users)
+			const hasSeenTutorial = localStorage.getItem(
+				"schedule-tutorial-completed"
+			);
+			if (!hasSeenTutorial) {
+				// Delay to ensure page is fully rendered
+				setTimeout(() => {
+					setRunTutorial(true);
+				}, 1500);
+			}
 		}
 	}, []);
 
@@ -924,7 +929,7 @@ export default function SchedulePage() {
 							title="Show tutorial"
 							aria-label="Show tutorial"
 						>
-							?
+							<HelpCircle />
 						</button>
 					</div>
 					<p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
