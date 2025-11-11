@@ -5,6 +5,7 @@ import { useProviders } from "@/app/hooks/useProviders";
 import { useScheduleEntries } from "@/app/hooks/useScheduleEntries";
 import { useOnCallSpecialties } from "@/app/hooks/useSpecialties";
 import SpecialtyPlanSelector from "@/components/oncall/SpecialtyPlanSelector";
+import ScheduleTutorial from "@/components/tutorial/ScheduleTutorial";
 import {
 	MONTH_NAMES,
 	ROLES,
@@ -20,9 +21,10 @@ import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import FullCalendar from "@fullcalendar/react";
-import { RefreshCcw, X } from "lucide-react";
+import { HelpCircle, RefreshCcw, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -105,6 +107,9 @@ export default function SchedulePage() {
 	const [isMobileView, setIsMobileView] = useState(
 		typeof window !== "undefined" ? window.innerWidth <= 640 : false
 	);
+
+	// Tutorial state
+	const [runTutorial, setRunTutorial] = useState(false);
 
 	// Custom hooks
 	const { specialties, loading: specialtiesLoading } = useOnCallSpecialties(
@@ -363,6 +368,21 @@ export default function SchedulePage() {
 			setCoveringProviderId("");
 		}
 	}, [isModalOpen, editingEntry, allProviders]);
+
+	useEffect(() => {
+		if (typeof window !== "undefined") {
+			// Check if tutorial should run (for first-time users)
+			const hasSeenTutorial = localStorage.getItem(
+				"schedule-tutorial-completed"
+			);
+			if (!hasSeenTutorial) {
+				// Delay to ensure page is fully rendered
+				setTimeout(() => {
+					setRunTutorial(true);
+				}, 1500);
+			}
+		}
+	}, []);
 
 	// Helper functions for calendar operations
 	const getVisibleMonthRange = useCallback(() => {
@@ -889,12 +909,29 @@ export default function SchedulePage() {
 
 	return (
 		<div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6 max-w-4xl overflow-x-hidden">
+			{/* Tutorial Component */}
+			<ScheduleTutorial
+				run={runTutorial}
+				onComplete={() => setRunTutorial(false)}
+			/>
+
 			{/* Header */}
 			<div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
 				<div>
-					<h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-						Schedule Management
-					</h1>
+					<div className="text-center relative">
+						<h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+							Schedule Management
+						</h1>
+						<button
+							type="button"
+							onClick={() => setRunTutorial(true)}
+							className="absolute right-0 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg flex items-center justify-center shadow-md transition-colors"
+							title="Show tutorial"
+							aria-label="Show tutorial"
+						>
+							<HelpCircle />
+						</button>
+					</div>
 					<p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
 						Manage on-call schedules by specialty
 					</p>
@@ -969,7 +1006,10 @@ export default function SchedulePage() {
 					</button>
 				</div>
 
-				<div className="p-2 sm:p-4 md:p-6 relative">
+				<div
+					className="p-2 sm:p-4 md:p-6 relative"
+					data-tour="calendar-overview"
+				>
 					<FullCalendar
 						ref={calendarRef}
 						plugins={calendarPlugins}
@@ -1032,6 +1072,7 @@ export default function SchedulePage() {
 					disabled={
 						!specialty || (specialty === SPECIALTIES.INTERNAL_MEDICINE && !plan)
 					}
+					data-tour="clear-month"
 				>
 					<span className="hidden sm:inline">
 						Clear {getVisibleMonthLabel()} —{" "}
